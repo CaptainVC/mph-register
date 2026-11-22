@@ -96,5 +96,11 @@ public sealed class ApiUpdateTests
         using var outsider = factory.CreateClient(new() { BaseAddress = new Uri("http://127.0.0.1") });
         using var refused = await outsider.PostAsync(new Uri("/api/updates/install", UriKind.Relative), null);
         Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+
+        var rollback = await app.Get("/api/updates/rollback").Ok();
+        Assert.False(rollback.GetProperty("available").GetBoolean());
+        Assert.Equal(["There is no earlier version to go back to."], await app.Post("/api/updates/rollback", new { undoChanges = true }).Refused());
+        using var outsiderBack = await outsider.PostAsync(new Uri("/api/updates/rollback", UriKind.Relative), null);
+        Assert.Equal(HttpStatusCode.Forbidden, outsiderBack.StatusCode);
     }
 }

@@ -11,7 +11,7 @@ using MPHRegister.Shared.Exceptions;
 if (SelfUpdate.TryFinish(args)) return;
 
 var options = AppOptions.FromEnvironment();
-var afterUpdate = SelfUpdate.TakeUpdatedFlag();
+var started = SelfUpdate.TakeStartReason();
 if (LocalHost.IsPortInUse(options.Port))
 {
     Console.WriteLine($"MPH Register is already running at {options.BaseUri}.");
@@ -29,6 +29,7 @@ var app = builder.Build();
 
 try
 {
+    SelfUpdate.SaveRollbackPoint(started, options.DataDirectory);
     app.Services.GetRequiredService<IDatabaseInitializer>().Initialize();
 }
 catch (Exception ex) when (ex is DataFileException or Microsoft.Data.Sqlite.SqliteException or IOException or UnauthorizedAccessException)
@@ -54,7 +55,7 @@ app.Lifetime.ApplicationStarted.Register(() =>
 {
     SelfUpdate.RemoveLeftovers(SelfUpdate.InstalledAppPath());
     if (!options.OpenBrowser) return;
-    if (afterUpdate) SelfUpdate.OpenWindowUnlessPageReturns(options.BaseUri, TimeSpan.FromSeconds(8));
+    if (started.AfterUpdate) SelfUpdate.OpenWindowUnlessPageReturns(options.BaseUri, TimeSpan.FromSeconds(8));
     else LocalHost.OpenWindow(options.BaseUri);
 });
 
