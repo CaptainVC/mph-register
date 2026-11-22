@@ -811,6 +811,7 @@ table.mini caption { caption-side: bottom; text-align: center; padding: 20px 12p
 .report table { border-collapse: collapse; }
 .report td, .report th { border-bottom: 1px solid var(--line-soft); padding: 6px 14px 6px 0; text-align: left; font-size: 15.5px; }
 .report ul { max-height: 260px; overflow: auto; margin: 0; padding-left: 22px; }
+.report-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
 /* ---------- Bills ---------- */
 .subtabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); flex-wrap: nowrap; overflow-x: auto; }

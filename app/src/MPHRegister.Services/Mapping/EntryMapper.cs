@@ -9,7 +9,7 @@ public static class EntryMapper
 {
     public const string MarkedButCharged = "LOT N. or D.N. is marked R (repair) but REP. is No, so it will be charged.";
 
-    public static EntryDto ToDto(EntryEntity row, IReadOnlyList<DispatchEntity> dispatchRows, bool duplicateNumber, bool noBillNeeded = false)
+    public static EntryDto ToDto(EntryEntity row, IReadOnlyList<DispatchEntity> dispatchRows, bool duplicateNumber, bool noBillNeeded = false, ImportMarkEntity? lastImport = null)
     {
         ArgumentNullException.ThrowIfNull(row);
         ArgumentNullException.ThrowIfNull(dispatchRows);
@@ -46,6 +46,7 @@ public static class EntryMapper
         var billedIn = row.Bill ?? (row.Elsewhere is null ? null : $"Billed outside app: {row.Elsewhere}");
         return new EntryDto(row.Id, row.RegisterMonth, row.InwardNo, row.EntryDate, row.Party, row.DesignNo, row.LotNo, row.Repair,
             row.Than, row.Tp, nag, row.Finish, row.Repair ? 0 : row.Than, row.TwoPart, row.ShortThan, row.CarriedOver,
-            row.ImportBatchId is not null, row.SourceRow, dispatches, dispatched, available - dispatched, status, warnings, billedIn, noBillNeeded);
+            row.ImportBatchId is not null, row.SourceRow, dispatches, dispatched, available - dispatched, status, warnings, billedIn, noBillNeeded,
+            lastImport is null ? null : new ImportMarkDto(lastImport.Action, lastImport.FileName, lastImport.ImportedAt, lastImport.RegisterMonth, lastImport.Changes));
     }
 }

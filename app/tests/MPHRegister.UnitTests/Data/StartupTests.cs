@@ -414,6 +414,38 @@ public sealed class StartupTests : IDisposable
         Assert.Equal("{ broken", File.ReadAllText(Options.ConfigPath));
         Assert.Equal(stamp, File.GetLastWriteTimeUtc(Options.DatabasePath));
     }
+
+    [Fact]
+    public void Imports_made_before_entries_were_marked_mark_what_the_latest_import_of_each_month_added_or_updated()
+    {
+        Start().Init.Initialize();
+        using (var c = Open())
+        {
+            c.Execute(
+                """
+                DROP TABLE import_batch_entries;
+                PRAGMA user_version = 8;
+                INSERT INTO import_batches(id, file_name, sha256, register_month, imported_at, entry_count, dispatch_count) VALUES
+                    (1, 'oct-1.xlsm', 'A', '2026-10', '2026-10-05 10:00:00', 3, 0),
+                    (2, 'oct-2.xlsm', 'B', '2026-10', '2026-10-20 10:00:00', 1, 0),
+                    (3, 'nov-1.xlsm', 'C', '2026-11', '2026-11-05 10:00:00', 1, 0);
+                INSERT INTO entries(id, register_month, inward_no, entry_date, party, than, finish, import_batch_id, source_row, created_at, updated_at) VALUES
+                    (1, '2026-10', 1, '2026-10-01', 'P', 10, 'F', 2, 5, '2026-10-05 10:00:00', '2026-10-05 10:00:00'),
+                    (2, '2026-10', 2, '2026-10-01', 'P', 10, 'F', 2, 6, '2026-10-05 10:00:00', '2026-10-20 10:00:00'),
+                    (3, '2026-10', 3, '2026-10-01', 'P', 10, 'F', 2, 7, '2026-10-05 10:00:00', '2026-10-21 09:00:00'),
+                    (4, '2026-10', 4, '2026-10-15', 'P', 10, 'F', 2, 8, '2026-10-20 10:00:00', '2026-10-22 09:00:00'),
+                    (5, '2026-10', 5, '2026-10-16', 'P', 10, 'F', NULL, NULL, '2026-10-20 10:00:00', '2026-10-20 10:00:00'),
+                    (6, '2026-11', 1, '2026-11-01', 'P', 10, 'F', 3, 5, '2026-11-05 10:00:00', '2026-11-05 10:00:00');
+                """);
+        }
+
+        Start().Init.Initialize();
+        using var db = Open();
+        Assert.Equal(DatabaseInitializer.LatestVersion, Version(db));
+        var marks = db.Query<(long Batch, long Entry, string Action, int Row)>("SELECT batch_id, entry_id, action, source_row FROM import_batch_entries ORDER BY entry_id;").ToList();
+        // 1 matched unchanged, 3 was edited in the app since (its change is not known), 5 was typed in the app.
+        Assert.Equal([(2L, 2L, "updated", 6), (2L, 4L, "added", 8), (3L, 6L, "added", 5)], marks);
+    }
 }
 
 public sealed class DataFolderTests : IDisposable
