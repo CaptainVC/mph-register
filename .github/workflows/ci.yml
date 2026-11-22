@@ -87,6 +87,7 @@ jobs:
           node tests/e2e/ui-invoice-undo.js
           node tests/e2e/ui-invoice-restore.js
           node tests/e2e/ui-partywise.js
+          node tests/e2e/ui-party-filter-clear.js
           node tests/e2e/ui-controls.js
           node tests/e2e/ui-row-filters.js
           node tests/e2e/ui-partywise.js

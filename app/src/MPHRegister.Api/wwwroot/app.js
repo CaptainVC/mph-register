@@ -1756,11 +1756,16 @@ const partyFilterCombo = createCombo($("partyFilterCombo"), () => state.masters.
   onPick: () => renderPartywise(),
 });
 $("partyFilter").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); renderPartywise(); } });
+// Editing the text away from the party being shown (clearing it, or typing past its name) drops that filter at once.
+$("partyFilter").addEventListener("input", () => {
+  const typed = $("partyFilter").value.trim().toLowerCase();
+  if (partywiseLoaded.party && typed !== partywiseLoaded.party.toLowerCase()) renderPartywise();
+});
 $("clearPartyFilter").addEventListener("click", () => { $("partyFilter").value = ""; renderPartywise(); });
 $("partyViewMonth").addEventListener("input", renderPartywise);
 
 const partyRowFilter = rowFilters($("partyFilters"), () => renderPartywise({ reuse: true }), $("partyFiltersToggle"));
-let partywiseLoaded = { key: null, entries: [] };
+let partywiseLoaded = { key: null, party: "", entries: [] };
 let partyRenderVersion = 0;
 const expandedParties = new Set();
 const collapsedFinishes = new Set();
@@ -1787,7 +1792,7 @@ async function renderPartywise(options) {
   if (options?.reuse !== true || partywiseLoaded.key !== key) {
     const loaded = await api(`/api/partywise?month=${encodeURIComponent(month)}${query}`);
     if (version !== partyRenderVersion) return;
-    partywiseLoaded = { key, entries: loaded };
+    partywiseLoaded = { key, party: party ? party.name : "", entries: loaded };
   }
   const all = partywiseLoaded.entries.filter((e) => partyPeriodFilter.matches(e.registerMonth));
   const entries = partyRowFilter(all);
