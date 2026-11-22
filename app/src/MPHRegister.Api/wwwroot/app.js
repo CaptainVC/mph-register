@@ -791,6 +791,7 @@ const COLUMNS = [
   ["NAG", (e) => num(e.nag), "big"],
   ["FINISH", (e) => e.finish],
   ["NETT THAN", (e) => num(e.nettThan), "big"],
+  ["BILL NO.", (e) => e.billedIn || "", "left bill-cell", (td, e) => fillBillNoCell(td, e)],
   ["TWO PART", (e) => (e.twoPart ? num(e.twoPart) : "")],
   ...[0, 1, 2].flatMap((i) => [
     [`JAWAK NAG ${i + 1}`, (e) => num(e.dispatches[i]?.qty ?? ""), "big"],
@@ -800,7 +801,6 @@ const COLUMNS = [
   ["MORE JAWAK", (e) => (e.dispatches.length > 3 ? e.dispatches.slice(3).map((d) => `${num(d.qty)}/${d.gatePass}`).join(", ") : "")],
   ["SHORT THAN", (e) => num(e.shortThan ?? "")],
   ["BALANCE", (e) => num(e.balance)],
-  ["BILL NO.", (e) => e.billedIn || "", "left", (td, e) => fillBillNoCell(td, e)],
   ["WARNINGS", (e) => e.warnings.join(" "), "left"],
 ];
 
@@ -815,17 +815,22 @@ function billKind(entry) {
 
 function fillBillNoCell(td, entry) {
   const kind = billKind(entry);
+  // The text wraps inside a clamped box; hovering shows all of it as a tooltip and clicking the cell opens it out.
+  const box = el("span", { class: "bill-text" });
+  td.append(box);
   if (kind === "none") {
-    td.append(el("span", { class: "muted", text: NO_BILL_TEXT }));
+    box.append(el("span", { class: "muted", text: NO_BILL_TEXT }));
     return;
   }
   if (kind !== "bill") {
-    td.textContent = entry.billedIn || "";
+    box.textContent = entry.billedIn || "";
+    td.title = entry.billedIn || "";
     return;
   }
+  td.title = entry.billedIn;
   entry.billedIn.split(", ").forEach((invoiceNo, index) => {
-    if (index) td.append(", ");
-    td.append(el("a", {
+    if (index) box.append(", ");
+    box.append(el("a", {
       href: "#", class: "bill-link", text: invoiceNo, title: "Open this bill in Saved bills",
       onclick: (event) => {
         event.preventDefault();
@@ -939,6 +944,7 @@ function entryRow(entry) {
     if (!td || td.parentElement !== tr || td.classList.contains("cell-editing")) return;
     // Let a cell that is still saving finish first, so the form opens with its new value.
     if (td.cellIndex === 0) cellSaves.then(() => loadIntoForm(rowEntry.get(tr)));
+    else if (td.classList.contains("bill-cell")) td.classList.toggle("expanded");
     else openCellEditor(td);
   });
   return tr;

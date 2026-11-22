@@ -57,8 +57,8 @@ async function seed() {
     const rows = page.locator("#registerTable tbody tr");
     await rows.nth(2).waitFor();
     assert.equal(await rows.count(), 3);
-    const billCell = (row) => rows.nth(row).locator("td").nth(24);
-    assert.equal(await page.locator("#registerTable th").nth(24).textContent(), "BILL NO.");
+    const billCell = (row) => rows.nth(row).locator("td").nth(11);
+    assert.equal(await page.locator("#registerTable th").nth(11).textContent(), "BILL NO.");
     assert.equal(await billCell(0).locator("a").count(), 1, "a saved bill number is a link");
     assert.equal(await billCell(0).locator("a").textContent(), bill.invoiceNo);
     assert.equal(await billCell(1).locator("a").count(), 0, "a billed-outside note is plain text");

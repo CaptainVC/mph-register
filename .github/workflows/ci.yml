@@ -92,6 +92,7 @@ jobs:
           node tests/e2e/ui-select-fit.js
           node tests/e2e/ui-bill-count.js
           node tests/e2e/ui-register-bill-no.js
+          node tests/e2e/ui-sticky-columns.js
           node tests/e2e/ui-no-bill-party.js
           node tests/e2e/ui-sister-firms.js
           node tests/e2e/ui-bill-no-edit.js

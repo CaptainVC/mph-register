@@ -556,6 +556,26 @@ table.register caption { caption-side: bottom; padding: 24px; color: var(--muted
 }
 .table-wrap.fill .table-empty { min-height: 200px; }
 table.register td.left { text-align: left; }
+/* Register and Party-wise: INW. NO., DATE and PARTY stay in view while the rest scrolls sideways. The three have fixed widths so
+   each one can sit exactly after the one before it. */
+#registerTable, #partyTable { --col-inw: 84px; --col-date: 112px; --col-party: 210px; }
+:where(#registerTable, #partyTable) :is(thead th, tr[data-entry-id] > td):nth-child(-n+3) { position: sticky; box-sizing: border-box; }
+:where(#registerTable, #partyTable) :is(thead th, tr[data-entry-id] > td):nth-child(1) { left: 0; width: var(--col-inw); min-width: var(--col-inw); max-width: var(--col-inw); }
+:where(#registerTable, #partyTable) :is(thead th, tr[data-entry-id] > td):nth-child(2) { left: var(--col-inw); width: var(--col-date); min-width: var(--col-date); max-width: var(--col-date); }
+:where(#registerTable, #partyTable) :is(thead th, tr[data-entry-id] > td):nth-child(3) {
+  left: calc(var(--col-inw) + var(--col-date)); width: var(--col-party); min-width: var(--col-party); max-width: var(--col-party);
+  box-shadow: 2px 0 0 var(--line);
+}
+:where(#registerTable, #partyTable) tr[data-entry-id] > td:nth-child(-n+3) { z-index: 1; background: var(--panel); }
+:where(#registerTable, #partyTable) thead th:nth-child(-n+3) { z-index: 3; }
+:where(#registerTable, #partyTable) tr[data-entry-id] > td:nth-child(3) { white-space: normal; overflow-wrap: anywhere; }
+/* BILL NO. wraps to two lines at most; hover shows all of it, a click opens the cell out. */
+table.register td.bill-cell { width: 190px; min-width: 190px; max-width: 190px; cursor: pointer; }
+table.register td.bill-cell .bill-text {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+  white-space: normal; overflow-wrap: anywhere; line-height: 1.35;
+}
+table.register td.bill-cell.expanded .bill-text { display: block; -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; }
 table.register td.num, table.register td.money { text-align: right; font-variant-numeric: tabular-nums; }
 table.register a.bill-link { color: var(--accent); font-weight: 600; text-decoration: underline; }
 table.register a.bill-link:hover { background: var(--accent-soft); }
