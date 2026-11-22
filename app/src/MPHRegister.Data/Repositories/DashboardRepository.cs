@@ -31,6 +31,25 @@ public sealed class DashboardRepository(IDbSession session) : RepositoryBase(ses
         new { from, to, billParties });
     }
 
+    public IReadOnlyList<DashboardFinishMonthRow> FinishMonths(string asOf) => Query<DashboardFinishMonthRow>(
+        """
+        SELECT i.party AS party, substr(i.bill_date, 1, 7) AS month, l.finish AS finish,
+            COALESCE(SUM(l.qty), 0) AS than, COALESCE(SUM(l.amount), 0) AS amount
+        FROM invoice_lines l JOIN invoices i ON i.id = l.invoice_id
+        WHERE i.status = 'saved' AND l.kind = 'priced' AND i.bill_date <= @asOf
+        GROUP BY i.party, month, l.finish COLLATE NOCASE;
+        """,
+        new { asOf });
+
+    public IReadOnlyList<DashboardSentRow> SentPieces(string asOf) => Query<DashboardSentRow>(
+        """
+        SELECT e.party AS party, substr(d.dispatch_date, 1, 7) AS month, SUM(d.qty) AS pieces
+        FROM dispatches d JOIN entries e ON e.id = d.entry_id
+        WHERE d.qty > 0 AND d.dispatch_date BETWEEN e.entry_date AND @asOf
+        GROUP BY e.party, month;
+        """,
+        new { asOf });
+
     public IReadOnlyList<DashboardEntryRow> Entries(string asOf) => Query<DashboardEntryRow>(
         """
         SELECT e.party, e.finish, e.entry_date, e.repair, e.than, e.tp, e.two_part,

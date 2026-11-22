@@ -11,6 +11,12 @@ public interface IDashboardRepository
     /// <summary>Priced lines of saved bills dated in the range, per finish.</summary>
     IReadOnlyList<DashboardFinishRow> Finishes(string from, string to, IReadOnlyList<string>? billParties);
 
+    /// <summary>Priced lines of saved bills dated up to <paramref name="asOf"/>, per bill-to party, bill month and finish.</summary>
+    IReadOnlyList<DashboardFinishMonthRow> FinishMonths(string asOf);
+
+    /// <summary>Pieces sent back per register party and dispatch month, counting only dispatches dated from the inward date to <paramref name="asOf"/>.</summary>
+    IReadOnlyList<DashboardSentRow> SentPieces(string asOf);
+
     /// <summary>Inward entries and dispatch quantities recorded through the given date, including undated quantities.</summary>
     IReadOnlyList<DashboardEntryRow> Entries(string asOf);
 

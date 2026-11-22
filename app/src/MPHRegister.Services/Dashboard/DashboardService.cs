@@ -16,7 +16,7 @@ namespace MPHRegister.Services.Dashboard;
 /// Unbilled work is valued the way the bill maker would bill it: the bill-to party's rate for the finish it is billed as,
 /// less that party's discount, before GST.
 /// </summary>
-public sealed class DashboardService(IDashboardRepository data, IMasterReader masters, TimeProvider clock, IDbSession session) : IDashboardService
+public sealed partial class DashboardService(IDashboardRepository data, IMasterReader masters, TimeProvider clock, IDbSession session) : IDashboardService
 {
     /// <summary>Ready work waiting longer than this is called old: it may have been forgotten or billed outside the app.</summary>
     public const int OldAfterDays = 60;
@@ -181,10 +181,10 @@ public sealed class DashboardService(IDashboardRepository data, IMasterReader ma
     private sealed record OpenWork(DashboardEntryRow Entry, string Party, long Value, bool Exact, bool Ready, int Age,
         bool EarlierInward, bool DispatchIssue, bool BeforeDispatch);
 
-    private static (UnbilledFigures, List<UnbilledParty>, BillingReview) Unbilled(
-        IReadOnlyList<DashboardEntryRow> entries, Valuer valuer, DateOnly today, string? lastBill)
-    {
-        var open = entries.Where(e => !e.Billed && !e.Repair && e.Than > 0 && !valuer.BillParty(e.Party).NoBill).Select(e =>
+    /// <summary>Work with no bill link that should be billed, valued the way the bill maker would bill it.</summary>
+    /// <param name="lastBill">Entries dated on or before it are flagged as earlier inward.</param>
+    private static List<OpenWork> OpenWorkOf(IReadOnlyList<DashboardEntryRow> entries, Valuer valuer, DateOnly today, string? lastBill) =>
+        entries.Where(e => !e.Billed && !e.Repair && e.Than > 0 && !valuer.BillParty(e.Party).NoBill).Select(e =>
         {
             var party = valuer.BillParty(e.Party);
             var (value, exact) = valuer.Value(party, e.Finish, e.Than);
@@ -195,18 +195,28 @@ public sealed class DashboardService(IDashboardRepository data, IMasterReader ma
                 lastBill is not null && string.CompareOrdinal(e.EntryDate, lastBill) <= 0,
                 e.Dispatched > 0 && (e.DispatchDateIssue || e.Dispatched != Available(e)), e.Dispatched == 0 && party.BillBeforeDispatch);
         }).ToList();
+
+    /// <summary>Ready work by days waiting, in <see cref="AgeBuckets"/> order.</summary>
+    private static List<(string Key, List<OpenWork> Work)> Ageing(List<OpenWork> ready)
+    {
+        var lower = 0;
+        return AgeBuckets.Select(bucket =>
+        {
+            var from = lower;
+            lower = bucket.UpTo == int.MaxValue ? int.MaxValue : bucket.UpTo + 1;
+            return (bucket.Key, ready.Where(o => o.Age >= from && o.Age <= bucket.UpTo).ToList());
+        }).ToList();
+    }
+
+    private static (UnbilledFigures, List<UnbilledParty>, BillingReview) Unbilled(
+        IReadOnlyList<DashboardEntryRow> entries, Valuer valuer, DateOnly today, string? lastBill)
+    {
+        var open = OpenWorkOf(entries, valuer, today, lastBill);
         var ready = open.Where(o => o.Ready).ToList();
         var factory = open.Where(o => !o.Ready).ToList();
         var old = ready.Where(o => o.Age > OldAfterDays).ToList();
         var noRate = open.Where(o => !o.Exact).ToList();
-        var lower = 0;
-        var ageing = AgeBuckets.Select(bucket =>
-        {
-            var from = lower;
-            lower = bucket.UpTo == int.MaxValue ? int.MaxValue : bucket.UpTo + 1;
-            var inBucket = ready.Where(o => o.Age >= from && o.Age <= bucket.UpTo).ToList();
-            return new AgeBucket(bucket.Key, inBucket.Count, inBucket.Sum(o => o.Entry.Than), inBucket.Sum(o => o.Value));
-        }).ToList();
+        var ageing = Ageing(ready).Select(b => new AgeBucket(b.Key, b.Work.Count, b.Work.Sum(o => o.Entry.Than), b.Work.Sum(o => o.Value))).ToList();
         var figures = new UnbilledFigures(
             ready.Count, ready.Sum(o => o.Entry.Than), ready.Sum(o => o.Value),
             factory.Count, factory.Sum(o => o.Entry.Than), factory.Sum(o => o.Value),
@@ -296,7 +306,7 @@ public sealed class DashboardService(IDashboardRepository data, IMasterReader ma
     /// Parties that sent much less cloth in the last 30 days than in their usual 30 days (the average of the 90 days before).
     /// The window ends at the last inward date, so a few days without entries in the app do not make every party look quiet.
     /// </summary>
-    private List<QuietParty> Quiet(IReadOnlyList<DashboardEntryRow> entries, DateOnly today, string? lastInward)
+    private List<QuietParty> Quiet(IReadOnlyList<DashboardEntryRow> entries, DateOnly today, string? lastInward, int limit = MaxQuietParties)
     {
         if (!Dates.TryParseIso(lastInward, out var anchor)) return [];
         var dated = entries.Select(e => (Entry: e, Date: Dates.ParseIsoOrDefault(e.EntryDate))).Where(x => x.Date != default && x.Date <= today).ToList();
@@ -315,7 +325,7 @@ public sealed class DashboardService(IDashboardRepository data, IMasterReader ma
             })
             .Where(p => p.UsualThan >= QuietMinimumUsualThan && p.RecentThan <= p.UsualThan * QuietShare)
             .OrderByDescending(p => p.UsualThan - p.RecentThan).ThenBy(p => p.Party, StringComparer.OrdinalIgnoreCase)
-            .Take(MaxQuietParties)
+            .Take(limit)
             .ToList();
     }
 

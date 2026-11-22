@@ -84,6 +84,7 @@ jobs:
           node tests/e2e/ui-register-search.js
           node tests/e2e/ui-financial-year-views.js
           node tests/e2e/ui-dashboard-party.js
+          node tests/e2e/ui-dashboard-compare.js
           node tests/e2e/ui-invoice-undo.js
           node tests/e2e/ui-bills-bulk.js
           node tests/e2e/ui-invoice-restore.js

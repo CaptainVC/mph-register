@@ -242,9 +242,9 @@
       </div>
     </section>
 
-    <!-- ===== Dashboard: worked out from the register and bills each time it is shown (see dashboard.js) ===== -->
+    <!-- ===== Dashboard: the side panel picks months, parties and a comparison; the screen adds the figures up (see dashboard.js) ===== -->
     <section id="view-dashboard" class="view" data-no-i18n="all">
-      <div id="dashRoot" class="dash" aria-live="polite"></div>
+      <div id="dashRoot" class="dash"></div>
     </section>
 
     <!-- ===== Masters ===== -->
@@ -439,6 +439,8 @@
   <dialog id="invoiceDrawer" class="drawer wide"><form id="invoiceEditor" class="drawer-form" autocomplete="off" novalidate></form></dialog>
   <dialog id="excelDrawer" class="drawer wide"><form id="excelForm" class="drawer-form" autocomplete="off" novalidate></form></dialog>
   <dialog id="deletedDrawer" class="drawer medium"><form id="deletedForm" class="drawer-form" autocomplete="off" novalidate></form></dialog>
+  <dialog id="dashPartyPanel" class="drawer medium" aria-label="Party" data-no-i18n="all"></dialog>
+  <dialog id="dashPicker" class="drawer narrow" aria-label="Choose parties" data-no-i18n="all"></dialog>
   <dialog id="appDialog" class="modal" aria-labelledby="appDialogTitle" aria-describedby="appDialogBody"></dialog>
   <dialog id="updateDialog" class="modal" aria-labelledby="updateDialogText">
     <div class="modal-box">
