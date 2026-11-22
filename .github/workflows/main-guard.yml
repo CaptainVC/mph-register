@@ -1,0 +1,34 @@
+name: Main guard
+
+# Private repos on GitHub Free cannot protect branches, so this flags (cannot stop) any change on main
+# that did not come from a merged pull request.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  came-from-pr:
+    name: Change came from a merged pull request
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Look up the pull request of this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            merged=$(gh api "repos/$REPO/commits/$SHA/pulls" --jq '[.[] | select(.merged_at != null)] | length')
+            if [ "${merged:-0}" -gt 0 ]; then
+              echo "OK: $SHA came from a merged pull request."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$SHA was pushed straight to main. Changes must go through a pull request: push a branch, open a PR, then Squash and merge."
+          exit 1

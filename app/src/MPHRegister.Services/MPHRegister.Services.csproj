@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>MPHRegister.Services</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ExcelDataReader" />
+    <PackageReference Include="FluentValidation" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MPHRegister.Contracts\MPHRegister.Contracts.csproj" />
+    <ProjectReference Include="..\MPHRegister.Data\MPHRegister.Data.csproj" />
+    <ProjectReference Include="..\MPHRegister.Shared\MPHRegister.Shared.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="MPHRegister.UnitTests" />
+  </ItemGroup>
+</Project>

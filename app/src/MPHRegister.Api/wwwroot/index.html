@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MPH Register</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231f4e79'/%3E%3Ctext x='16' y='23' font-family='Arial' font-size='18' font-weight='bold' fill='white' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E">
+  <script>try { document.documentElement.dataset.theme = localStorage.getItem("mph-theme") || "light"; document.documentElement.dataset.lang = localStorage.getItem("mph-lang") === "hi" ? "hi" : "en"; document.documentElement.lang = document.documentElement.dataset.lang; } catch { }</script>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">MPH Register</div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-view="entry" role="tab">New Entry</button>
+      <button class="tab" data-view="register" role="tab">Register</button>
+      <button class="tab" data-view="partywise" role="tab">Party-wise</button>
+      <button class="tab" data-view="bills" role="tab">Bills</button>
+      <button class="tab" data-view="dashboard" role="tab">Dashboard</button>
+      <button class="tab" data-view="masters" role="tab">Masters</button>
+      <button class="tab" data-view="import" role="tab">Import Excel</button>
+    </nav>
+    <button type="button" id="menuToggle" class="menu-toggle" aria-haspopup="dialog" aria-expanded="false" aria-controls="sideMenu" title="Open menu">
+      <span class="menu-icon" aria-hidden="true">☰</span>
+      <span>Menu</span>
+    </button>
+  </header>
+
+  <main id="main">
+    <div id="noticeBar" class="notice-bar hidden" role="status"></div>
+
+    <!-- ===== New entry ===== -->
+    <section id="view-entry" class="view active">
+      <form id="entryForm" class="card entry-card" autocomplete="off" novalidate>
+        <div class="card-head">
+          <h1 id="formTitle">New inward entry</h1>
+          <button type="button" id="cancelEdit" class="secondary hidden">Cancel correction (Esc)</button>
+        </div>
+        <p class="entry-help">Fill the boxes from left to right. Press Enter to go to the next box. Enter on TWO PART saves the entry.</p>
+        <div class="entry-grid">
+          <div class="field c1"><label for="inwardNo">INW. NO.</label><input id="inwardNo" type="number" min="0" required></div>
+          <div class="field c2"><label for="entryDate">DATE</label><input id="entryDate" type="date" required></div>
+          <div class="field c5"><label for="party">PARTY</label>
+            <div class="combo" id="partyCombo">
+              <input id="party" type="text" placeholder="Type to search party" required>
+            </div>
+          </div>
+          <div class="field c2"><label for="designNo">D.N.</label><input id="designNo" type="text"></div>
+          <div class="field c2"><label for="lotNo">LOT N.</label><input id="lotNo" type="text"></div>
+
+          <div class="field c1"><label for="repair">REP.</label><button type="button" id="repair" data-dropdown></button></div>
+          <div class="field c2"><label for="than">THAN</label><input id="than" type="number" min="0" required></div>
+          <div class="field c1"><label for="tp">TP</label><input id="tp" type="number" min="0"></div>
+          <div class="field c1"><span class="label">NAG <span class="auto-tag" title="Worked out by the app: THAN + TP">auto</span></span><output id="nag">0</output></div>
+          <div class="field c3"><label for="finish">FINISH</label>
+            <div class="combo" id="finishCombo">
+              <input id="finish" type="text" placeholder="Type to search finish">
+            </div>
+          </div>
+          <div class="field c2"><span class="label">NETT THAN <span class="auto-tag" title="Worked out by the app: THAN, or 0 for a repair">auto</span></span><output id="nett">0</output></div>
+          <div class="field c2"><label for="twoPart">TWO PART</label><input id="twoPart" type="number" min="0" data-last="true"></div>
+        </div>
+
+        <section id="dispatchSection" class="dispatch" aria-labelledby="dispatchTitle">
+          <div class="dispatch-head">
+            <div>
+              <h2 id="dispatchTitle">Dispatch (JAWAK)</h2>
+              <p class="dispatch-help">Leave the row empty if nothing has been sent yet.</p>
+            </div>
+            <div id="dispatchSummary" class="dispatch-summary" aria-live="polite">
+              <div class="d-stat"><span class="d-stat-label">NAG + TWO PART</span><span class="sr-only">: </span><b id="dispatchTotal">0</b></div>
+              <div class="d-stat"><span class="d-stat-label">Sent (JAWAK)</span><span class="sr-only">: </span><b id="dispatchSent">0</b></div>
+              <div class="d-stat" id="dispatchBalanceStat"><span class="d-stat-label">Balance</span><span class="sr-only">: </span><b id="dispatchBalance">0</b></div>
+            </div>
+          </div>
+          <div class="dispatch-body">
+            <div class="dispatch-list">
+              <table class="dispatch-table">
+                <thead><tr><th>#</th><th>JAWAK NAG</th><th>GATE PASS NO</th><th>DATE</th><th></th></tr></thead>
+                <tbody id="dispatchRows"></tbody>
+              </table>
+              <button type="button" id="addDispatch" class="secondary">+ Add another dispatch</button>
+            </div>
+            <div class="field short-than"><label for="shortThan">SHORT THAN</label><input id="shortThan" type="number" min="0"></div>
+          </div>
+        </section>
+
+        <div class="actions entry-actions">
+          <button type="submit" id="saveButton">Save entry (Enter)</button>
+          <div id="formMessage" class="message" role="status" aria-live="polite"></div>
+        </div>
+        <ul id="entryWarnings" class="warnings"></ul>
+      </form>
+
+      <div class="card recent-card">
+        <div class="card-head"><h2>Recently saved here</h2><span class="recent-hint">Click a cell to edit it; click INW. NO. to open the whole entry</span></div>
+        <div class="table-wrap"><table class="register" id="recentTable"></table></div>
+      </div>
+    </section>
+
+    <!-- ===== Register ===== -->
+    <section id="view-register" class="view fit">
+      <div class="register-panel">
+        <div class="panel-top">
+          <div class="field month-field"><label for="registerFinancialYear">Financial year</label><button type="button" id="registerFinancialYear" data-dropdown title="April to March"></button></div>
+          <div class="field month-field"><label for="registerViewMonth">Month</label><button type="button" id="registerViewMonth" data-dropdown></button></div>
+          <div class="field search-field"><label for="registerSearch">Search</label>
+            <div class="search-box">
+              <svg class="search-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M13.5 13.5L18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <input id="registerSearch" type="search" placeholder="Party, design, lot, gate pass…">
+              <button type="button" id="clearRegisterSearch" class="search-clear hidden" aria-label="Clear search" title="Clear search">×</button>
+            </div>
+          </div>
+          <button type="button" id="registerFiltersToggle" class="secondary panel-btn filter-toggle" aria-expanded="false" aria-controls="registerFilters" title="Show or hide the row filters"><span>Filters</span><span class="filter-toggle-count hidden"></span></button>
+          <div class="panel-count-wrap"><span id="registerCount" class="count-pill"></span></div>
+        </div>
+        <div class="filter-bar hidden" id="registerFilters" role="group" aria-label="Row filters: click to include, or open options to exclude"></div>
+        <div id="registerTotals" class="totals-strip" aria-label="Summary totals"></div>
+      </div>
+      <div class="table-wrap fill"><table class="register" id="registerTable"></table></div>
+    </section>
+
+    <!-- ===== Party-wise ===== -->
+    <section id="view-partywise" class="view fit">
+      <div class="register-panel">
+        <div class="panel-top">
+          <div class="field month-field"><label for="partyFinancialYear">Financial year</label><button type="button" id="partyFinancialYear" data-dropdown title="April to March"></button></div>
+          <div class="field month-field"><label for="partyViewMonth">Month</label><button type="button" id="partyViewMonth" data-dropdown></button></div>
+          <div class="field search-field"><label for="partyFilter">Party</label>
+            <div class="combo" id="partyFilterCombo">
+              <input id="partyFilter" type="text" placeholder="All parties (type to filter)">
+            </div>
+          </div>
+          <button type="button" id="clearPartyFilter" class="secondary panel-btn">Show all</button>
+          <button type="button" id="expandAllParties" class="secondary panel-btn" title="Open every party and finish">Expand all</button>
+          <button type="button" id="collapseAllParties" class="secondary panel-btn" title="Close every party">Collapse all</button>
+          <button type="button" id="partyFiltersToggle" class="secondary panel-btn filter-toggle" aria-expanded="false" aria-controls="partyFilters" title="Show or hide the row filters"><span>Filters</span><span class="filter-toggle-count hidden"></span></button>
+          <div class="panel-count-wrap"><span id="partyCount" class="count-pill"></span></div>
+        </div>
+        <div class="filter-bar hidden" id="partyFilters" role="group" aria-label="Row filters: click to include, or open options to exclude"></div>
+        <div id="partyTotals" class="totals-strip" aria-label="Summary totals"></div>
+      </div>
+      <div class="table-wrap fill"><table class="register" id="partyTable"></table></div>
+    </section>
+
+    <!-- ===== Bills ===== -->
+    <section id="view-bills" class="view fit">
+      <nav class="subtabs" data-group="bills">
+        <button class="subtab active" data-sub="make">Make bills</button>
+        <button class="subtab" data-sub="saved">Saved bills</button>
+      </nav>
+
+      <div id="bills-make" class="subview fit active">
+        <section class="bill-date-card" aria-label="Bill dates">
+          <div class="bill-intro">
+            <h1>Make bills</h1>
+            <p>Review before saving.</p>
+          </div>
+          <div class="bill-date-fields">
+            <div class="field"><label for="billFinancialYear">Financial year</label><button type="button" id="billFinancialYear" data-dropdown title="April to March"></button></div>
+            <div class="field"><label for="billMonth">Bill month</label><input type="month" id="billMonth"></div>
+            <div class="field"><label for="billDate">Bill date</label><input type="date" id="billDate"></div>
+            <div class="field"><label for="periodFrom">Entries from</label><input type="date" id="periodFrom"></div>
+            <div class="field"><label for="periodTo">Entries to</label><input type="date" id="periodTo"></div>
+          </div>
+        </section>
+        <div class="bill-layout">
+          <aside class="party-pick" aria-label="Parties to bill">
+            <div class="party-pick-head">
+              <h2>Parties to bill</h2>
+              <span id="toBillCount" class="count-pill"></span>
+            </div>
+            <label class="sr-only" for="billParty">Find a party</label>
+            <div class="combo" id="billPartyCombo">
+              <input id="billParty" type="text" placeholder="Find a party">
+            </div>
+            <p class="party-pick-hint">Only entries without a bill are shown.</p>
+            <ul id="toBillList" class="pick-list"></ul>
+          </aside>
+          <section class="bill-workspace" aria-label="Bill review">
+            <div class="bill-main" id="billReview">
+              <div id="candidateHead">
+                <div class="bill-empty-state">
+                  <span class="bill-empty-icon" aria-hidden="true">←</span>
+                  <h2>Who are you billing?</h2>
+                  <p>Choose a party from the list to see its entries.</p>
+                  <p>Already-sent entries are selected for you. Nothing is saved until you confirm.</p>
+                </div>
+              </div>
+              <div id="candidateTools" class="candidate-tools hidden">
+                <div><h3 id="candidateCount">Entries to bill</h3><p id="candidateHint"></p></div>
+                <div class="candidate-selection-tools">
+                  <label class="check"><input type="checkbox" id="candAll" disabled> Select all</label>
+                  <button type="button" id="candNone" class="ghost" disabled>Clear selection</button>
+                  <button type="button" id="billMoreColumns" class="secondary" aria-pressed="false">More columns</button>
+                </div>
+              </div>
+              <div class="table-wrap" id="candidateWrap"><table class="register" id="candidateTable"></table></div>
+              <div id="draftArea" class="hidden"></div>
+            </div>
+            <footer class="bill-action-dock">
+              <div id="billMessage" class="message" role="status" aria-live="polite"></div>
+              <div class="bill-action-row">
+                <div id="billSelectionSummary" role="status" aria-live="polite">
+                  <strong id="billSelectedThan">0 THAN</strong>
+                  <span id="billSelectedCount">Choose a party to begin</span>
+                </div>
+                <div class="bill-make-action" id="billMakeAction">
+                  <button type="button" id="makeBills" disabled>Make bills</button>
+                </div>
+                <div class="actions hidden" id="draftActions">
+                  <button type="button" id="discardBills" class="secondary">Back to entries</button>
+                  <button type="button" id="saveBills">Save and number these bills</button>
+                </div>
+              </div>
+            </footer>
+          </section>
+        </div>
+      </div>
+
+      <div id="bills-saved" class="subview fit">
+        <div class="toolbar">
+          <div class="field"><label for="savedFinancialYear">Financial year</label><button type="button" id="savedFinancialYear" data-dropdown title="April to March"></button></div>
+          <div class="field"><label for="savedMonth">Bill month</label><button type="button" id="savedMonth" data-dropdown></button></div>
+          <div class="field grow"><label for="savedSearch">Search</label><input type="search" id="savedSearch" placeholder="Bill no., party, finish…"></div>
+          <button type="button" id="printShown" class="secondary">Print shown bills</button>
+          <span class="spacer"></span>
+          <span id="savedCount" class="muted"></span>
+        </div>
+        <div id="savedTotals" class="chips"></div>
+        <div class="table-wrap fill"><table class="register" id="invoiceTable"></table></div>
+      </div>
+    </section>
+
+    <!-- ===== Dashboard: worked out from the register and bills each time it is shown (see dashboard.js) ===== -->
+    <section id="view-dashboard" class="view" data-no-i18n="all">
+      <div id="dashRoot" class="dash" aria-live="polite"></div>
+    </section>
+
+    <!-- ===== Masters ===== -->
+    <section id="view-masters" class="view fit">
+      <nav class="subtabs" data-group="masters">
+        <button class="subtab active" data-sub="parties">Parties</button>
+        <button class="subtab" data-sub="sisters">Sister firms</button>
+        <button class="subtab hidden" data-sub="styles">Billing styles</button>
+        <button class="subtab" data-sub="finishes">Finishes and groups</button>
+        <button class="subtab" data-sub="colors">Colours</button>
+      </nav>
+
+      <div id="masters-parties" class="subview fit active">
+        <div class="toolbar">
+          <div class="field grow"><label for="partySearch">Search</label><input type="search" id="partySearch" placeholder="Party, GSTIN, address, style…"></div>
+          <label class="check"><input type="checkbox" id="showInactiveParties"> Show inactive</label>
+          <label class="check"><input type="checkbox" id="onlyPartyProblems"> Only with problems</label>
+          <span class="spacer"></span>
+          <span id="partyMasterCount" class="muted"></span>
+          <button type="button" id="addParty">+ Add party</button>
+        </div>
+        <div class="table-wrap fill"><table class="register" id="partyMasterTable"></table></div>
+      </div>
+
+      <div id="masters-sisters" class="subview fit">
+        <div class="toolbar">
+          <p class="muted" style="flex: 1 1 400px">Parties in the same sister-firm group may bill each other's entries in Excel; the bill import then links them. A party can be in one group only.</p>
+          <span id="sisterCount" class="muted"></span>
+          <button type="button" id="addSister">+ Add sister group</button>
+        </div>
+        <div class="table-wrap fill"><table class="register" id="sisterTable"></table></div>
+      </div>
+
+      <div id="masters-styles" class="subview fit">
+        <div class="toolbar">
+          <p class="muted" style="flex: 1 1 400px">A billing style says what each bill line shows and how entries are put on lines. Every party picks one style, so changing a style changes the bills of all its parties.</p>
+          <span id="styleCount" class="muted"></span>
+          <button type="button" id="addStyle">+ Add billing style</button>
+        </div>
+        <div class="table-wrap fill"><table class="register" id="styleTable"></table></div>
+      </div>
+
+      <div id="masters-finishes" class="subview fit">
+        <div class="split">
+          <div class="col">
+            <div class="toolbar">
+              <h2>Finishes</h2>
+              <label class="check"><input type="checkbox" id="showInactiveFinishes"> Show inactive</label>
+              <span class="spacer"></span>
+              <span id="finishCount" class="muted"></span>
+              <button type="button" id="addFinish">+ Add finish</button>
+            </div>
+            <div class="table-wrap fill" id="finishTableWrap"><table class="register" id="finishMasterTable"></table></div>
+          </div>
+          <div class="col">
+            <div class="toolbar">
+              <h2>Finish groups</h2>
+              <span class="spacer"></span>
+              <button type="button" id="addGroup" class="secondary">+ Add group</button>
+            </div>
+            <div class="table-wrap fill"><table class="register" id="groupMasterTable"></table></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="masters-colors" class="subview fit">
+        <div class="toolbar">
+          <p class="muted" style="flex: 1 1 400px">Colour names for party and finish names on bills and screens.</p>
+          <span id="colorCount" class="muted"></span>
+          <button type="button" id="addColor">+ Add colour</button>
+        </div>
+        <div class="table-wrap fill"><table class="register" id="colorTable"></table></div>
+      </div>
+    </section>
+
+    <!-- ===== Settings ===== -->
+    <section id="view-settings" class="view fit">
+      <div class="page-head">
+        <h1>Settings</h1>
+      </div>
+      <div id="settingsScroll" class="subview scroll active">
+        <div class="settings-layout">
+          <nav class="settings-nav" id="settingsNav"></nav>
+          <form id="firmForm" autocomplete="off" novalidate></form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Import Excel ===== -->
+    <section id="view-import" class="view fit">
+      <nav class="subtabs" data-group="import">
+        <button class="subtab active" data-sub="inward">Inward register</button>
+        <button class="subtab" data-sub="bills">Bills</button>
+      </nav>
+
+      <div id="import-inward" class="subview scroll active">
+        <div class="card">
+          <h1>Import an inward register workbook</h1>
+          <p class="muted">Reads the <b>Main</b> sheet of a monthly workbook. Your workbook is never changed. A backup of the data file is taken before anything is imported.</p>
+          <p class="muted">Importing a month that is already in the app updates it: new rows are added, what changed in the workbook since the last import is applied, what was changed in the app is kept, and entries no longer in the workbook are removed (never billed ones). Check file lists every change first.</p>
+          <div class="import-form">
+            <div class="field"><label for="importFile">Workbook (.xlsm / .xlsx)</label><input id="importFile" type="file" accept=".xlsm,.xlsx,.xls"></div>
+            <div class="field"><label for="importFinancialYear">Financial year</label><button type="button" id="importFinancialYear" data-dropdown title="April to March"></button></div>
+            <div class="field" style="min-width: 205px"><label for="importMonth">Register month</label><input id="importMonth" type="month"></div>
+            <button type="button" id="previewImport">1. Check file</button>
+            <button type="button" id="runImport" disabled>2. Import</button>
+          </div>
+        </div>
+        <div id="importResult"></div>
+      </div>
+
+      <div id="import-bills" class="subview scroll">
+        <div class="card">
+          <h1>Import bills from the Excel bill workbook</h1>
+          <p class="muted">Reads every filled bill on the <b>Main</b> sheet, checks each total, and links bill lines to inward entries so they are not billed again. Your workbook is never changed.</p>
+          <div class="import-form">
+            <div class="field"><label for="billImportFile">Bill workbook (.xlsm / .xlsx)</label><input id="billImportFile" type="file" accept=".xlsm,.xlsx,.xls"></div>
+            <button type="button" id="billImportCheck">1. Check file</button>
+            <button type="button" id="billImportRun" disabled>2. Import</button>
+          </div>
+        </div>
+        <div id="billImportResult"></div>
+        <div class="card">
+          <h1>Re-check links of imported bills</h1>
+          <p class="muted">Matches every bill imported from Excel to the inward register again — after correcting the register or giving sister firms a group in Masters → Parties. The bills and their totals stay as they are; only the inward entries they are linked to change. A backup is made before saving.</p>
+          <div class="import-form">
+            <button type="button" id="relinkCheck">1. Check links</button>
+            <button type="button" id="relinkSave" disabled>2. Save new links</button>
+          </div>
+        </div>
+        <div id="relinkResult"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="status-bar"><span id="appInfo"></span></footer>
+  <div id="toasts" popover="manual" aria-live="polite"></div>
+
+  <!-- Right-side menu: language, theme and settings -->
+  <dialog id="sideMenu" class="drawer side-menu" aria-labelledby="sideMenuTitle">
+    <div class="side-menu-panel">
+      <header class="drawer-head">
+        <h2 id="sideMenuTitle">Menu</h2>
+        <button type="button" id="sideMenuClose" class="icon-btn" title="Close (Esc)" aria-label="Close">×</button>
+      </header>
+      <div class="side-menu-body">
+        <div class="side-menu-group">
+          <div class="side-menu-label">Language</div>
+          <div id="langSwitch" class="segmented" role="group" aria-label="Language" data-no-i18n="all">
+            <button type="button" id="langEn" class="seg-btn active" data-lang="en" aria-pressed="true">English</button>
+            <button type="button" id="langHi" class="seg-btn" data-lang="hi" aria-pressed="false">हिन्दी (Hinglish)</button>
+          </div>
+        </div>
+        <div class="side-menu-group">
+          <div class="side-menu-label">Theme</div>
+          <div id="themeSwitch" class="segmented" role="group" aria-label="Theme">
+            <button type="button" id="themeLight" class="seg-btn active" data-theme="light" aria-pressed="true">☀ Light</button>
+            <button type="button" id="themeDark" class="seg-btn" data-theme="dark" aria-pressed="false">☾ Dark</button>
+          </div>
+        </div>
+        <hr class="side-menu-sep">
+        <button type="button" id="menuSettings" class="side-menu-item" data-view="settings">
+          <span class="side-menu-icon" aria-hidden="true">⚙</span>
+          <span class="side-menu-text">
+            <span class="side-menu-title">Settings</span>
+            <span class="side-menu-desc">Firm details, bill rules, printing and features</span>
+          </span>
+          <span class="side-menu-arrow" aria-hidden="true">›</span>
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Edit windows: each slides in from the right with its own title, sections and buttons. -->
+  <dialog id="partyDrawer" class="drawer medium"><form id="partyForm" class="drawer-form" autocomplete="off" novalidate></form></dialog>
+  <dialog id="sisterDrawer" class="drawer medium"><form id="sisterForm" class="drawer-form" autocomplete="off" novalidate></form></dialog>
+  <dialog id="styleDrawer" class="drawer medium"><form id="styleForm" class="drawer-form" autocomplete="off" novalidate></form></dialog>
+  <dialog id="finishDrawer" class="drawer"><form id="finishForm" class="drawer-form" autocomplete="off" novalidate></form></dialog>
+  <dialog id="groupDrawer" class="drawer narrow"><form id="groupForm" class="drawer-form" autocomplete="off" novalidate></form></dialog>
+  <dialog id="colorDrawer" class="drawer narrow"><form id="colorForm" class="drawer-form" autocomplete="off" novalidate></form></dialog>
+  <dialog id="invoiceDrawer" class="drawer wide"><form id="invoiceEditor" class="drawer-form" autocomplete="off" novalidate></form></dialog>
+  <dialog id="appDialog" class="modal" aria-labelledby="appDialogTitle" aria-describedby="appDialogBody"></dialog>
+
+  <script src="i18n.js"></script>
+  <script src="dropdowns.js"></script>
+  <script src="app.js"></script>
+  <script src="masters.js"></script>
+  <script src="bills.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

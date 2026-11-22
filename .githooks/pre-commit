@@ -1,0 +1,6 @@
+#!/bin/sh
+# Refuses a commit that carries real firm or party data: git holds test data only (scripts/privacy_check.py).
+# Enabled by scripts/setup-repo.sh.
+top=$(git rev-parse --show-toplevel)
+py=$(command -v python3 || command -v python) || { echo "privacy: python 3 is needed to check the commit." >&2; exit 1; }
+exec "$py" "$top/scripts/privacy_check.py" --staged

@@ -1,0 +1,43 @@
+# --- The user's data: never in git ---
+# The data file and the config file (and their journals, saving temp files, backups and broken copies).
+mph-data.db
+mph-data.db-*
+mph-data-*.db
+mph-config.json
+mph-config.json.*
+mph-config-*.json
+*.saving
+MPH Register Data/
+# Any other SQLite file; the frozen v0.4 test fixture is the only one kept.
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+!app/tests/fixtures/v04-seeded.db
+
+# --- Business workbooks (real party data): kept out of git ---
+# They live in the Workbooks folder next to the checkout (history in Workbooks/History); the tests read them from there.
+*.xlsm
+*.xlsx
+*.xls
+~$*
+/backups/
+
+# --- Build output and published apps (the single-file builds are over GitHub's 100 MB limit) ---
+bin/
+obj/
+app/dist/
+TestResults/
+*.trx
+
+# --- Tools, caches and editors ---
+node_modules/
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+.vs/
+*.user
+*.swp
+.DS_Store
+*.log

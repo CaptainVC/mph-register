@@ -1,0 +1,150 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build and test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows is where the app runs; Linux also runs the screen regressions. macOS is covered by local runs.
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: app
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: app/global.json
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('app/**/*.csproj', 'app/Directory.Packages.props', 'app/global.json') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore MPHRegister.sln
+
+      - name: Build (warnings are errors)
+        run: dotnet build MPHRegister.sln --no-restore
+
+      - name: Unit and API tests
+        run: dotnet test MPHRegister.sln --no-build
+
+      # The screens are plain JavaScript embedded in the exe; a syntax error would only show when the app runs.
+      - name: Screen and end-to-end scripts parse
+        if: runner.os == 'Linux'
+        run: for f in src/MPHRegister.Api/wwwroot/*.js tests/e2e/*.js tests/e2e/*.mjs; do node --check "$f" || exit 1; done
+
+      - name: Install browser for register regression
+        if: runner.os == 'Linux'
+        working-directory: app/tests/e2e
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npx playwright-core install --with-deps chromium
+
+      - name: Register, Party-wise and Bills screen regressions
+        if: runner.os == 'Linux'
+        env:
+          MPH_PORT: 5160
+          MPH_BASE_URL: http://127.0.0.1:5160
+          MPH_DATA_DIR: ${{ runner.temp }}/mph-register-financial-year
+          MPH_NO_BROWSER: 1
+          MPH_BROWSER_CHANNEL: chromium
+        run: |
+          dotnet "src/MPHRegister.Api/bin/Debug/net10.0/MPH Register.dll" > "$RUNNER_TEMP/mph-register.log" 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..40}; do
+            if curl --fail --silent "$MPH_BASE_URL/api/info" > /dev/null; then break; fi
+            sleep 0.5
+          done
+          curl --fail --silent "$MPH_BASE_URL/api/info" > /dev/null
+          node tests/e2e/ui-register-financial-year.js
+          node tests/e2e/ui-financial-year-views.js
+          node tests/e2e/ui-invoice-undo.js
+          node tests/e2e/ui-invoice-restore.js
+          node tests/e2e/ui-partywise.js
+          node tests/e2e/ui-controls.js
+          node tests/e2e/ui-row-filters.js
+          node tests/e2e/ui-partywise.js
+          node tests/e2e/ui-bill-row-moves.js
+          node tests/e2e/ui-select-fit.js
+          node tests/e2e/ui-bill-count.js
+          node tests/e2e/ui-register-bill-no.js
+          node tests/e2e/ui-no-bill-party.js
+          node tests/e2e/ui-sister-firms.js
+          node tests/e2e/ui-bill-no-edit.js
+          node tests/e2e/ui-inline-edit.js
+      - name: Hinglish translations and locale round trips
+        run: node tests/e2e/i18n-test.js
+
+  code-quality:
+    name: Code quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Biome
+        uses: biomejs/setup-biome@v2
+        with:
+          version: 2.6.8
+
+      - name: Lint JavaScript
+        run: biome lint --error-on-warnings
+
+      - name: Lint Python
+        uses: astral-sh/ruff-action@v4.1.0
+        with:
+          version: "0.17.6"
+          args: check app/tools app/tests/e2e scripts
+
+      - name: Lint shell scripts
+        run: shellcheck --severity=warning scripts/*.sh .githooks/*
+
+  privacy:
+    name: No real data
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # The generic rules only: the private terms live on the developer's machine (scripts/privacy_check.py).
+      - name: Every file holds test data only
+        run: python3 scripts/privacy_check.py
+
+      - name: Every commit of the pull request holds test data only
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/privacy_check.py --commits "$BASE..$HEAD"
+
+      - name: Pull request title and description hold test data only
+        if: github.event_name == 'pull_request'
+        env:
+          TEXT: "${{ github.event.pull_request.title }}\n${{ github.event.pull_request.body }}"
+        run: python3 scripts/privacy_check.py --text "$TEXT"

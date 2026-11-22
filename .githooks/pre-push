@@ -1,0 +1,20 @@
+#!/bin/sh
+# Refuses pushes to main (every change reaches main through a pull request) and any pushed commit that carries real
+# firm or party data (scripts/privacy_check.py checks each new commit's message and files). Enabled by scripts/setup-repo.sh.
+top=$(git rev-parse --show-toplevel)
+py=$(command -v python3 || command -v python) || { echo "privacy: python 3 is needed to check the push." >&2; exit 1; }
+zero=0000000000000000000000000000000000000000
+while read -r _ local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo "Push to main refused. Push your branch and open a pull request instead." >&2
+    exit 1
+  fi
+  [ "$local_sha" = "$zero" ] && continue
+  if [ "$remote_sha" = "$zero" ] || ! git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+    range="$local_sha --not --remotes"
+  else
+    range="$remote_sha..$local_sha"
+  fi
+  "$py" "$top/scripts/privacy_check.py" --commits "$range" || exit 1
+done
+exit 0

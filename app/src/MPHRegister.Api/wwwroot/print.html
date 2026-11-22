@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Print bills — MPH Register</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="print.css">
+  <style id="pageStyle">@page { size: letter portrait; margin: 0.3937in 0.4724in 0.2362in 0.7087in; }</style>
+</head>
+<body>
+  <div class="toolbar no-print">
+    <button type="button" id="printNow">Print</button>
+    <button type="button" id="pdfNow" class="secondary">Save as PDF</button>
+    <button type="button" id="closeNow" class="secondary">Close</button>
+    <span id="status"></span>
+  </div>
+  <div id="bills"></div>
+  <script src="i18n.js"></script>
+  <script src="print.js"></script>
+</body>
+</html>

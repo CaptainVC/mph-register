@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>MPHRegister.Shared</RootNamespace>
+  </PropertyGroup>
+</Project>

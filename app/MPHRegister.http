@@ -1,0 +1,29 @@
+@baseUrl = http://127.0.0.1:5151
+@invoiceId = 1
+@undoToken = replace-with-undoSave-token-from-the-get-response
+
+### Read the current bill and undo eligibility
+GET {{baseUrl}}/api/invoices/{{invoiceId}}
+
+### Undo a never-issued latest save; cancelled and imported bills are refused
+POST {{baseUrl}}/api/invoices/{{invoiceId}}/undo-save
+Content-Type: application/json
+X-MPH-Request: 1
+
+{
+  "neverIssued": true,
+  "token": "{{undoToken}}"
+}
+
+### Missing never-issued confirmation is refused
+POST {{baseUrl}}/api/invoices/{{invoiceId}}/undo-save
+Content-Type: application/json
+X-MPH-Request: 1
+
+{
+  "neverIssued": false,
+  "token": "{{undoToken}}"
+}
+
+### An old ID does not address a replacement bill
+GET {{baseUrl}}/api/invoices/9223372036854775807

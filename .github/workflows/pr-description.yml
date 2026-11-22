@@ -1,0 +1,37 @@
+name: PR description
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+
+permissions: {}
+
+jobs:
+  summary:
+    name: PR has a short summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Title and "## Summary" are filled in
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+        shell: python
+        run: |
+          import os, re, sys
+          title = os.environ.get("TITLE", "").strip()
+          body = re.sub(r"<!--.*?-->", "", os.environ.get("BODY") or "", flags=re.S)
+          match = re.search(r"^##\s*Summary\s*$(.*?)(?=^##\s|\Z)", body, flags=re.S | re.M | re.I)
+          summary = match.group(1).strip() if match else ""
+          problems = []
+          if len(title) < 10:
+              problems.append("Give the pull request a descriptive title (10 or more characters).")
+          if len(summary) < 20:
+              problems.append("Write a short summary under '## Summary': what changed and why (see the PR template).")
+          if len(summary) > 1500:
+              problems.append("Keep the summary short: under 1,500 characters.")
+          for problem in problems:
+              print(f"::error::{problem}")
+          if not problems:
+              print(f"OK: '{title}' with a {len(summary)}-character summary.")
+          sys.exit(1 if problems else 0)
