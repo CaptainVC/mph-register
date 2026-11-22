@@ -24,6 +24,14 @@ function monthBounds(month) {
   return { from: `${month}-01`, to: `${month}-${String(last).padStart(2, "0")}` };
 }
 
+// A month's bills are made from the entries of the 26th of the month before up to the 25th of the month, as in the Excel bill books.
+// The bill itself still prints the whole calendar month.
+function entryWindow(month) {
+  const [y, m] = month.split("-").map(Number);
+  const before = new Date(y, m - 2, 1);
+  return { from: `${before.getFullYear()}-${String(before.getMonth() + 1).padStart(2, "0")}-26`, to: `${month}-25` };
+}
+
 // Confirmations pop up as toasts; warnings and problems stay in the layout beside what needs attention.
 function setBillMessage(text, kind) {
   const popup = text && kind === "ok";
@@ -62,10 +70,11 @@ async function refreshBillYears() {
 
 function applyMonthDates() {
   if (!$("billMonth").value) return;
-  const { from, to } = monthBounds($("billMonth").value);
-  $("billDate").value = to;
-  $("periodFrom").value = from;
-  $("periodTo").value = to;
+  const month = $("billMonth").value;
+  const span = entryWindow(month);
+  $("billDate").value = monthBounds(month).to;
+  $("periodFrom").value = span.from;
+  $("periodTo").value = span.to;
   billPeriodInput.sync();
 }
 
@@ -391,13 +400,15 @@ $("makeBills").addEventListener("click", async () => {
   const c = billsState.candidates;
   const ticket = ++billRequests.build;
   const builtFor = tickedIds();
+  const printed = monthBounds($("billMonth").value);
   makingBills = true;
   $("makeBills").disabled = true;
   $("makeBills").textContent = "Making bills...";
   try {
     const drafts = await api("/api/billing/build", { method: "POST", json: {
       party: c.billParty, month: $("billMonth").value, entryIds: tickedIds(),
-      billDate: $("billDate").value, periodFrom: $("periodFrom").value, periodTo: $("periodTo").value,
+      billDate: $("billDate").value, periodFrom: printed.from, periodTo: printed.to,
+      entriesFrom: $("periodFrom").value, entriesTo: $("periodTo").value,
     } });
     if (ticket !== billRequests.build) return;
     billsState.drafts = drafts;

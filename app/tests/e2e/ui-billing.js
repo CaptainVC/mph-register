@@ -212,7 +212,7 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   await page.fill("#billMonth", "2026-10");
   await page.dispatchEvent("#billMonth", "change");
   await page.waitForFunction(() => document.querySelectorAll("#toBillList li").length > 5);
-  check("bill dates follow the month", (await page.inputValue("#billDate")) === "2026-10-31" && (await page.inputValue("#periodFrom")) === "2026-10-01");
+  check("bill dates follow the month", (await page.inputValue("#billDate")) === "2026-10-31" && (await page.inputValue("#periodFrom")) === "2026-09-26");
   const toBill = await page.$$eval("#toBillList .pick-name", (n) => n.map((x) => x.textContent));
   check("parties to bill listed", toBill.includes(P.twoBillParty) && toBill.includes(P.bigParty), toBill.length + "");
   check("party choices are real keyboard-accessible buttons", (await page.$$("#toBillList button.party-choice")).length === toBill.length);
@@ -233,8 +233,9 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   check("extra columns can be shown for detailed checks", (await page.getAttribute("#billMoreColumns", "aria-pressed")) === "true" && await page.isVisible('#candidateTable th.bill-extra-column'));
   await page.click("#billMoreColumns");
   const octoberDates = await page.$$eval("#candidateTable tbody tr td:nth-child(4)", (cells) => cells.map((c) => c.textContent));
-  check("October period lists only the party's slips dated in October", octoberDates.length === 35 && octoberDates.every((d) => d.endsWith("/Oct/26")), `${octoberDates.length}: ${[...new Set(octoberDates.map((d) => d.slice(3)))].join(",")}`);
-  // Excel's October bills took the whole October register: inward from 26 Sep plus 2 slips carried over from 25 Sep.
+  const inOctoberWindow = (d) => (d.endsWith("/Sep/26") && Number(d.slice(0, 2)) >= 26) || (d.endsWith("/Oct/26") && Number(d.slice(0, 2)) <= 25);
+  check("October bills list the party's slips dated 26 Sep to 25 Oct", octoberDates.length === 39 && octoberDates.every(inOctoberWindow), `${octoberDates.length}: ${[...new Set(octoberDates.map((d) => d.slice(3)))].join(",")}`);
+  // Excel's October bills took the October register: inward from 26 Sep to 25 Oct plus 2 slips carried over from 25 Sep.
   await page.fill("#periodFrom", "2026-09-25");
   await page.dispatchEvent("#periodFrom", "change");
   await page.waitForFunction(() => document.querySelectorAll("#candidateTable tbody tr").length === 41);
@@ -312,7 +313,7 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   await printPage.waitForFunction(() => document.body.dataset.ready === "1" && document.querySelectorAll(".sheet").length === 2, null, { timeout: 15000 });
   const printed = await printPage.$$eval(".sheet", (bills) => bills.map((b) => b.innerText.replace(/[ \t]+/g, " ")));
   check("print: firm header", printed[0].includes(FIRM.name) && printed[0].includes(`GSTN-${FIRM.gstin}`) && printed[0].includes("TAX INVOICE"));
-  check("print: bill number, date, period", printed[0].includes("26-27\\JOB\\279") && printed[0].includes("31.10.26") && printed[0].includes("25.09.26 TO 31.10.26"));
+  check("print: bill number, date, period", printed[0].includes("26-27\\JOB\\279") && printed[0].includes("31.10.26") && printed[0].includes("01.10.26 TO 31.10.26"));
   check("print: party block", printed[0].includes(P.twoBillParty) && printed[0].includes(`GSTIN: ${GSTIN.twoBillParty}`));
   check("print: totals and words", printed[0].includes("₹1,49,940.00") && printed[0].includes("₹18,743.00") && printed[0].includes("₹1,37,757.00") && printed[0].includes("Rupees One Lakh Thirty Seven Thousand Seven Hundred Fifty Seven Only"), printed[0].slice(-700));
   const words = await printPage.$$eval(".sheet:first-of-type .xc", (cells) => cells.map((c) => c.textContent).find((t) => t.includes("Rupees")));
