@@ -946,9 +946,11 @@ async function refreshInvoices() {
   }
 }
 
-// Used by the Register's BILL NO. links: shows Saved bills and opens that bill once the list has loaded.
+// Used by the BILL NO. links on the Register, Party-wise and New entry tabs: shows Saved bills and opens that bill once the
+// list has loaded. Closing the bill goes back to the tab the link was on, as it was left.
 function openSavedBill(invoiceNo) {
   billsState.revealInvoiceNo = invoiceNo;
+  rememberReturn("bill", "bills");
   switchView("bills");
   switchSubview("bills", "saved");
 }
@@ -957,6 +959,7 @@ async function revealInvoice(invoiceNo) {
   const invoice = billsState.invoices.find((i) => i.invoiceNo === invoiceNo);
   if (!invoice) {
     toast(`Bill ${invoiceNo} was not found in Saved bills`, "err");
+    await returnFrom("bill");
     return;
   }
   // Widen the period and search so the bill is in the list.
@@ -965,7 +968,11 @@ async function revealInvoice(invoiceNo) {
   $("savedFinancialYear").dispatchEvent(new Event("change"));
   $("savedMonth").value = invoice.billMonth;
   renderInvoices();
-  await openInvoice(invoice.id);
+  try {
+    await openInvoice(invoice.id);
+  } finally {
+    if (!$("invoiceDrawer").open) await returnFrom("bill");
+  }
   document.querySelector(`#invoiceTable tbody tr[data-id="${invoice.id}"]`)?.scrollIntoView({ block: "center" });
 }
 
@@ -1018,6 +1025,8 @@ $("printShown").addEventListener("click", () => {
   const ids = shownInvoices().filter((i) => i.status !== "cancelled").map((i) => i.id);
   if (ids.length) openPrint(ids.join(","));
 });
+
+$("invoiceDrawer").addEventListener("close", () => returnFrom("bill"));
 
 async function openInvoice(id) {
   const doc = await api(`/api/invoices/${id}`);

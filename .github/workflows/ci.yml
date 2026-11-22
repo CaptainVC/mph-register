@@ -102,6 +102,7 @@ jobs:
           node tests/e2e/ui-inline-edit.js
           node tests/e2e/ui-entry-delete.js
           node tests/e2e/ui-excel-export.js
+          node tests/e2e/ui-return-to-origin.js
       - name: Hinglish translations and locale round trips
         run: node tests/e2e/i18n-test.js
 

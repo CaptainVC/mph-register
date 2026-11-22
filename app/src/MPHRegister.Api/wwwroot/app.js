@@ -562,11 +562,25 @@ function loadIntoForm(entry) {
   repairMarkSeen = formHasRepairMark();
   showWarnings(entry.billedIn ? [`Already billed (${entry.billedIn}). Changing this entry does not change that bill.`, ...entry.warnings] : entry.warnings);
   setMessage("", "");
+  rememberReturn("entry", "entry");
   switchView("entry");
   $("party").focus();
 }
 
-$("cancelEdit").addEventListener("click", () => { resetForm(); setMessage("Edit cancelled.", ""); });
+async function cancelEditing() {
+  await resetForm();
+  setMessage("Edit cancelled.", "");
+  await returnFrom("entry");
+}
+
+// The warnings shown under the form are toasted instead when finishing an entry takes the user back to another tab.
+async function returnFromEntry(warnings) {
+  if (!(await returnFrom("entry"))) return;
+  showWarnings([]);
+  for (const warning of warnings || []) toast(warning, "warn");
+}
+
+$("cancelEdit").addEventListener("click", cancelEditing);
 
 // ---------- Deleting an entry and putting it back ----------
 // A deleted entry is kept whole on the server, so it can be restored under the same id. The server refuses to delete an entry
@@ -599,6 +613,7 @@ async function deleteEditingEntry() {
     toast(`Deleted ✓ ${slipText(result.deleted)}`, "ok", { id: "undoDelete", label: "Undo", run: () => undoDelete(result.deleted.id) });
     showWarnings(result.notes);
     await Promise.all([refreshRecent(), refreshInfo()]);
+    await returnFromEntry(result.notes);
   } catch (error) {
     await showAlert({ title: "Entry not deleted", message: errorText(error), tone: "danger" });
   } finally {
@@ -746,7 +761,8 @@ $("entryForm").addEventListener("submit", async (event) => {
     setMessage(`${wasEditing ? "Corrected" : "Saved"} ✓ INW. NO. ${saved.inwardNo} — ${saved.party}, ${what}`, "ok");
     showWarnings(saved.warnings);
     await Promise.all([refreshRecent(), refreshInfo()]);
-    $("party").focus();
+    if (wasEditing) await returnFromEntry(saved.warnings);
+    if ($("view-entry").classList.contains("active")) $("party").focus();
   } catch (error) {
     setMessage(error.errors ? error.errors.join(" ") : error.message, "err");
     highlightInvalid(error.errors || []);
@@ -766,8 +782,7 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     if ($("view-entry").classList.contains("active")) $("entryForm").requestSubmit();
   } else if (event.key === "Escape" && state.editing && $("view-entry").classList.contains("active")) {
-    resetForm();
-    setMessage("Edit cancelled.", "");
+    cancelEditing();
   }
 });
 
@@ -1989,20 +2004,59 @@ $("runImport").addEventListener("click", async () => {
 });
 
 // ---------- App shell ----------
+// Resolves once the tab has drawn its lists.
 function switchView(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === name));
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${name}`));
   $("menuSettings")?.classList.toggle("active", name === "settings");
-  if (name === "register") fillMonthSelect($("registerViewMonth"), true).then(renderRegister).catch(showFatal);
-  if (name === "partywise") fillMonthSelect($("partyViewMonth"), true).then(renderPartywise).catch(showFatal);
-  if (name === "bills" && typeof showBills === "function") showBills().catch(showFatal);
-  if (name === "masters" && typeof showMasters === "function") showMasters().catch(showFatal);
-  if (name === "settings" && typeof renderFirmForm === "function") renderFirmForm().catch(showFatal);
-  if (name === "dashboard" && typeof showDashboard === "function") showDashboard().catch(showFatal);
-  if (name === "import") refreshImportYears().catch(showFatal);
+  let loading = null;
+  if (name === "register") loading = fillMonthSelect($("registerViewMonth"), true).then(renderRegister);
+  if (name === "partywise") loading = fillMonthSelect($("partyViewMonth"), true).then(renderPartywise);
+  if (name === "bills" && typeof showBills === "function") loading = showBills();
+  if (name === "masters" && typeof showMasters === "function") loading = showMasters();
+  if (name === "settings" && typeof renderFirmForm === "function") loading = renderFirmForm();
+  if (name === "dashboard" && typeof showDashboard === "function") loading = showDashboard();
+  if (name === "import") loading = refreshImportYears();
   refreshInfo().catch(() => {});
+  return Promise.resolve(loading).catch(showFatal);
 }
-document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => switchView(tab.dataset.view)));
+document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => {
+  returnTrips.length = 0;
+  switchView(tab.dataset.view);
+}));
+
+// ---------- Going back after opening something from another tab ----------
+// A bill opened from a BILL NO. link, or an entry opened from its INW. NO. on another tab, remembers the tab it came from
+// (with its search, filters and scroll positions untouched); closing the bill or finishing the entry goes back there.
+// Picking a tab by hand forgets the way back.
+const returnTrips = [];
+
+function viewScrollers(view) {
+  return [$("main"), ...view.querySelectorAll(".table-wrap")];
+}
+
+// kind: what is being opened ("bill" or "entry"); target: the tab it opens on. Nothing is remembered within the same tab.
+function rememberReturn(kind, target) {
+  const view = document.querySelector(".view.active");
+  const name = view?.id.replace(/^view-/, "");
+  if (!name || name === target) return;
+  returnTrips.push({ kind, view: name, scroll: viewScrollers(view).map((n) => [n.scrollTop, n.scrollLeft]) });
+}
+
+// Goes back to where the latest trip of this kind started; returns false when there is no trip to go back from.
+async function returnFrom(kind) {
+  if (returnTrips.at(-1)?.kind !== kind) return false;
+  const trip = returnTrips.pop();
+  await switchView(trip.view);
+  const restore = () => viewScrollers($(`view-${trip.view}`)).forEach((n, i) => {
+    const [top, left] = trip.scroll[i] || [0, 0];
+    n.scrollTop = top;
+    n.scrollLeft = left;
+  });
+  restore();
+  requestAnimationFrame(restore);
+  return true;
+}
 
 // ---------- Right-side menu (language, theme, settings) ----------
 function openSideMenu() {
