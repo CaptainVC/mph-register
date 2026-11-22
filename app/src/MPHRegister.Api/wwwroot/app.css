@@ -721,6 +721,8 @@ table.mini caption { caption-side: bottom; text-align: center; padding: 20px 12p
 .combo-list li[aria-selected="true"] { font-weight: 700; }
 .combo-list li .tag { font-size: 13.5px; margin-left: 8px; color: var(--warn); }
 .combo-list li.highlight .tag { color: #ffe9a8; }
+.combo-list li .hint { float: right; margin-left: 16px; font-size: 13.5px; color: var(--muted); white-space: nowrap; }
+.combo-list li.highlight .hint { color: var(--on-accent); opacity: 0.85; }
 .combo-list li.empty { color: var(--muted); cursor: default; }
 
 /* ---------- New entry ---------- */

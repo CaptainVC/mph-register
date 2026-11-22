@@ -78,7 +78,8 @@ function createDropdownList(control, { onPick, searchable = false }) {
     list.replaceChildren(...(choices.length ? choices.map((item, i) => el("li", {
       id: `${id}-${i}`, role: "option", "aria-selected": String(Boolean(item.selected)),
       ...(item.disabled ? { "aria-disabled": "true" } : {}), "data-value": item.value,
-    }, [item.label, ...(item.tag ? [el("span", { class: "tag", text: item.tag })] : [])]))
+    }, [item.label, ...(item.tag ? [el("span", { class: "tag", text: item.tag })] : []),
+      ...(item.hint ? [el("span", { class: "hint", text: item.hint })] : [])]))
       : [el("li", { class: "empty", role: "presentation", text: "No match" })]));
     window.translateUi(list);
     position();
@@ -208,7 +209,9 @@ function textSuggestions(names, text) {
   return names.filter((name) => name.toLowerCase().includes(query)).map((name) => ({ value: name, label: name }));
 }
 
-function attachSuggestions(input, suggest, { onPick, acceptOnTab, handleEnter = true, cancelOnEscape = false, requireNavigation = false } = {}) {
+function attachSuggestions(input, suggest, {
+  onPick, acceptOnTab, handleEnter = true, cancelOnEscape = false, requireNavigation = false, hideWhenEmpty = false,
+} = {}) {
   const popup = createDropdownList(input, {
     searchable: true,
     onPick: (item, source) => {
@@ -216,7 +219,12 @@ function attachSuggestions(input, suggest, { onPick, acceptOnTab, handleEnter = 
       onPick?.(item, source);
     },
   });
-  const open = () => popup.show(suggest(input.value), requireNavigation ? -1 : 0);
+  // With hideWhenEmpty there is no "No match" row: the list only shows when it has something to offer.
+  const show = (choices, index) => {
+    if (hideWhenEmpty && !choices.length) popup.close();
+    else popup.show(choices, index);
+  };
+  const open = () => show(suggest(input.value), requireNavigation ? -1 : 0);
   input.addEventListener("click", () => { if (!popup.isOpen()) open(); });
   input.addEventListener("input", open);
   input.addEventListener("keydown", (event) => {
@@ -225,7 +233,7 @@ function attachSuggestions(input, suggest, { onPick, acceptOnTab, handleEnter = 
       event.preventDefault();
       if (!expanded) {
         const choices = suggest(input.value);
-        popup.show(choices, event.key === "ArrowDown" ? 0 : choices.length - 1);
+        show(choices, event.key === "ArrowDown" ? 0 : choices.length - 1);
       } else popup.move(event.key === "ArrowDown" ? 1 : -1);
     } else if (expanded && event.key === "Escape") {
       popup.close();
