@@ -8,7 +8,10 @@ using MPHRegister.Shared.Constants;
 using MPHRegister.Shared.Enums;
 using MPHRegister.Shared.Exceptions;
 
+if (SelfUpdate.TryFinish(args)) return;
+
 var options = AppOptions.FromEnvironment();
+var afterUpdate = SelfUpdate.TakeUpdatedFlag();
 if (LocalHost.IsPortInUse(options.Port))
 {
     Console.WriteLine($"MPH Register is already running at {options.BaseUri}.");
@@ -21,7 +24,7 @@ builder.WebHost.UseUrls(options.BaseUri.AbsoluteUri.TrimEnd('/'));
 builder.WebHost.ConfigureKestrel(kestrel => kestrel.Limits.MaxRequestBodySize = Limits.MaxUploadBytes);
 builder.Logging.SetMinimumLevel(LogLevel.Warning);
 builder.Services.AddSingleton(options);
-builder.Services.AddMphData(options.DataDirectory, options.DataFolderSource).AddMphServices().AddMphApi();
+builder.Services.AddMphData(options.DataDirectory, options.DataFolderSource).AddMphServices().AddMphApi().AddMphUpdates(options.UpdateUrl);
 var app = builder.Build();
 
 try
@@ -36,6 +39,11 @@ catch (Exception ex) when (ex is DataFileException or Microsoft.Data.Sqlite.Sqli
     return;
 }
 
+app.Use((context, next) =>
+{
+    SelfUpdate.NotePageRequest();
+    return next(context);
+});
 app.UseMphApi();
 var webFiles = ApiModule.WebFiles();
 app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = webFiles });
@@ -44,7 +52,10 @@ app.MapControllers();
 
 app.Lifetime.ApplicationStarted.Register(() =>
 {
-    if (options.OpenBrowser) LocalHost.OpenWindow(options.BaseUri);
+    SelfUpdate.RemoveLeftovers(SelfUpdate.InstalledAppPath());
+    if (!options.OpenBrowser) return;
+    if (afterUpdate) SelfUpdate.OpenWindowUnlessPageReturns(options.BaseUri, TimeSpan.FromSeconds(8));
+    else LocalHost.OpenWindow(options.BaseUri);
 });
 
 var data = app.Services.GetRequiredService<DataOptions>();
