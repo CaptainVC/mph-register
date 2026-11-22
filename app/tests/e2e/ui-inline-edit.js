@@ -174,9 +174,12 @@ const COL = { inward: 0, party: 2, designNo: 3, repair: 5, than: 6, tp: 7, nag: 
     await page.waitForFunction(() => document.getElementById("view-entry").classList.contains("active"));
     assert.match(await page.locator("#formTitle").textContent(), /Correcting INW\. NO\. 8702/);
     assert.equal(await page.locator("#than").inputValue(), "15");
+    // Escape cancels the correction and goes back to the Register it was opened from.
     await page.keyboard.press("Escape");
+    await page.waitForFunction(() => document.getElementById("view-register").classList.contains("active"));
 
     // The recent table on the entry screen edits in place too.
+    await page.locator('[data-view="entry"]').click();
     const recentRow = page.locator("#recentTable tbody tr", { hasText: "IL8701" });
     await recentRow.locator("td").nth(COL.than).click();
     await recentRow.locator(".cell-input").fill("12");
