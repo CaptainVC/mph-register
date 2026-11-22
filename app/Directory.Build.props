@@ -12,7 +12,7 @@
     <NuGetAuditMode>all</NuGetAuditMode>
     <InvariantGlobalization>true</InvariantGlobalization>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
-    <Version>0.5.0</Version>
+    <Version>0.6.0</Version>
     <Company>MPH Register</Company>
     <Product>MPH Register</Product>
     <NoWarn>$(NoWarn);CA1848;CA1716;CA1515;CA1002;CA1819;CA1031;CA2007;CA1305;CA1307;CA1309;CA1310;CA1304;CA1311;CA1862;CA1860;CA1054;CA1056;CA2234</NoWarn>

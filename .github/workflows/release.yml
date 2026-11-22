@@ -1,0 +1,66 @@
+name: Release
+
+# Publishes a new version for the installed Windows apps, which offer it as an update (the app's menu and update bar):
+# raise <Version> in app/Directory.Build.props through a pull request, then tag that commit on main, for example
+#   git tag v0.6.0 origin/main && git push origin v0.6.0
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  windows-app:
+    name: Build, test and publish the Windows app
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: app/global.json
+
+      - name: Tag matches the app version and is on main
+        run: |
+          version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' app/Directory.Build.props)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match <Version>$version</Version> in app/Directory.Build.props."
+            exit 1
+          fi
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "::error::Tag a commit that is on main."; exit 1; }
+
+      - name: Build and test (warnings are errors)
+        working-directory: app
+        run: dotnet test MPHRegister.sln
+
+      - name: Publish the single-file app
+        run: |
+          dotnet publish app/src/MPHRegister.Api -c Release -r win-x64 --self-contained -nologo \
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -o publish
+          cp "publish/MPH Register.exe" MPH-Register-win-x64.exe
+
+      # The commit titles since the last release (already checked for real data in their pull requests), without PR numbers.
+      - name: Release notes
+        run: |
+          previous=$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2> /dev/null || true)
+          git log --no-merges --format='- %s' "${previous:+$previous..}$GITHUB_REF_NAME" | sed -E 's/ \(#[0-9]+\)$//' | head -n 25 > notes.md
+          cat notes.md
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" MPH-Register-win-x64.exe --verify-tag --title "MPH Register ${GITHUB_REF_NAME#v}" --notes-file notes.md

@@ -29,6 +29,7 @@
 
   <main id="main">
     <div id="noticeBar" class="notice-bar hidden" role="status"></div>
+    <div id="updateBar" class="notice-bar update-bar hidden" role="status"></div>
 
     <!-- ===== New entry ===== -->
     <section id="view-entry" class="view active">
@@ -414,6 +415,15 @@
           </span>
           <span class="side-menu-arrow" aria-hidden="true">›</span>
         </button>
+        <hr class="side-menu-sep">
+        <div class="side-menu-group">
+          <div class="side-menu-label">App version</div>
+          <div id="updateInfo" class="side-menu-note" role="status"></div>
+          <div class="side-menu-actions">
+            <button type="button" id="checkUpdates" class="secondary small">Check for updates</button>
+            <button type="button" id="installUpdate" class="small hidden">Update now</button>
+          </div>
+        </div>
       </div>
     </div>
   </dialog>
@@ -429,6 +439,11 @@
   <dialog id="excelDrawer" class="drawer wide"><form id="excelForm" class="drawer-form" autocomplete="off" novalidate></form></dialog>
   <dialog id="deletedDrawer" class="drawer medium"><form id="deletedForm" class="drawer-form" autocomplete="off" novalidate></form></dialog>
   <dialog id="appDialog" class="modal" aria-labelledby="appDialogTitle" aria-describedby="appDialogBody"></dialog>
+  <dialog id="updateDialog" class="modal" aria-labelledby="updateDialogText">
+    <div class="modal-box">
+      <div class="modal-body"><p id="updateDialogText" class="modal-message"></p></div>
+    </div>
+  </dialog>
 
   <script src="i18n.js"></script>
   <script src="dropdowns.js"></script>

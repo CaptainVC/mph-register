@@ -1107,6 +1107,11 @@ dialog.drawer.side-menu { --drawer-w: 350px; }
 }
 .seg-btn.active:hover { background: var(--panel); color: var(--accent); border-color: var(--accent); }
 .side-menu-sep { border: 0; border-top: 1px solid var(--line-soft); margin: 4px 0; }
+.side-menu-note { font-size: 15px; color: var(--text); line-height: 1.45; display: grid; gap: 4px; }
+.side-menu-note .muted { font-size: 14px; }
+.side-menu-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.update-bar { align-items: center; }
+.update-bar .update-actions { flex: none; display: flex; gap: 8px; flex-wrap: wrap; }
 .side-menu-item {
   display: flex; align-items: center; gap: 12px; width: 100%; height: auto; padding: 12px 14px;
   border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
