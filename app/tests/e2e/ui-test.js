@@ -307,11 +307,18 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   await page.fill("#designNo", "INW 983");
   await page.fill("#than", "0");
   await page.fill("#finish", "");
+  // Toasts of earlier steps may still be fading out: only a new one would mean this save went through.
+  await page.$$eval("#toasts .toast", (toasts) => toasts.forEach((t) => { t.dataset.before = "1"; }));
+  const entriesBeforeZero = (await (await page.request.get(`${BASE}/api/info`)).json()).entries;
   await page.click("#saveButton");
   await page.waitForSelector("#appDialog[open]");
   check("all-zero save asks first", (await page.textContent("#appDialogTitle")) === "Save an all-zero entry?", await page.textContent("#appDialogTitle"));
   await page.click("#appDialogCancel");
-  check("going back saves nothing and keeps the form", (await page.inputValue("#party")) === BIG && !(await page.textContent("#toasts")).includes("Saved"));
+  await page.waitForTimeout(500);
+  const newToasts = await page.$$eval("#toasts .toast:not([data-before])", (toasts) => toasts.map((t) => t.textContent));
+  const entriesAfterZero = (await (await page.request.get(`${BASE}/api/info`)).json()).entries;
+  check("going back saves nothing and keeps the form", (await page.inputValue("#party")) === BIG && entriesAfterZero === entriesBeforeZero
+    && !newToasts.some((t) => t.includes("Saved")), `party=${await page.inputValue("#party")} entries ${entriesBeforeZero}→${entriesAfterZero} new toasts=${JSON.stringify(newToasts)}`);
   await page.click("#saveButton");
   await page.click("#appDialogConfirm");
   await page.waitForFunction(() => document.getElementById("toasts").textContent.includes("all zero"));
