@@ -1,4 +1,5 @@
-// A plain toast must not block clicks on the buttons it covers; a toast with an Undo action takes clicks and can be dismissed.
+// Messages sit along the bottom edge and go away after a few seconds. A plain one must not block clicks on what it covers;
+// one with an Undo action takes clicks and can be dismissed.
 const assert = require("node:assert/strict");
 const { chromium } = require("playwright-core");
 
@@ -18,17 +19,20 @@ const BASE = process.env.MPH_BASE_URL || "http://127.0.0.1:5152";
       const button = document.createElement("button");
       button.id = "underToast";
       button.textContent = "Under";
-      button.style.cssText = "position:fixed;right:40px;bottom:90px;width:200px;height:30px;z-index:1";
+      button.style.cssText = "position:fixed;right:40px;bottom:4px;width:200px;height:24px;z-index:1";
       button.addEventListener("click", () => { window.underToastClicks = (window.underToastClicks || 0) + 1; });
       document.body.append(button);
       toast("Undid save for 26-27\\JOB\\285, 26-27\\JOB\\284, 26-27\\JOB\\283. Next bill number: 283.");
     });
     const toastBox = await page.locator(".toast").boundingBox();
+    assert.ok(Math.abs(toastBox.y + toastBox.height - 1000) < 1 && toastBox.x === 0 && toastBox.width === 1600 && toastBox.height < 80, "the message lies along the bottom edge");
     const buttonBox = await page.locator("#underToast").boundingBox();
     assert.ok(toastBox.x < buttonBox.x + buttonBox.width && toastBox.x + toastBox.width > buttonBox.x
       && toastBox.y < buttonBox.y + buttonBox.height && toastBox.y + toastBox.height > buttonBox.y, "the toast covers the button");
     await page.mouse.click(buttonBox.x + buttonBox.width / 2, buttonBox.y + buttonBox.height / 2);
     assert.equal(await page.evaluate(() => window.underToastClicks), 1, "click passes through a plain toast");
+
+    await page.locator(".toast").waitFor({ state: "detached", timeout: 9000 });
 
     // An action toast takes clicks and has a working close button.
     await page.evaluate(() => {

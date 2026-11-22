@@ -504,24 +504,27 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .form-message ul { margin: 0; padding-left: 20px; }
 .warnings { color: var(--err); margin: 0; padding-left: 22px; font-size: 15.5px; }
 .warnings:empty { display: none; }
-#toasts { position: fixed; inset: auto 20px 80px auto; margin: 0; padding: 0; border: 0; background: transparent; overflow: visible;
-  display: flex; flex-direction: column; gap: 8px; z-index: 50; pointer-events: none; }
+/* Messages appear along the very bottom of the window, over the thin status bar, which has no buttons. They are full
+   width, newest at the bottom, and disappear after a few seconds. */
+#toasts { position: fixed; inset: auto 0 0 0; margin: 0; padding: 0; border: 0; background: transparent; overflow: visible;
+  display: flex; flex-direction: column; z-index: 50; pointer-events: none; width: auto; height: auto; max-width: none; }
 #toasts:popover-open { display: flex; }
 .toast {
-  pointer-events: auto; min-width: 240px; max-width: 460px; padding: 12px 16px; border-radius: 8px; font-size: 16.5px; font-weight: 600;
-  background: var(--panel); color: var(--text); border: 1px solid var(--line); border-left: 4px solid var(--ok); box-shadow: var(--shadow-lg);
-  animation: toast-in .2s ease-out;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px; padding: 6px 20px;
+  font-size: 14.5px; font-weight: 600; line-height: 1.35; color: var(--text); background: var(--panel);
+  border-top: 3px solid var(--ok); box-shadow: 0 -2px 8px rgb(0 0 0 / .08); animation: toast-in .2s ease-out;
 }
-.toast { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-/* A plain message is only an announcement: clicks go through it to the buttons underneath. Only a toast with an action
-   (Undo) takes clicks, and it has a close button. */
+.toast + .toast { border-top-width: 2px; }
+/* A plain message is only an announcement: clicks go through it to whatever is underneath. Only a message with an
+   action (Undo) takes clicks, and it has a close button. */
 .toast:not(.has-action) { pointer-events: none; }
-.toast-action { flex: none; }
+.toast.has-action { pointer-events: auto; }
+.toast-action { flex: none; margin-left: auto; }
 .toast-close { flex: none; min-width: 0; padding: 2px 9px; font-size: 18px; line-height: 1; }
-.toast.err { border-left-color: var(--err); }
-.toast.warn { border-left-color: var(--warn); }
-.toast.leaving { opacity: 0; transform: translateY(6px); transition: opacity .25s, transform .25s; }
-@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.toast.err { border-top-color: var(--err); }
+.toast.warn { border-top-color: var(--warn); }
+.toast.leaving { opacity: 0; transition: opacity .25s; }
+@keyframes toast-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---------- Tables ---------- */
 .table-wrap { overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); max-height: 400px; }
