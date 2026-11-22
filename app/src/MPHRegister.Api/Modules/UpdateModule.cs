@@ -15,6 +15,7 @@ public static class UpdateModule
         services.AddSingleton(new UpdateOptions { LatestReleaseUri = ReleaseUri(releaseUrl), AppPath = SelfUpdate.InstalledAppPath() });
         services.AddSingleton<IUpdateService>(provider => new UpdateService(
             CreateClient(), provider.GetRequiredService<UpdateOptions>(), provider.GetRequiredService<TimeProvider>()));
+        services.AddSingleton<IRollbackService, RollbackService>();
         return services;
     }
 

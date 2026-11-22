@@ -15,12 +15,17 @@ public sealed class UpdateOptions
     public string CurrentVersion { get; init; } = InfoService.Version;
 }
 
-/// <summary>Files next to the app: the downloaded new version and the version it replaced.</summary>
+/// <summary>Files next to the app: the downloaded new version, the version it replaced and the copy that goes back.</summary>
 public static class UpdatePaths
 {
     public static string Staged(string app) => Sibling(app, ".update.exe");
 
     public static string Previous(string app) => Sibling(app, ".previous.exe");
+
+    public static string RollbackHelper(string app) => Sibling(app, ".rollback.exe");
+
+    /// <summary>Where the newer app waits for a moment while the two versions change places.</summary>
+    public static string Swapping(string app) => Sibling(app, ".swapping.exe");
 
     private static string Sibling(string app, string suffix) =>
         Path.Combine(Path.GetDirectoryName(app) ?? string.Empty, Path.GetFileNameWithoutExtension(app) + suffix);

@@ -109,10 +109,12 @@ jobs:
           node tests/e2e/ui-import-marks.js
           node tests/e2e/ui-toast-click-through.js
           node tests/e2e/ui-updates.js
+          node tests/e2e/ui-rollback.js
       - name: Hinglish translations and locale round trips
         run: node tests/e2e/i18n-test.js
 
-  # The real Windows app updating itself: 0.0.1 downloads 0.0.2 from a release served on the runner, closes and returns.
+  # The real Windows app updating itself: 0.0.1 downloads 0.0.2 from a release served on the runner, closes and returns,
+  # then goes back to 0.0.1 over a (made-up) data format change.
   self-update:
     name: Windows app updates itself
     runs-on: windows-latest
@@ -136,7 +138,7 @@ jobs:
           key: nuget-publish-${{ runner.os }}-${{ hashFiles('app/**/*.csproj', 'app/Directory.Packages.props', 'app/global.json') }}
           restore-keys: nuget-publish-${{ runner.os }}-
 
-      - name: Install 0.0.1, update it to 0.0.2
+      - name: Install 0.0.1, update it to 0.0.2, go back to 0.0.1
         run: sh scripts/test-self-update.sh
 
   code-quality:

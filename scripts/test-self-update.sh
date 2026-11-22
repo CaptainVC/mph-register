@@ -1,6 +1,8 @@
 #!/bin/sh
 # Windows only (CI, Git Bash): an installed app of version 0.0.1 finds version 0.0.2 in a release served on this computer,
 # downloads it, closes and comes back as 0.0.2, keeping the old app as "MPH Register.previous.exe". Data is untouched.
+# Then the data is made to look like 0.0.2 changed its format and the app goes back to 0.0.1: the data from the update is
+# put back, today's is kept in a rollback/kept-… folder, and 0.0.2 is no longer offered by itself.
 set -eu
 root=$(git rev-parse --show-toplevel)
 work=$(cygpath -u "${RUNNER_TEMP:-$(mktemp -d)}")/self-update
@@ -62,3 +64,32 @@ for _ in $(seq 30); do [ -f "$work/app/MPH Register.update.exe" ] || break; slee
 [ ! -f "$work/app/MPH Register.update.exe" ] || fail "The downloaded copy was not removed."
 [ -f "$work/data/mph-data.db" ] || fail "The data file is missing."
 echo "Self-update passed: 0.0.1 -> 0.0.2, old app kept as MPH Register.previous.exe."
+
+data_format() { python -c "import sqlite3, sys; c = sqlite3.connect(sys.argv[1]); print(c.execute('PRAGMA user_version').fetchone()[0]); c.close()" "$(cygpath -m "$1")"; }
+json() { python -c "import json, sys; print(json.load(sys.stdin)$1)"; }
+before=$(data_format "$work/data/mph-data.db")
+python -c "import sqlite3, sys; c = sqlite3.connect(sys.argv[1]); c.execute('PRAGMA user_version = 99'); c.commit(); c.close()" "$(cygpath -m "$work/data/mph-data.db")"
+back=$(curl -fsS "$base/api/updates/rollback")
+echo "$back"
+[ "$(echo "$back" | json "['available']")" = True ] || fail "Going back was not offered after the update."
+[ "$(echo "$back" | json "['version']")" = 0.0.1 ] || fail "Going back did not name 0.0.1."
+[ "$(echo "$back" | json "['undoesChanges']")" = True ] || fail "A newer data format was not noticed."
+refused=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "X-MPH-Request: 1" -H "Content-Type: application/json" -d '{"undoChanges":false}' "$base/api/updates/rollback")
+[ "$refused" = 400 ] || fail "Going back without confirming the undo was not refused ($refused)."
+curl -fsS -X POST -H "X-MPH-Request: 1" -H "Content-Type: application/json" -d '{"undoChanges":true}' "$base/api/updates/rollback" || fail "Going back was refused."
+now=""
+for _ in $(seq 120); do
+  now=$(version || true)
+  [ "$now" = 0.0.1 ] && break
+  sleep 1
+done
+[ "$now" = 0.0.1 ] || fail "The app did not come back as 0.0.1 (it answers: ${now:-nothing})."
+[ "$(data_format "$work/data/mph-data.db")" = "$before" ] || fail "The data from the update was not put back."
+kept=$(ls -d "$work/data/rollback"/kept-*-from-0.0.2 2> /dev/null | head -n 1)
+[ -n "$kept" ] && [ "$(data_format "$kept/mph-data.db")" = 99 ] || fail "Today's data was not kept."
+[ -f "$work/app/MPH Register.previous.exe" ] || fail "The newer app was not kept as MPH Register.previous.exe."
+for _ in $(seq 30); do [ -f "$work/app/MPH Register.rollback.exe" ] || break; sleep 1; done
+[ ! -f "$work/app/MPH Register.rollback.exe" ] || fail "The copy that went back was not removed."
+[ "$(curl -fsS "$base/api/updates/rollback" | json "['available']")" = False ] || fail "Going back was still offered."
+[ "$(curl -fsS "$base/api/updates?refresh=true" | json "['skipped']")" = True ] || fail "0.0.2 was offered again by itself."
+echo "Going back passed: 0.0.2 -> 0.0.1, data from the update put back, today's kept in $(basename "$kept")."
