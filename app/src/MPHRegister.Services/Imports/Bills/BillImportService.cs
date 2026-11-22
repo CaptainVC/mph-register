@@ -59,9 +59,13 @@ public sealed class BillImportService(
         if (docs.Count == 0 && errors.Count == 0) errors.Add("No filled bills were found on the Main sheet.");
         foreach (var dup in docs.GroupBy(p => p.Doc.InvoiceNo, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1))
             errors.Add($"Bill number {dup.Key} appears {dup.Count()} times ({string.Join(", ", dup.Select(d => d.Bill.Cell))}).");
-        foreach (var (bill, doc) in docs)
+        var alreadyInApp = new List<string>();
+        docs = docs.Where(d => !InApp(d.Bill, d.Doc, alreadyInApp, errors)).ToList();
+        if (alreadyInApp.Count > 0)
         {
-            if (invoices.Exists(doc.InvoiceNo!, bill.Fy, bill.Serial)) errors.Add($"Bill {doc.InvoiceNo} is already in the app.");
+            warnings.Add(docs.Count == 0 && errors.Count == 0
+                ? $"Nothing new to import: all {alreadyInApp.Count} bills of this workbook are already in the app, exactly as in the workbook."
+                : $"{alreadyInApp.Count} bill(s) are already in the app exactly as in the workbook and are skipped: {string.Join(", ", alreadyInApp)}.");
         }
 
         var linked = LinkWorkbook(docs, firm, errors, warnings);
@@ -71,7 +75,7 @@ public sealed class BillImportService(
             warnings.Add($"{unmatched.Count} bill line(s) could not be matched to inward entries. The bills still import; tick the left-over entries that were billed and mark them.");
 
         var imported = false;
-        if (commit && errors.Count == 0)
+        if (commit && errors.Count == 0 && finished.Count > 0)
         {
             backups.Backup(session.Connection, "before-bill-import");
             config.Backup("before-bill-import");
@@ -89,7 +93,25 @@ public sealed class BillImportService(
         }
         return new BillImportReport(imported, fileName, finished.Count, finished.Sum(f => f.Doc.Total), finished.Sum(f => f.Doc.Lines.Sum(l => l.EntryIds?.Count ?? 0)),
             added.Select(p => p.Name).ToList(), linked.Bills.OrderBy(b => b.InvoiceNo, StringComparer.OrdinalIgnoreCase).ToList(), unmatched, linked.Leftovers, errors, warnings,
-            linked.Suggestions);
+            linked.Suggestions, alreadyInApp.Count);
+    }
+
+    /// <summary>
+    /// True when the app already has a bill with this number. The same bill (written to Excel from the app, or imported
+    /// before) is skipped quietly; a different one, or a cancelled one, is an error.
+    /// </summary>
+    private bool InApp(SheetBill bill, InvoiceDoc doc, List<string> alreadyInApp, List<string> errors)
+    {
+        if (invoices.FindByNumber(doc.InvoiceNo!, bill.Fy, bill.Serial) is not { } existing) return false;
+        if (existing.Status != InvoiceStatus.Saved.ToDbValue())
+        {
+            errors.Add($"Bill {doc.InvoiceNo} is already in the app, as a cancelled bill.");
+            return true;
+        }
+        var differences = SheetBillComparer.Differences(bill, InvoiceMapper.ToDoc(existing, invoices.Lines(existing.Id)));
+        if (differences.Count == 0) alreadyInApp.Add(doc.InvoiceNo!);
+        else errors.Add($"Bill {doc.InvoiceNo} is already in the app but differs from the workbook ({bill.Cell}): {string.Join("; ", differences.Take(3))}.");
+        return true;
     }
 
     public BillRelinkReport Relink(bool commit)
@@ -378,5 +400,5 @@ public sealed class BillImportService(
         return known;
     }
 
-    private static BillImportReport Fail(string fileName, string error) => new(false, fileName, 0, 0, 0, [], [], [], [], [error], [], []);
+    private static BillImportReport Fail(string fileName, string error) => new(false, fileName, 0, 0, 0, [], [], [], [], [error], [], [], 0);
 }

@@ -33,7 +33,8 @@ public sealed class InvoiceService(
     public IReadOnlyList<InvoiceSummary> List(string? month, string? party) => invoices
         .List(Dates.IsValidMonth(month) ? month : null, string.IsNullOrWhiteSpace(party) ? null : party.NormalizeName())
         .Select(r => new InvoiceSummary(r.Id, r.InvoiceNo, r.BillDate, r.BillMonth, r.Party, r.PartyName, r.Than, r.Total,
-            r.Status.ToEnum(InvoiceStatus.Saved), r.Source.ToEnum(InvoiceSource.App), r.Finishes ?? string.Empty, r.Entries))
+            r.Status.ToEnum(InvoiceStatus.Saved), r.Source.ToEnum(InvoiceSource.App), r.Finishes ?? string.Empty, r.Entries,
+            r.ExportedAt, r.ExportedTo, r.ChangedSinceExport))
         .ToList();
 
     public InvoiceDoc Get(long id)

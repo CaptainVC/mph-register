@@ -18,8 +18,10 @@ public sealed class InvoiceRepository(IDbSession session) : RepositoryBase(sessi
             (SELECT COALESCE(SUM(qty), 0) FROM invoice_lines l WHERE l.invoice_id = i.id AND l.kind = 'priced') AS than,
             i.total, i.status, i.source,
             (SELECT group_concat(DISTINCT finish) FROM invoice_lines l WHERE l.invoice_id = i.id AND l.kind = 'priced') AS finishes,
-            (SELECT COUNT(*) FROM invoice_entries ie WHERE ie.invoice_id = i.id) AS entries
+            (SELECT COUNT(*) FROM invoice_entries ie WHERE ie.invoice_id = i.id) AS entries,
+            x.exported_at, x.file_name AS exported_to, COALESCE(x.invoice_updated_at <> i.updated_at, 0) AS changed_since_export
         FROM invoices i
+        LEFT JOIN bill_exports x ON x.id = (SELECT id FROM bill_exports WHERE invoice_id = i.id ORDER BY exported_at DESC, id DESC LIMIT 1)
         WHERE (@month IS NULL OR i.bill_month = @month) AND (@party IS NULL OR i.party = @party)
         ORDER BY i.fy, i.serial;
         """,
@@ -124,6 +126,9 @@ public sealed class InvoiceRepository(IDbSession session) : RepositoryBase(sessi
         DELETE FROM invoices WHERE id = @InvoiceId;
         """,
         undo);
+
+    public InvoiceEntity? FindByNumber(string invoiceNo, string fy, int serial) => First<InvoiceEntity>(
+        $"SELECT {Columns} FROM invoices WHERE invoice_no = @invoiceNo OR (fy = @fy AND serial = @serial) ORDER BY id LIMIT 1;", new { invoiceNo, fy, serial });
 
     public bool Exists(string invoiceNo, string fy, int serial) =>
         Scalar<long?>("SELECT 1 FROM invoices WHERE invoice_no = @invoiceNo OR (fy = @fy AND serial = @serial) LIMIT 1;", new { invoiceNo, fy, serial }) is not null;

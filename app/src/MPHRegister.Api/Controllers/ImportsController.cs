@@ -1,14 +1,20 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using MPHRegister.Contracts.Billing;
 using MPHRegister.Contracts.Imports;
 using MPHRegister.Services.Interfaces;
 using MPHRegister.Shared.Constants;
 using MPHRegister.Shared.Exceptions;
+using MPHRegister.Shared.Json;
 
 namespace MPHRegister.Api.Controllers;
 
-/// <summary>Excel uploads. "commit=true" saves; otherwise the report is a preview and nothing changes.</summary>
+/// <summary>
+/// Excel uploads. Imports: "commit=true" saves; otherwise the report is a preview and nothing changes. Bill export: the
+/// uploaded bill workbook comes back as a filled copy (the "request" field says which bills).
+/// </summary>
 [Route("api")]
-public sealed class ImportsController(IInwardImportService inward, IBillImportService bills) : ApiControllerBase
+public sealed class ImportsController(IInwardImportService inward, IBillImportService bills, IBillExportService export) : ApiControllerBase
 {
     private static readonly string[] Workbooks = [".xlsm", ".xlsx", ".xls"];
 
@@ -26,6 +32,39 @@ public sealed class ImportsController(IInwardImportService inward, IBillImportSe
     {
         var (form, file) = await ReadWorkbook("Choose a bill workbook to import.", cancellationToken);
         return await WithTempCopy(file, "mph-bills", path => bills.Import(path, Path.GetFileName(file.FileName), form["commit"] == "true"), cancellationToken);
+    }
+
+    /// <summary>Where each ticked bill would go in the uploaded bill workbook, and what would be typed into it.</summary>
+    [HttpPost("billing/excel/preview")]
+    [RequestSizeLimit(Limits.MaxUploadBytes)]
+    public async Task<ActionResult<BillExportPreview>> PreviewExport(CancellationToken cancellationToken)
+    {
+        var (form, file) = await ReadWorkbook("Choose the bill workbook to write the bills into.", cancellationToken);
+        var request = ExportRequest(form);
+        return await WithTempCopy(file, "mph-bill-export", path => export.Preview(path, Path.GetFileName(file.FileName), request), cancellationToken);
+    }
+
+    /// <summary>The uploaded bill workbook with the ticked bills written into it, as a download.</summary>
+    [HttpPost("billing/excel/export")]
+    [RequestSizeLimit(Limits.MaxUploadBytes)]
+    public async Task<IActionResult> Export(CancellationToken cancellationToken)
+    {
+        var (form, file) = await ReadWorkbook("Choose the bill workbook to write the bills into.", cancellationToken);
+        var request = ExportRequest(form);
+        var filled = await WithTempCopy(file, "mph-bill-export", path => export.Export(path, Path.GetFileName(file.FileName), request), cancellationToken);
+        return File(filled.Content, filled.ContentType, filled.FileName);
+    }
+
+    private static BillExportRequest ExportRequest(IFormCollection form)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<BillExportRequest>(form["request"].ToString(), JsonDefaults.Options) ?? new BillExportRequest(null, null);
+        }
+        catch (JsonException)
+        {
+            throw new AppValidationException("Tick the bills to write to Excel.");
+        }
     }
 
     /// <summary>Matches the bills imported from Excel to the inward register again; "commit" saves the new links.</summary>

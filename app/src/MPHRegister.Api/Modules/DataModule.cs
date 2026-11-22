@@ -24,6 +24,7 @@ public static class DataModule
         services.AddScoped<IBilledElsewhereRepository, BilledElsewhereRepository>();
         services.AddScoped<IImportLogRepository, ImportLogRepository>();
         services.AddScoped<IDashboardRepository, DashboardRepository>();
+        services.AddScoped<IBillExportRepository, BillExportRepository>();
         return services;
     }
 }

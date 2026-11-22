@@ -31,5 +31,8 @@ public interface IInvoiceRepository
 
     bool Exists(string invoiceNo, string fy, int serial);
 
+    /// <summary>The bill with that number (or that serial in that financial year), or null.</summary>
+    InvoiceEntity? FindByNumber(string invoiceNo, string fy, int serial);
+
     int MaxSerial(string fy);
 }
