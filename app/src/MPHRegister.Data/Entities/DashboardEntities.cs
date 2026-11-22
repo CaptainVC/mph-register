@@ -36,6 +36,13 @@ public sealed record DashboardFinishRow
     public long Amount { get; init; }
 }
 
+public sealed record DashboardPartyBillDate
+{
+    public string Party { get; init; } = string.Empty;
+
+    public string LastBill { get; init; } = string.Empty;
+}
+
 /// <summary>One inward entry as the dashboard needs it: who, what, when, how much and how much went back.</summary>
 public sealed record DashboardEntryRow
 {

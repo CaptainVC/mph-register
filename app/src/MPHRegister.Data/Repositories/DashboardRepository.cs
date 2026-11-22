@@ -16,15 +16,20 @@ public sealed class DashboardRepository(IDbSession session) : RepositoryBase(ses
         """,
         new { from, to });
 
-    public IReadOnlyList<DashboardFinishRow> Finishes(string from, string to) => Query<DashboardFinishRow>(
-        """
+    public IReadOnlyList<DashboardFinishRow> Finishes(string from, string to, IReadOnlyList<string>? billParties)
+    {
+        if (billParties is { Count: 0 }) return [];
+        return Query<DashboardFinishRow>(
+        $"""
         SELECT l.finish AS finish, COALESCE(SUM(l.qty), 0) AS than, COALESCE(SUM(l.amount), 0) AS amount
         FROM invoice_lines l JOIN invoices i ON i.id = l.invoice_id
         WHERE i.status = 'saved' AND l.kind = 'priced' AND i.bill_date BETWEEN @from AND @to
+        {(billParties is null ? "" : "AND i.party IN @billParties")}
         GROUP BY l.finish COLLATE NOCASE
         ORDER BY amount DESC;
         """,
-        new { from, to });
+        new { from, to, billParties });
+    }
 
     public IReadOnlyList<DashboardEntryRow> Entries(string asOf) => Query<DashboardEntryRow>(
         """
@@ -43,8 +48,12 @@ public sealed class DashboardRepository(IDbSession session) : RepositoryBase(ses
         ORDER BY e.entry_date, e.id;
         """, new { asOf });
 
-    public string? LatestBillDate(string asOf) => Scalar<string>(
-        "SELECT MAX(bill_date) FROM invoices WHERE status = 'saved' AND bill_date <= @asOf;",
+    public IReadOnlyList<DashboardPartyBillDate> LatestBillDates(string asOf) => Query<DashboardPartyBillDate>(
+        """
+        SELECT party, MAX(bill_date) AS last_bill
+        FROM invoices WHERE status = 'saved' AND bill_date <= @asOf
+        GROUP BY party;
+        """,
         new { asOf });
 
     public string? EarliestDate() => Scalar<string>(

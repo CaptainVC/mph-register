@@ -87,6 +87,9 @@ public sealed class ApiDashboardTests(DashboardApiFactory factory) : IClassFixtu
         var business = await Build();
         var app = business.App;
         var d = await Dashboard(app);
+        Assert.Null(d.Party);
+        Assert.Null(d.Overall);
+        Assert.Contains("DASH CHILD", d.PartyOptions);
 
         Assert.Equal(("2026-11-21", "26-27", "2026-10"), (d.Today, d.Fy, d.Month));
         Assert.Equal(["26-27", "25-26"], d.Years);
@@ -137,6 +140,38 @@ public sealed class ApiDashboardTests(DashboardApiFactory factory) : IClassFixtu
         var unknown = await Dashboard(app, "?fy=99-00&month=1999-01");
         Assert.Equal(("26-27", "2026-10"), (unknown.Fy, unknown.Month));
 
+        var a = await Dashboard(app, $"?party={Http.Q(" dash  a ")}");
+        Assert.Equal("DASH A", a.Party);
+        Assert.Equal(d.PartyOptions, a.PartyOptions);
+        Assert.Equal(new DashboardOverall(2200, 2200, 35, "2026-11-10"), a.Overall);
+        Assert.Equal(new YearFigures(1, 1, 30, 2000, 200, 1800, 90, 1890, 1, 0), a.Year);
+        Assert.Equal([new FinishIncome("F1", 10, 1000, 50m, 100m), new FinishIncome("F2", 20, 1000, 50m, 50m)], a.Finishes.OrderBy(f => f.Finish, StringComparer.Ordinal));
+        Assert.Equal(81.8m, Assert.Single(a.Parties).Share);
+        Assert.Equal((4, 36, 0L), (a.Monthly[^2].InwardEntries, a.Monthly[^2].InwardThan, a.Monthly[^2].LastYearTaxable));
+        Assert.Equal((1, 4, 240L), (a.Unbilled.ReadyEntries, a.Unbilled.ReadyThan, a.Unbilled.ReadyValue));
+        Assert.Equal(2, a.Stock.Total.Pieces);
+        Assert.Equal(new RepairParty("DASH A", 1, 2), Assert.Single(a.Repairs.TopParties));
+        Assert.Empty(a.QuietParties);
+        Assert.Equal(new DashboardCoverage("2026-10-02", "2026-10-03", "2026-10-31"), a.Coverage);
+        Assert.Equal(new InwardNow("2026-11", "2026-11-10", 0, 0, null, 0, 0), a.ThisMonth);
+
+        var filteredPast = await Dashboard(app, $"?party={Http.Q("DASH A")}&fy=25-26");
+        Assert.Equal(("2025-10", 0L, 320L, 4), (filteredPast.Month, filteredPast.Year.Taxable, filteredPast.Overall!.MonthTaxable, filteredPast.Overall.YearThan));
+        Assert.Equal(a.Stock, filteredPast.Stock);
+        Assert.Equal(a.Unbilled.ReadyEntries, filteredPast.Unbilled.ReadyEntries);
+        var b = await Dashboard(app, $"?party={Http.Q("DASH B")}");
+        Assert.Equal(320L, b.Monthly[^2].LastYearTaxable);
+        var quiet = await Dashboard(app, $"?party={Http.Q("DASH QUIET")}&month=2026-11");
+        Assert.Equal(d.QuietParties, quiet.QuietParties);
+        Assert.Equal(0, quiet.Overall!.MonthTaxable);
+        Assert.Equal(0, quiet.Review.EarlierInward.Entries);
+        var absent = await Dashboard(app, "?party=ABSENT");
+        Assert.Equal("ABSENT", absent.Party);
+        Assert.Equal(0, absent.Year.Bills);
+        Assert.Empty(absent.Finishes);
+        Assert.Equal(new DashboardCoverage(null, null, null), absent.Coverage);
+        Assert.Equal(a.Overall, absent.Overall);
+
         // Billing the child entry moves its 630 out of "ready to bill" and into income; the F3 guess follows DASH A's new average.
         var childDrafts = await app.Post("/api/billing/build", new { party = "DASH CHILD", month = "2026-10", entryIds = new[] { business.Child }, billDate = "2026-10-31", periodFrom = "2026-10-01", periodTo = "2026-10-31" }).Ok();
         var reassigned = await app.Post($"/api/billing/compute?recipient={Http.Q("DASH A")}", Assert.Single(childDrafts.EnumerateArray())).Ok();
@@ -146,6 +181,10 @@ public sealed class ApiDashboardTests(DashboardApiFactory factory) : IClassFixtu
         Assert.Equal((3, 97, 240L + 263L + 810L), (after.Unbilled.ReadyEntries, after.Unbilled.ReadyThan, after.Unbilled.ReadyValue));
         Assert.Equal(2830L, after.Monthly.Single(m => m.Month == "2026-10").Taxable);
         Assert.Equal([quietWork, new UnbilledParty("DASH A", 1, 4, 263, 1, "2026-10-02", 49, 0, 0) { EarlierInwardEntries = 1, ReadyNoRateEntries = 1 }, oldWork], after.UnbilledParties);
+        var afterA = await Dashboard(app, $"?party={Http.Q("DASH A")}");
+        var afterChild = await Dashboard(app, $"?party={Http.Q("DASH CHILD")}");
+        Assert.Equal((2430L, 37, 36), (afterA.Year.Taxable, afterA.Year.Than, afterA.Monthly[^2].InwardThan));
+        Assert.Equal((0, 7, 0), (afterChild.Year.Bills, afterChild.Monthly[^2].InwardThan, afterChild.Unbilled.ReadyEntries));
     }
 
     [Fact]

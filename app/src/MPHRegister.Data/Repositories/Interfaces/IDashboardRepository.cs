@@ -9,12 +9,12 @@ public interface IDashboardRepository
     IReadOnlyList<DashboardBillRow> Bills(string from, string to);
 
     /// <summary>Priced lines of saved bills dated in the range, per finish.</summary>
-    IReadOnlyList<DashboardFinishRow> Finishes(string from, string to);
+    IReadOnlyList<DashboardFinishRow> Finishes(string from, string to, IReadOnlyList<string>? billParties);
 
     /// <summary>Inward entries and dispatch quantities recorded through the given date, including undated quantities.</summary>
     IReadOnlyList<DashboardEntryRow> Entries(string asOf);
 
-    string? LatestBillDate(string asOf);
+    IReadOnlyList<DashboardPartyBillDate> LatestBillDates(string asOf);
 
     /// <summary>Earliest saved bill or inward date, or null when there is no data.</summary>
     string? EarliestDate();
