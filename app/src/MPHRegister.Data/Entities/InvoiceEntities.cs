@@ -100,6 +100,10 @@ public sealed record InvoiceSummaryRow
 
     public string BillMonth { get; init; } = string.Empty;
 
+    public string Fy { get; init; } = string.Empty;
+
+    public int Serial { get; init; }
+
     public string Party { get; init; } = string.Empty;
 
     public string PartyName { get; init; } = string.Empty;
