@@ -24,9 +24,12 @@ function monthBounds(month) {
   return { from: `${month}-01`, to: `${month}-${String(last).padStart(2, "0")}` };
 }
 
+// Confirmations pop up as toasts; warnings and problems stay in the layout beside what needs attention.
 function setBillMessage(text, kind) {
-  $("billMessage").textContent = text;
-  $("billMessage").className = `message ${kind || ""}`;
+  const popup = text && kind === "ok";
+  $("billMessage").textContent = popup ? "" : text;
+  $("billMessage").className = `message ${popup ? "" : kind || ""}`;
+  if (popup) toast(text);
 }
 
 function clearBillCache() {
@@ -1023,8 +1026,6 @@ async function openInvoice(id) {
       markSaved(form);
       await refreshInvoices();
       await openInvoice(saved.id);
-      $("ie-message").textContent = "Saved ✓";
-      $("ie-message").className = "message ok";
       toast(`Saved ${saved.invoiceNo}`);
       state.entriesCache.clear();
     } catch (error) {
@@ -1070,9 +1071,7 @@ async function openInvoice(id) {
           clearBillCache();
           await refreshToBill();
         }
-        const text = `Undid save for ${result.invoiceNo}. Next bill number: ${result.nextSerial}.`;
-        setBillMessage(text, "ok");
-        toast(text);
+        setBillMessage(`Undid save for ${result.invoiceNo}. Next bill number: ${result.nextSerial}.`, "ok");
       } catch (error) {
         if ($("invoiceDrawer").open) say(error.message, "err");
         else await showAlert({
@@ -1191,6 +1190,9 @@ function renderBillImport(report) {
   if (report.imported && report.leftovers.length) children.push(leftoverPanel(report.leftovers));
   $("billImportResult").replaceChildren(el("div", { class: `report ${ok ? "ok" : "err"}` }, children));
   $("billImportRun").disabled = !ok || report.imported;
+  if (report.imported) toast(`Imported ${num(report.invoices)} bills`);
+  else if (!ok) toast(`Problems found in the bill workbook (${num(report.errors.length)}): nothing imported`, "err");
+  else toast(`Check passed: ${num(report.invoices)} bills ready to import`);
 }
 
 function unmatchedLinesTable(lines) {
@@ -1240,6 +1242,8 @@ function renderRelink(report) {
   }
   $("relinkResult").replaceChildren(el("div", { class: "report ok" }, children));
   $("relinkSave").disabled = report.saved || !changed;
+  if (report.saved) toast(`Saved new links for ${num(report.changedBills)} bills`);
+  else toast(changed ? `${num(report.changedBills)} of ${num(report.bills)} bills get new links` : "Links are up to date", changed ? "ok" : "warn");
 }
 
 async function runRelink(commit) {
@@ -1249,6 +1253,7 @@ async function runRelink(commit) {
     if (commit) state.entriesCache.clear();
   } catch (error) {
     $("relinkResult").replaceChildren(el("div", { class: "report err" }, [el("ul", {}, (error.errors || [error.message]).map((e) => el("li", { text: e })))]));
+    toast(`Could not ${commit ? "save" : "check"} the links: ${(error.errors || [error.message])[0]}`, "err");
   }
 }
 
@@ -1268,11 +1273,11 @@ function leftoverPanel(leftovers) {
     const ids = [...document.querySelectorAll(".leftover")].filter((b) => b.checked).map((b) => Number(b.dataset.id));
     try {
       const result = await api("/api/billing/elsewhere", { method: "POST", json: { entryIds: ids, note: note.value } });
-      mark.textContent = `Marked ${num(result.changed)} ✓`;
+      toast(`Marked ${num(result.changed)} ${result.changed === 1 ? "entry" : "entries"} as already billed`);
       document.querySelectorAll(".leftover").forEach((b) => { if (b.checked) b.closest("tr").remove(); });
       state.entriesCache.clear();
     } catch (error) {
-      mark.textContent = error.message;
+      toast(error.message, "err");
     }
   } });
   return el("div", {}, [
@@ -1285,10 +1290,16 @@ function leftoverPanel(leftovers) {
   ]);
 }
 
+function showBillImportError(error) {
+  const errors = error.errors || [error.message];
+  $("billImportResult").replaceChildren(el("div", { class: "report err" }, [el("ul", {}, errors.map((e) => el("li", { text: e })))]));
+  toast(errors.length > 1 ? `Cannot import: ${errors[0]} (and ${num(errors.length - 1)} more)` : `Cannot import: ${errors[0]}`, "err");
+}
+
 $("billImportFile").addEventListener("change", () => { $("billImportRun").disabled = true; $("billImportResult").replaceChildren(); });
 $("billImportCheck").addEventListener("click", async () => {
   try { renderBillImport(await sendBillImport(false)); } catch (error) {
-    $("billImportResult").replaceChildren(el("div", { class: "report err" }, [el("ul", {}, (error.errors || [error.message]).map((e) => el("li", { text: e })))]));
+    showBillImportError(error);
   }
 });
 $("billImportRun").addEventListener("click", async () => {
@@ -1297,7 +1308,7 @@ $("billImportRun").addEventListener("click", async () => {
     renderBillImport(await sendBillImport(true));
     state.entriesCache.clear();
   } catch (error) {
-    $("billImportResult").replaceChildren(el("div", { class: "report err" }, [el("ul", {}, (error.errors || [error.message]).map((e) => el("li", { text: e })))]));
+    showBillImportError(error);
   }
 });
 

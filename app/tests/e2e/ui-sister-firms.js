@@ -56,7 +56,7 @@ async function seed() {
     assert.equal(await page.locator("#sisterTable tbody tr").count(), existingGroups + 1);
     assert.equal(await row.locator("td").nth(1).textContent(), "2");
     assert.equal(await row.locator("td").nth(2).textContent(), "SISTER UI A, SISTER UI B");
-    assert.equal(await page.locator("#sisterForm .form-message").textContent(), "Saved ✓ UI FAMILY");
+    await page.locator(".toast", { hasText: "Saved UI FAMILY" }).waitFor();
 
     // The Parties tab shows the same group.
     assert.equal((await call("/api/masters/full")).parties.filter((p) => p.sisterGroup === "UI FAMILY").length, 2);

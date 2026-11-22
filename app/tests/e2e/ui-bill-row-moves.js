@@ -65,10 +65,16 @@ async function seed() {
       assert.notEqual(index, -1, `${design} should be on bill ${bill + 1}`);
       return drafts.nth(bill).locator("tbody tr").nth(index);
     };
-    const move = async (from, design, to, message = `Row moved to Bill ${to + 1}.`) => {
+    const move = async (from, design, to, message = `Row moved to Bill ${to + 1}.`, failed = false) => {
+      await page.evaluate(() => document.getElementById("toasts").replaceChildren());
       await chooseDropdown((await row(from, design)).locator(".move-bill-row"), to === await drafts.count() ? "new" : String(to));
       await page.locator("#saveBills:enabled").waitFor();
-      assert.equal(await page.locator("#billMessage").textContent(), message);
+      // A failure stays in the layout; a completed move is announced by a toast.
+      if (failed) assert.equal(await page.locator("#billMessage").textContent(), message);
+      else {
+        await page.locator(".toast", { hasText: message }).waitFor();
+        assert.equal(await page.locator("#billMessage").textContent(), "");
+      }
     };
     const detailDesigns = (bill) => drafts.nth(bill).locator(".k-detail .g-dn").evaluateAll((inputs) => inputs.map((input) => input.value));
     await page.locator("#candNone").click();
@@ -123,7 +129,7 @@ async function seed() {
 
     // A failed recalculation must leave both drafts intact and allow a retry.
     await page.route("**/api/billing/compute", (route) => route.fulfill({ status: 400, json: { errors: ["Test calculation failed."] } }), { times: 1 });
-    await move(0, "D1", 2, "Test calculation failed.");
+    await move(0, "D1", 2, "Test calculation failed.", true);
     assert.equal(await (await row(0, "D1")).locator(".g-qty").inputValue(), "10");
     const lot = (await row(0, "D1")).locator(".g-lot");
     await lot.fill("EDITED LOT");
@@ -165,7 +171,7 @@ async function seed() {
     const originalGatePass = await gatePass.inputValue();
     await gatePass.fill("9".repeat(60));
     await gatePass.press("Tab");
-    await move(2, "D9", 0, "Bill 1 is full (5 printed rows). The row was not moved.");
+    await move(2, "D9", 0, "Bill 1 is full (5 printed rows). The row was not moved.", true);
     assert.equal(await drafts.count(), 3, "a wrapped priced row still needs more than one printed row");
     await gatePass.fill(originalGatePass);
     await gatePass.press("Tab");

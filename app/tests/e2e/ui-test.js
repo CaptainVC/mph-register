@@ -76,8 +76,8 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   await page.keyboard.press("Enter");
   check("Enter moves to TWO PART", await page.evaluate(() => document.activeElement.id === "twoPart"));
   await page.keyboard.press("Enter");
-  await page.waitForFunction(() => document.getElementById("formMessage").textContent.includes("Saved"));
-  const message = await page.textContent("#formMessage");
+  await page.waitForFunction(() => document.getElementById("toasts").textContent.includes("Saved"));
+  const message = await page.textContent("#toasts");
   check("saved message", message.includes("INW. NO. 5") && message.includes(BIG) && message.includes("24 THAN S2G"), message);
   check("form cleared and ready", (await page.inputValue("#party")) === "" && (await page.inputValue("#inwardNo")) === "6");
   check("focus back on PARTY", await page.evaluate(() => document.activeElement.id === "party"));
@@ -104,7 +104,7 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   check("edit fields loaded", (await page.inputValue("#designNo")) === "13600" && (await page.inputValue("#lotNo")) === "L-88");
   await page.fill("#lotNo", "L-89");
   await page.click("#saveButton");
-  await page.waitForFunction(() => document.getElementById("formMessage").textContent.includes("Corrected"));
+  await page.waitForFunction(() => document.getElementById("toasts").textContent.includes("Corrected"));
   check("correction saved", (await page.textContent("#recentTable tbody tr:first-child")).includes("L-89"));
   await page.click("#recentTable tbody tr:first-child td.inward");
   await page.keyboard.press("Escape");
@@ -122,7 +122,7 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   const dispatchStats = await page.evaluate(() => ["dispatchTotal", "dispatchSent", "dispatchBalance"].map((id) => document.getElementById(id).textContent).join("/"));
   check("dispatch summary live", dispatchStats === "25/10/15", dispatchStats);
   await page.click("#saveButton");
-  await page.waitForFunction(() => document.getElementById("formMessage").textContent.includes("Corrected"));
+  await page.waitForFunction(() => document.getElementById("toasts").textContent.includes("Corrected"));
   check("dispatch saved, row partial colour", await page.waitForFunction(() => document.querySelector("#recentTable tbody tr:first-child")?.classList.contains("partial"), null, { timeout: 5000 }).then(() => true, () => false));
   await page.click("#recentTable tbody tr:first-child td.inward");
   check("saved dispatch loads with an empty row after it", (await page.$$("#dispatchRows tr")).length === 2 && (await page.inputValue("#dispatchRows tr:first-child .d-qty")) === "10" && (await page.inputValue("#dispatchRows tr:last-child .d-qty")) === "");
@@ -311,12 +311,12 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   await page.waitForSelector("#appDialog[open]");
   check("all-zero save asks first", (await page.textContent("#appDialogTitle")) === "Save an all-zero entry?", await page.textContent("#appDialogTitle"));
   await page.click("#appDialogCancel");
-  check("going back saves nothing and keeps the form", (await page.inputValue("#party")) === BIG && !(await page.textContent("#formMessage")).includes("Saved"));
+  check("going back saves nothing and keeps the form", (await page.inputValue("#party")) === BIG && !(await page.textContent("#toasts")).includes("Saved"));
   await page.click("#saveButton");
   await page.click("#appDialogConfirm");
-  await page.waitForFunction(() => document.getElementById("formMessage").textContent.includes("all zero"));
-  check("all-zero slip saved and shown faded", (await page.textContent("#formMessage")).includes("all zero (slip number only)")
-    && (await page.$eval("#recentTable tbody tr:first-child", (r) => r.classList.contains("allZero") && !r.classList.contains("has-warning"))), await page.textContent("#formMessage"));
+  await page.waitForFunction(() => document.getElementById("toasts").textContent.includes("all zero"));
+  check("all-zero slip saved and shown faded", (await page.textContent("#toasts")).includes("all zero (slip number only)")
+    && (await page.$eval("#recentTable tbody tr:first-child", (r) => r.classList.contains("allZero") && !r.classList.contains("has-warning"))), await page.textContent("#toasts"));
 
   await page.screenshot({ path: "/tmp/mph-ui-entry.png" });
   await page.click(".tab[data-view=register]");

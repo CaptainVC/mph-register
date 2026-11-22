@@ -78,7 +78,7 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   await page.click('#rateTable tr[data-finish="SGJ"] .rate-edit');
   await page.fill("#rate-value", "87.5");
   await page.press("#rate-value", "Enter");
-  await page.waitForFunction(() => document.getElementById("rate-message")?.textContent.includes("Saved"));
+  await page.waitForFunction(() => document.getElementById("toasts").textContent.includes("Saved"));
   check("rate edited in the table and saved at once", (await page.textContent('#rateTable tr[data-finish="SGJ"] td.num')) === "₹87.50");
   await page.click('#rateTable tr[data-finish="SGJ"] .rate-edit');
   await page.fill("#rate-value", "87");
@@ -95,7 +95,7 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   check("deleting a rate uses custom confirmation modal", (await page.textContent("#appDialogBody")).includes("SGZ"));
   await page.click("#appDialogConfirm");
   await page.waitForFunction(() => !document.querySelector('#rateTable tr[data-finish="SGZ"]'));
-  check("rate deleted from the table", (await page.$$("#rateTable tbody tr")).length === 8 && (await page.textContent("#rate-message")).includes("Deleted"));
+  check("rate deleted from the table", (await page.$$("#rateTable tbody tr")).length === 8 && (await page.textContent("#toasts")).includes("Deleted"));
 
   await closeWindow();
   await page.fill("#partySearch", "");
@@ -105,7 +105,7 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   await page.fill("#pf-name", "UI TEST PARTY");
   await page.fill("#pf-discount", "10");
   await page.click("#pf-save");
-  await page.waitForFunction(() => document.querySelector("#partyForm .form-message").textContent.includes("Saved"));
+  await page.waitForFunction(() => document.getElementById("toasts").textContent.includes("Saved"));
   await page.click("#addRate");
   await chooseDropdown(page.locator("#rate-finish"), "SGZ");
   await page.fill("#rate-value", "90");
@@ -149,7 +149,7 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   // Enable Billing styles in Settings and verify it appears under Masters.
   await page.check("#feature-billing-styles");
   await page.click("#firm-save");
-  await page.waitForFunction(() => document.querySelector("#firmForm .form-message")?.textContent.includes("Saved"));
+  await page.waitForFunction(() => document.getElementById("toasts").textContent.includes("Settings saved"));
   await page.click(".tab[data-view=masters]");
   check("enabling billing styles in Settings unhides the Masters subsection", !(await page.$eval(".subtab[data-sub=styles]", (b) => b.classList.contains("hidden"))));
 
@@ -174,7 +174,7 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   await page.waitForSelector("#feature-billing-styles");
   await page.uncheck("#feature-billing-styles");
   await page.click("#firm-save");
-  await page.waitForFunction(() => document.querySelector("#firmForm .form-message")?.textContent.includes("Saved"));
+  await page.waitForFunction(() => document.getElementById("toasts").textContent.includes("Settings saved"));
   await page.click(".tab[data-view=masters]");
   check("disabling billing styles hides the subsection and returns to Parties", (await page.$eval(".subtab[data-sub=styles]", (b) => b.classList.contains("hidden"))) && (await page.$eval("#masters-parties", (v) => v.classList.contains("active"))));
 
@@ -300,8 +300,8 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   await page.waitForFunction(() => document.querySelector(".draft h2").textContent.includes("1,37,757"));
 
   await page.click("#saveBills");
-  await page.waitForFunction(() => document.getElementById("billMessage").textContent.includes("Saved"));
-  check("saved with numbers 279 and 280", (await page.textContent("#billMessage")).includes("26-27\\JOB\\279, 26-27\\JOB\\280"), await page.textContent("#billMessage"));
+  await page.waitForFunction(() => document.getElementById("toasts").textContent.includes("Saved"));
+  check("saved with numbers 279 and 280", (await page.textContent("#toasts")).includes("26-27\\JOB\\279, 26-27\\JOB\\280"), await page.textContent("#toasts"));
   await page.waitForFunction(() => document.querySelectorAll("#candidateTable .cand").length === 4);
   check("billed entries leave the list (4 undelivered left)", true);
 
@@ -353,7 +353,7 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   await page.waitForSelector("#invoiceDrawer[open] #ie-save");
   await page.fill("#ie-notes", "checked by UI test");
   await page.click("#ie-save");
-  await page.waitForFunction(() => document.getElementById("ie-message") && document.getElementById("ie-message").textContent.includes("Saved"));
+  await page.waitForFunction(() => document.getElementById("toasts").textContent.includes("Saved"));
   check("edit saved bill", true);
   await page.click("#ie-cancel");
   await page.waitForSelector("#appDialog[open]");

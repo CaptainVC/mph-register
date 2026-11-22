@@ -512,6 +512,8 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   background: var(--panel); color: var(--text); border: 1px solid var(--line); border-left: 4px solid var(--ok); box-shadow: var(--shadow-lg);
   animation: toast-in .2s ease-out;
 }
+.toast { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.toast-action { flex: none; }
 .toast.err { border-left-color: var(--err); }
 .toast.warn { border-left-color: var(--warn); }
 .toast.leaving { opacity: 0; transform: translateY(6px); transition: opacity .25s, transform .25s; }
