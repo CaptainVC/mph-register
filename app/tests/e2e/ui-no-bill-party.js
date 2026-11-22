@@ -52,7 +52,7 @@ async function seed() {
     const rows = page.locator("#registerTable tbody tr");
     await rows.nth(2).waitFor();
     assert.equal(await rows.count(), 3);
-    const billCell = (row) => rows.nth(row).locator("td").nth(24);
+    const billCell = (row) => rows.nth(row).locator("td").nth(11);
     assert.equal(await billCell(0).textContent(), "", "a party that needs bills is blank until billed");
     assert.equal(await billCell(1).textContent(), "No bill needed");
     assert.equal(await billCell(2).textContent(), "No bill needed");

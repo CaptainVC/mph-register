@@ -51,7 +51,7 @@ async function expectText(locator, text, message) {
   assert.equal(await locator.textContent(), text, message);
 }
 
-const COL = { inward: 0, party: 2, designNo: 3, repair: 5, than: 6, tp: 7, nag: 8, finish: 9, nett: 10, qty2: 15, gate2: 16, date2: 17 };
+const COL = { inward: 0, party: 2, designNo: 3, repair: 5, than: 6, tp: 7, nag: 8, finish: 9, nett: 10, qty2: 16, gate2: 17, date2: 18 };
 
 (async () => {
   const ids = await seed();
