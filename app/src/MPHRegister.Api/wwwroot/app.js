@@ -1711,12 +1711,22 @@ async function loadMasters() {
 
 const FOLDER_SOURCE = { nextToApp: "next to the app", documents: "in Documents", environment: "set by MPH_DATA_DIR" };
 
+// Answers can land out of order on a slow computer: only the newest is shown, and an answer to a request sent before the
+// user picked a language or theme does not put the old choice back.
+let infoRequests = 0;
+let displayChoices = 0;
+
 async function refreshInfo() {
+  const request = ++infoRequests;
+  const choices = displayChoices;
   const info = await api("/api/info");
+  if (request !== infoRequests) return info;
   state.info = info;
   $("appInfo").textContent = `Version ${info.version} · ${num(info.entries)} entries · Data folder (${FOLDER_SOURCE[info.dataFolderSource] || info.dataFolderSource}): ${info.dataFolder} · data file mph-data.db + config file mph-config.json`;
-  applyTheme(info.theme);
-  if (typeof applyLanguage === "function") applyLanguage(info.language);
+  if (choices === displayChoices) {
+    applyTheme(info.theme);
+    if (typeof applyLanguage === "function") applyLanguage(info.language);
+  }
   applyFeatures(info);
   showNotices(info);
   return info;
@@ -1725,6 +1735,7 @@ async function refreshInfo() {
 // ---------- Language (kept in the config file; cached so the page opens in the right language) ----------
 async function setLanguageChoice(next) {
   const normalized = next === "hi" ? "hi" : "en";
+  displayChoices++;
   if (typeof applyLanguage === "function") applyLanguage(normalized);
   try {
     const settings = await api("/api/settings");
@@ -1756,6 +1767,7 @@ function applyTheme(theme) {
 
 async function setThemeChoice(next) {
   const value = next === "dark" ? "dark" : "light";
+  displayChoices++;
   applyTheme(value);
   try {
     const settings = await api("/api/settings");

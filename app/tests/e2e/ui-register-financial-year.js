@@ -122,19 +122,27 @@ const entry = (id, month, than, extra = {}) => ({
     await expectRows([2, 3]);
     assert.equal(await dropdownValue(year), "2025", "selection survives tab changes");
 
-    await page.waitForLoadState("networkidle");
+    // Picked the way the operator does: a refresh sent before the choice that lands after it (a slow computer) must
+    // not put the old language back.
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    await page.route("**/api/info", async (route) => { await gate; await route.fallback(); }, { times: 1 });
+    const staleSent = page.waitForRequest("**/api/info");
+    const staleRefresh = page.evaluate(() => refreshInfo());
+    await staleSent;
+    await page.evaluate(() => setLanguageChoice("hi"));
+    release();
+    await staleRefresh;
+    assert.equal(await page.evaluate(() => document.documentElement.lang), "hi", "a late refresh does not undo the language choice");
     language = "hi";
-    const translated = await page.evaluate(() => {
-      window.applyLanguage("hi");
-      return { year: window.t("Financial year"), all: window.t("All financial years") };
-    });
+    const translated = await page.evaluate(() => ({ year: window.t("Financial year"), all: window.t("All financial years") }));
     assert.notEqual(translated.all, "All financial years", "all-years option has a translation");
     assert.equal(await page.locator('label[for="registerFinancialYear"]').textContent(), translated.year);
     assert.equal(await (await dropdownOption(year, "")).textContent(), translated.all);
     await year.press("Escape");
     assert.equal(await dropdownValue(year), "2025", "translation does not change selection");
     language = "en";
-    await page.evaluate(() => window.applyLanguage("en"));
+    await page.evaluate(() => setLanguageChoice("en"));
 
     entries.push(entry(8, "2023-12", 80));
     await page.locator('[data-view="entry"]').click();
