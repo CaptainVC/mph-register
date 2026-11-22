@@ -513,7 +513,11 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   animation: toast-in .2s ease-out;
 }
 .toast { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+/* A plain message is only an announcement: clicks go through it to the buttons underneath. Only a toast with an action
+   (Undo) takes clicks, and it has a close button. */
+.toast:not(.has-action) { pointer-events: none; }
 .toast-action { flex: none; }
+.toast-close { flex: none; min-width: 0; padding: 2px 9px; font-size: 18px; line-height: 1; }
 .toast.err { border-left-color: var(--err); }
 .toast.warn { border-left-color: var(--warn); }
 .toast.leaving { opacity: 0; transform: translateY(6px); transition: opacity .25s, transform .25s; }
