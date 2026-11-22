@@ -34,7 +34,10 @@
       <form id="entryForm" class="card entry-card" autocomplete="off" novalidate>
         <div class="card-head">
           <h1 id="formTitle">New inward entry</h1>
-          <button type="button" id="cancelEdit" class="secondary hidden">Cancel correction (Esc)</button>
+          <div class="edit-buttons">
+            <button type="button" id="deleteEntry" class="danger hidden" title="Delete this entry (it can be restored from Register → Deleted entries)">Delete entry</button>
+            <button type="button" id="cancelEdit" class="secondary hidden">Cancel correction (Esc)</button>
+          </div>
         </div>
         <p class="entry-help">Fill the boxes from left to right. Press Enter to go to the next box. Enter on TWO PART saves the entry.</p>
         <div class="entry-grid">
@@ -112,6 +115,7 @@
             </div>
           </div>
           <button type="button" id="registerFiltersToggle" class="secondary panel-btn filter-toggle" aria-expanded="false" aria-controls="registerFilters" title="Show or hide the row filters"><span>Filters</span><span class="filter-toggle-count hidden"></span></button>
+          <button type="button" id="openDeletedEntries" class="secondary panel-btn" title="Entries deleted in the app; restore one from here">Deleted entries</button>
           <div class="panel-count-wrap"><span id="registerCount" class="count-pill"></span></div>
         </div>
         <div class="filter-bar hidden" id="registerFilters" role="group" aria-label="Row filters: click to include, or open options to exclude"></div>
@@ -416,6 +420,7 @@
   <dialog id="groupDrawer" class="drawer narrow"><form id="groupForm" class="drawer-form" autocomplete="off" novalidate></form></dialog>
   <dialog id="colorDrawer" class="drawer narrow"><form id="colorForm" class="drawer-form" autocomplete="off" novalidate></form></dialog>
   <dialog id="invoiceDrawer" class="drawer wide"><form id="invoiceEditor" class="drawer-form" autocomplete="off" novalidate></form></dialog>
+  <dialog id="deletedDrawer" class="drawer medium"><form id="deletedForm" class="drawer-form" autocomplete="off" novalidate></form></dialog>
   <dialog id="appDialog" class="modal" aria-labelledby="appDialogTitle" aria-describedby="appDialogBody"></dialog>
 
   <script src="i18n.js"></script>

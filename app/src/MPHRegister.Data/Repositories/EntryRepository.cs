@@ -144,6 +144,82 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
 
     public void Delete(long id) => Execute("DELETE FROM entries WHERE id = @id;", new { id });
 
+    private const string DeletedColumns = """
+        id, register_month, inward_no, entry_date, party, design_no, lot_no, repair, than, tp, two_part, finish, short_than,
+        carried_over, import_batch_id, source_values, dispatches, carryover_sources, deleted_at
+        """;
+
+    public void MoveToDeleted(long id, string at) => Execute(
+        """
+        INSERT INTO deleted_entries(id, register_month, inward_no, entry_date, party, design_no, lot_no, repair, than, tp, two_part,
+            finish, short_than, carried_over, import_batch_id, source_row, source_values, created_at, updated_at, dispatches,
+            carryover_sources, deleted_at)
+        SELECT e.id, e.register_month, e.inward_no, e.entry_date, e.party, e.design_no, e.lot_no, e.repair, e.than, e.tp, e.two_part,
+            e.finish, e.short_than, e.carried_over, e.import_batch_id, e.source_row, e.source_values, e.created_at, e.updated_at,
+            (SELECT json_group_array(json_object('seq', d.seq, 'qty', d.qty, 'gatePass', d.gate_pass, 'dispatchDate', d.dispatch_date,
+                'dateText', d.date_text)) FROM (SELECT * FROM dispatches WHERE entry_id = e.id ORDER BY seq) d),
+            (SELECT json_group_array(json_object('registerMonth', c.register_month, 'sourceValues', c.source_values))
+             FROM carryover_sources c WHERE c.entry_id = e.id),
+            @at
+        FROM entries e WHERE e.id = @id;
+        DELETE FROM entries WHERE id = @id;
+        """,
+        new { id, at });
+
+    public void RestoreDeleted(long id) => Execute(
+        """
+        INSERT INTO entries(id, register_month, inward_no, entry_date, party, design_no, lot_no, repair, than, tp, two_part, finish,
+            short_than, carried_over, import_batch_id, source_row, source_values, created_at, updated_at)
+        SELECT id, register_month, inward_no, entry_date, party, design_no, lot_no, repair, than, tp, two_part, finish,
+            short_than, carried_over, import_batch_id, source_row, source_values, created_at, updated_at
+        FROM deleted_entries WHERE id = @id;
+        INSERT INTO dispatches(entry_id, seq, qty, gate_pass, dispatch_date, date_text)
+        SELECT x.id, json_extract(j.value, '$.seq'), json_extract(j.value, '$.qty'), COALESCE(json_extract(j.value, '$.gatePass'), ''),
+            json_extract(j.value, '$.dispatchDate'), json_extract(j.value, '$.dateText')
+        FROM deleted_entries x, json_each(x.dispatches) j WHERE x.id = @id ORDER BY CAST(j.key AS INTEGER);
+        INSERT INTO carryover_sources(entry_id, register_month, source_values)
+        SELECT x.id, json_extract(j.value, '$.registerMonth'), json_extract(j.value, '$.sourceValues')
+        FROM deleted_entries x, json_each(x.carryover_sources) j WHERE x.id = @id;
+        DELETE FROM deleted_entries WHERE id = @id;
+        """,
+        new { id });
+
+    public IReadOnlyList<DeletedEntryEntity> Deleted() =>
+        Query<DeletedEntryEntity>($"SELECT {DeletedColumns} FROM deleted_entries ORDER BY deleted_at DESC, id DESC;");
+
+    public DeletedEntryEntity? GetDeleted(long id) =>
+        First<DeletedEntryEntity>($"SELECT {DeletedColumns} FROM deleted_entries WHERE id = @id;", new { id });
+
+    public IReadOnlyList<DeletedEntryEntity> DeletedUpTo(string month) =>
+        Query<DeletedEntryEntity>($"SELECT {DeletedColumns} FROM deleted_entries WHERE register_month <= @month ORDER BY id;", new { month });
+
+    public IReadOnlyList<EntryEntity> SameSlip(string month, int inwardNo, string entryDate, string party, bool numberIsTaken) => Query<EntryEntity>(
+        $"""
+        {Select}
+        WHERE (@numberIsTaken AND e.register_month = @month AND e.inward_no = @inwardNo AND e.carried_over = 0)
+           OR (@inwardNo > 0 AND e.inward_no = @inwardNo AND e.entry_date = @entryDate AND e.party = @party COLLATE NOCASE)
+        ORDER BY e.register_month, e.inward_no, e.id;
+        """,
+        new { month, inwardNo, entryDate, party, numberIsTaken });
+
+    public IReadOnlyList<EntryEntity> SameContent(string month, string entryDate, string party, string designNo, string lotNo, int than) => Query<EntryEntity>(
+        $"""
+        {Select}
+        WHERE e.register_month = @month AND e.entry_date = @entryDate AND e.party = @party COLLATE NOCASE AND e.than = @than
+          AND e.design_no = @designNo COLLATE NOCASE AND e.lot_no = @lotNo COLLATE NOCASE
+        ORDER BY e.inward_no, e.id;
+        """,
+        new { month, entryDate, party, designNo, lotNo, than });
+
+    public IReadOnlyList<string> CancelledBillsWith(long id) => Query<string>(
+        """
+        SELECT i.invoice_no FROM invoices i
+        WHERE i.status = 'cancelled'
+          AND EXISTS (SELECT 1 FROM invoice_lines l, json_each(l.entry_ids) j WHERE l.invoice_id = i.id AND j.value = @id)
+        ORDER BY i.fy, i.serial;
+        """,
+        new { id });
+
     public IReadOnlyDictionary<long, List<DispatchEntity>> Dispatches(IReadOnlyCollection<long> entryIds)
     {
         var result = new Dictionary<long, List<DispatchEntity>>();

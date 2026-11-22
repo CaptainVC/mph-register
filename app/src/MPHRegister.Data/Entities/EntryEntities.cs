@@ -94,3 +94,48 @@ public sealed record PartyToBillRow
 
     public int NotDispatched { get; init; }
 }
+
+/// <summary>An entry deleted in the app, kept whole so it can be restored under the same id.</summary>
+public sealed record DeletedEntryEntity
+{
+    public long Id { get; init; }
+
+    public string RegisterMonth { get; init; } = string.Empty;
+
+    public int InwardNo { get; init; }
+
+    public string EntryDate { get; init; } = string.Empty;
+
+    public string Party { get; init; } = string.Empty;
+
+    public string DesignNo { get; init; } = string.Empty;
+
+    public string LotNo { get; init; } = string.Empty;
+
+    public bool Repair { get; init; }
+
+    public int Than { get; init; }
+
+    public int Tp { get; init; }
+
+    public int TwoPart { get; init; }
+
+    public string Finish { get; init; } = string.Empty;
+
+    public int? ShortThan { get; init; }
+
+    public bool CarriedOver { get; init; }
+
+    public long? ImportBatchId { get; init; }
+
+    /// <summary>The entry's row in its month's workbook as last imported (JSON), if it was imported.</summary>
+    public string? SourceValues { get; init; }
+
+    /// <summary>JSON array of the entry's dispatches: seq, qty, gatePass, dispatchDate, dateText.</summary>
+    public string Dispatches { get; init; } = "[]";
+
+    /// <summary>JSON array of the entry's carryover rows in later months' workbooks: registerMonth, sourceValues.</summary>
+    public string CarryoverSources { get; init; } = "[]";
+
+    public string DeletedAt { get; init; } = string.Empty;
+}

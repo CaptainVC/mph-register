@@ -15,10 +15,15 @@ public sealed class MasterUsageRepository(IDbSession session) : RepositoryBase(s
     public void RenameParty(string from, string to) => Execute(
         """
         UPDATE entries SET party = @to WHERE party = @from COLLATE NOCASE;
+        UPDATE deleted_entries SET party = @to WHERE party = @from COLLATE NOCASE;
         UPDATE invoices SET party = @to WHERE party = @from COLLATE NOCASE;
         """,
         new { from, to });
 
-    public void RenameFinish(string from, string to) =>
-        Execute("UPDATE entries SET finish = @to WHERE finish = @from COLLATE NOCASE;", new { from, to });
+    public void RenameFinish(string from, string to) => Execute(
+        """
+        UPDATE entries SET finish = @to WHERE finish = @from COLLATE NOCASE;
+        UPDATE deleted_entries SET finish = @to WHERE finish = @from COLLATE NOCASE;
+        """,
+        new { from, to });
 }

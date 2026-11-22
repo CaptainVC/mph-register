@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using MPHRegister.Contracts.Imports;
 using MPHRegister.Data.Config;
@@ -70,7 +71,7 @@ public sealed partial class InwardImportService(
             : new MonthPlan(0, rows.Select(r => new RowPlan(r, RowAction.Insert, ToEntity(r, month), [], true)).ToList(), [], [], [], []);
         var plans = plan.Rows;
         var upToDate = errors.Count == 0 && plan.Saved > 0 && plan.Removals.Count == 0
-            && plans.All(p => (p.Action is RowAction.UpdateSaved or RowAction.MergeIntoEarlier) && !p.Changed);
+            && plans.All(p => (p.Action is RowAction.UpdateSaved or RowAction.MergeIntoEarlier or RowAction.KeepDeleted) && !p.Changed);
 
         var imported = false;
         if (commit && errors.Count == 0 && !upToDate)
@@ -101,6 +102,8 @@ public sealed partial class InwardImportService(
                     case RowAction.AdoptLaterCarryover:
                         entries.MoveToMonth(p.Entry.Id, month, batchId, p.Row.Row, source);
                         if (p.Changed) Apply(p, now);
+                        break;
+                    case RowAction.KeepDeleted:
                         break;
                     case RowAction.UpdateSaved:
                         if (p.Changed) entries.Update(p.Entry with { UpdatedAt = now });
@@ -208,6 +211,8 @@ public sealed partial class InwardImportService(
             }
         }
 
+        KeepDeleted(rows, plans, month, kept);
+
         var matched = matches.Values.Select(e => e.Id).ToHashSet();
         var removals = new List<EntryEntity>();
         var typed = new List<EntryEntity>();
@@ -224,6 +229,67 @@ public sealed partial class InwardImportService(
         }
         return new MonthPlan(saved.Count, [.. plans.Select(p => p!)], removals, typed, changes, kept);
     }
+
+    /// <summary>
+    /// A deletion made in the app is kept like its other changes: a row that would be added but holds the slip of an entry
+    /// deleted in the app (this month's own, or an earlier month's for a carryover row) is left out and listed as kept. A
+    /// slip without INW. NO. must also have the same D.N., LOT N. and THAN. Register → Deleted entries brings it back.
+    /// </summary>
+    private void KeepDeleted(List<InwardRow> rows, RowPlan?[] plans, string month, List<ImportIssue> kept)
+    {
+        var deleted = entries.DeletedUpTo(month).Select(d => (Entry: d, Rows: DeletedRows(d))).ToList();
+        if (deleted.Count == 0) return;
+        var used = new HashSet<long>();
+        for (var i = 0; i < rows.Count; i++)
+        {
+            if (plans[i] is not { Action: RowAction.Insert } plan) continue;
+            var row = rows[i];
+            var match = deleted.FirstOrDefault(d => !used.Contains(d.Entry.Id)
+                && (d.Entry.RegisterMonth == month || row.AfterBlankRows)
+                && d.Rows.Any(v => SameSlip(v, row)));
+            if (match.Entry is null) continue;
+            used.Add(match.Entry.Id);
+            plans[i] = plan with { Action = RowAction.KeepDeleted, Changed = false, DispatchesChanged = false };
+            kept.Add(new ImportIssue(row.Row, $"INW. NO. {row.InwardNo} of {row.Date} ({row.Party}) was deleted in the app; it stays deleted. Restore it from Register → Deleted entries if it is needed."));
+        }
+    }
+
+    /// <summary>The deleted entry as saved, as its workbook row was last imported, and as its carryover rows were.</summary>
+    private static List<SourceValues> DeletedRows(DeletedEntryEntity deleted)
+    {
+        var list = new List<SourceValues>
+        {
+            new(deleted.InwardNo, deleted.EntryDate, deleted.Party, deleted.DesignNo, deleted.LotNo, deleted.Repair, deleted.Than,
+                deleted.Tp, deleted.TwoPart, deleted.Finish, deleted.ShortThan, []),
+        };
+        if (SourceValues.FromJson(deleted.SourceValues) is { } own) list.Add(own);
+        try
+        {
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(deleted.CarryoverSources) ? "[]" : deleted.CarryoverSources);
+            if (doc.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in doc.RootElement.EnumerateArray())
+                {
+                    if (item.TryGetProperty("sourceValues", out var text) && text.ValueKind == JsonValueKind.String
+                        && SourceValues.FromJson(text.GetString()) is { } carried)
+                    {
+                        list.Add(carried);
+                    }
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // A damaged list of carryover rows only means those rows are not recognised.
+        }
+        return list;
+    }
+
+    private static bool SameSlip(SourceValues values, InwardRow row) =>
+        string.Equals(SavedEntryMatcher.Slip(values.InwardNo, values.Date, values.Party), SavedEntryMatcher.Slip(row.InwardNo, row.Date, row.Party), StringComparison.Ordinal)
+        && (row.InwardNo > 0 || (string.Equals(values.Design.Trim(), row.Design.Trim(), StringComparison.OrdinalIgnoreCase)
+            && string.Equals(values.Lot.Trim(), row.Lot.Trim(), StringComparison.OrdinalIgnoreCase)
+            && values.Than == row.Than));
 
     /// <summary>
     /// A carryover row of an earlier month's slip merges into it; the original of a later month's carryover adopts it. When
