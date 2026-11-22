@@ -30,6 +30,7 @@ public static class ServiceModule
         services.AddScoped<IInvoiceService, InvoiceService>();
         services.AddScoped<IInwardImportService, InwardImportService>();
         services.AddScoped<IBillImportService, BillImportService>();
+        services.AddScoped<IBillExportService, BillExportService>();
         services.AddScoped<IDashboardService, DashboardService>();
         return services;
     }

@@ -33,6 +33,9 @@ assert.equal(getLanguage(), "en");
 const cases = [
   ["New Entry", "नई Entry"],
   ["Menu", "मेन्यू"],
+  ["Write to Excel…", "Excel में लिखें…"],
+  ["Written 30.11.26", "30.11.26 को लिखा"],
+  ["Nothing new — all 12 bills are already in the app", "कुछ नया नहीं — सभी 12 बिल पहले से App में हैं"],
   ["Open menu", "मेन्यू खोलें"],
   ["Theme (also in the right-side menu)", "Theme (दाईं ओर के मेन्यू में भी)"],
   ["Language (also in the right-side menu)", "Language (दाईं ओर के मेन्यू में भी)"],

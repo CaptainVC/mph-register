@@ -117,7 +117,10 @@ public sealed record InvoiceSummary(
     InvoiceStatus Status,
     InvoiceSource Source,
     string Finishes,
-    int Entries);
+    int Entries,
+    string? ExportedAt = null,
+    string? ExportedTo = null,
+    bool ChangedSinceExport = false);
 
 public sealed record BillRequest(
     string? Party,

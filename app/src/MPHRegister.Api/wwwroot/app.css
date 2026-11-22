@@ -1280,3 +1280,10 @@ table.dash-table td.wrap-ok { white-space: normal; min-width: 130px; }
 .deleted-notes .clash { color: var(--err); }
 .deleted-notes .warn { color: var(--warn); }
 .deleted-empty { color: var(--muted); }
+
+/* Write to Excel: the check lists what is typed over the workbook's formulas, so those cells wrap. */
+#excelResult td.excel-details { white-space: normal; min-width: 340px; max-width: 560px; font-size: 14.5px; }
+#excelResult td.excel-details ul { margin: 0; padding-left: 18px; }
+#excelResult td .check { margin-left: 10px; }
+#excelNotes, #excelProblems { margin: 0; padding-left: 22px; }
+#excelForm .excel-bills { max-height: 300px; overflow: auto; }

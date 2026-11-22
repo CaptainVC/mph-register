@@ -115,6 +115,14 @@ public sealed record InvoiceSummaryRow
     public string? Finishes { get; init; }
 
     public int Entries { get; init; }
+
+    /// <summary>When the bill was last written to a copy of the Excel bill workbook, or null.</summary>
+    public string? ExportedAt { get; init; }
+
+    public string? ExportedTo { get; init; }
+
+    /// <summary>The bill was edited after it was last written to Excel.</summary>
+    public bool ChangedSinceExport { get; init; }
 }
 
 /// <summary>Why one entry of a cancelled bill cannot go back on it: gone, on another saved bill, or marked billed elsewhere.</summary>

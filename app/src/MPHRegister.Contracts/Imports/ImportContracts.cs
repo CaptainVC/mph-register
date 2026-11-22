@@ -74,7 +74,8 @@ public sealed record BillImportReport(
     IReadOnlyList<LeftoverEntry> Leftovers,
     IReadOnlyList<string> Errors,
     IReadOnlyList<string> Warnings,
-    IReadOnlyList<BillLinkSuggestion> Suggestions);
+    IReadOnlyList<BillLinkSuggestion> Suggestions,
+    int AlreadyInApp = 0);
 
 public sealed record RelinkRequest(bool Commit);
 

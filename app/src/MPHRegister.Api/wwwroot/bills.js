@@ -868,6 +868,7 @@ $("saveBills").addEventListener("click", async () => {
       el("ul", {}, saved.map((s) => el("li", { text: `${s.invoiceNo} — ${s.partyName} — ${num(s.than)} THAN — ${rupees(s.total)}` }))),
       el("button", { type: "button", id: "printSaved", text: "Print these bills", onclick: () => openPrint(ids) }),
       el("button", { type: "button", class: "secondary", id: "pdfSaved", text: "Save as PDF", onclick: (e) => downloadPdf(saved.map((s) => s.id), e.currentTarget) }),
+      el("button", { type: "button", class: "secondary", id: "excelSaved", text: "Write to Excel…", onclick: () => openExcelExport(saved) }),
     ]));
     $("billSelectedCount").textContent = `Saved ${saved.length} bill(s)`;
     $("billSelectedThan").textContent = `${num(saved.reduce((sum, doc) => sum + doc.than, 0))} THAN`;
@@ -965,13 +966,14 @@ function shownInvoices() {
 
 function renderInvoices() {
   const list = shownInvoices();
-  const head = el("thead", {}, [el("tr", {}, ["BILL NO.", "DATE", "PARTY", "FINISH", "THAN", "TOTAL", "ENTRIES", "STATUS", "FROM"].map((h) => el("th", { text: h })))]);
+  const head = el("thead", {}, [el("tr", {}, ["BILL NO.", "DATE", "PARTY", "FINISH", "THAN", "TOTAL", "ENTRIES", "STATUS", "FROM", "EXCEL"].map((h) => el("th", { text: h })))]);
   const body = el("tbody", {}, list.map((i) => {
     const tr = el("tr", { class: [i.status === "cancelled" ? "inactive" : "", i.id === billsState.openInvoice?.id ? "selected" : ""].join(" ").trim(), "data-id": String(i.id) }, [
       el("td", { class: "inward", text: i.invoiceNo }), el("td", { text: dotDate(i.billDate) }), el("td", { class: "left", text: i.partyName }),
       el("td", { text: i.finishes }), el("td", { class: "num", text: num(i.than) }), el("td", { class: "money", text: rupees(i.total) }),
       el("td", { class: "num", text: num(i.entries) }), el("td", { text: i.status === "cancelled" ? "CANCELLED" : "Saved" }),
       el("td", { text: i.source === "excel" ? "Excel" : "App" }),
+      excelCell(i),
     ]);
     tr.addEventListener("click", () => openInvoice(i.id));
     return tr;
@@ -984,7 +986,23 @@ function renderInvoices() {
     el("span", {}, ["THAN: ", el("b", { text: num(live.reduce((s, i) => s + i.than, 0)) })]),
     el("span", {}, ["Total: ", el("b", { text: rupees(live.reduce((s, i) => s + i.total, 0)) })]));
 }
+// Whether a bill is in the Excel bill workbook: imported from it, or written into a copy of it (and changed since).
+function excelCell(invoice) {
+  if (invoice.source === "excel") return el("td", { class: "muted", text: "From Excel" });
+  if (!invoice.exportedAt) return el("td", { text: "" });
+  const title = `Written to ${invoice.exportedTo} on ${dotDate(invoice.exportedAt.slice(0, 10))}`;
+  return invoice.changedSinceExport
+    ? el("td", { class: "bad", title: `${title}; the bill was changed after that`, text: "Changed since written" })
+    : el("td", { class: "good", title, text: `Written ${dotDate(invoice.exportedAt.slice(0, 10))}` });
+}
+
+function exportNote(id) {
+  const invoice = billsState.invoices.find((i) => i.id === id);
+  return invoice?.exportedAt ? ` It was written to ${invoice.exportedTo} on ${dotDate(invoice.exportedAt.slice(0, 10))}: remove it from that workbook by hand.` : "";
+}
+
 ["savedMonth", "savedSearch"].forEach((id) => $(id).addEventListener("input", renderInvoices));
+$("excelShown").addEventListener("click", () => openExcelExport(shownInvoices().filter((i) => i.status !== "cancelled")));
 $("printShown").addEventListener("click", () => {
   const ids = shownInvoices().filter((i) => i.status !== "cancelled").map((i) => i.id);
   if (ids.length) openPrint(ids.join(","));
@@ -1052,7 +1070,7 @@ async function openInvoice(id) {
         if (!(await showConfirm({
           title: "Undo save & release number",
           message: `Undo save for bill ${doc.invoiceNo}?`,
-          detail: "This makes the entries unbilled and releases the number for the next bill. Confirm only if this bill was never issued to a customer, reported for GST, or given an IRN. Undo history is kept.",
+          detail: `This makes the entries unbilled and releases the number for the next bill. Confirm only if this bill was never issued to a customer, reported for GST, or given an IRN. Undo history is kept.${exportNote(id)}`,
           confirmText: "Never issued - undo save",
           cancelText: "Keep bill",
           tone: "danger",
@@ -1090,7 +1108,7 @@ async function openInvoice(id) {
     if (!(await showConfirm({
       title: "Cancel this bill",
       message: `Cancel bill ${doc.invoiceNo}?`,
-      detail: "The number stays used and the bill is marked CANCELLED. Its entries become unbilled so they can be billed again.",
+      detail: `The number stays used and the bill is marked CANCELLED. Its entries become unbilled so they can be billed again.${exportNote(id)}`,
       confirmText: "Cancel bill",
       cancelText: "Keep bill",
       tone: "danger",
@@ -1154,6 +1172,179 @@ async function openInvoice(id) {
   openDrawer($("invoiceDrawer"));
 }
 
+// ---------- Write saved bills into a copy of the Excel bill workbook ----------
+// The workbook is uploaded, checked (where each bill goes and what is typed over its formulas), and a filled copy comes
+// back as a download; the user's own file is never changed.
+const EXCEL_STATUS = {
+  write: ["Will be written", "good"],
+  replace: ["Will be written over", "good"],
+  same: ["Already in the workbook", "muted"],
+  different: ["In the workbook, but different", "bad"],
+  blocked: ["Cannot be written", "bad"],
+};
+const excelState = { bills: [], preview: null, replace: new Set(), ticket: 0 };
+
+function openExcelExport(bills) {
+  // Bills made in the app first: those imported from Excel are already in a workbook.
+  const live = bills.filter((b) => b.status !== "cancelled");
+  excelState.bills = [...live.filter((b) => b.source !== "excel"), ...live.filter((b) => b.source === "excel")];
+  excelState.preview = null;
+  excelState.replace = new Set();
+  const form = $("excelForm");
+  const file = el("input", { type: "file", id: "excelFile", accept: ".xlsm,.xlsx", "data-instant": "" });
+  file.addEventListener("change", () => checkExcelWorkbook());
+  const rows = excelState.bills.map((b) => {
+    const tick = el("input", { type: "checkbox", "data-id": String(b.id), "data-instant": "", "aria-label": `Write ${b.invoiceNo}` });
+    tick.checked = b.source !== "excel";
+    tick.addEventListener("change", () => checkExcelWorkbook());
+    return el("tr", {}, [el("td", {}, [tick]), el("td", { class: "inward", text: b.invoiceNo }), el("td", { text: dotDate(b.billDate) }),
+      el("td", { class: "left", text: b.partyName }), el("td", { class: "money", text: rupees(b.total) }),
+      el("td", { text: b.source === "excel" ? "Excel" : "App" }), excelCell(b)]);
+  });
+  const all = el("input", { type: "checkbox", id: "excelAll", "data-instant": "", "aria-label": "Tick every bill" });
+  all.checked = rows.length > 0 && excelState.bills.every((b) => b.source !== "excel");
+  all.addEventListener("change", () => {
+    form.querySelectorAll("#excelBills tbody input[type=checkbox]").forEach((tick) => { tick.checked = all.checked; });
+    checkExcelWorkbook();
+  });
+  const table = el("table", { class: "register", id: "excelBills" }, [
+    el("thead", {}, [el("tr", {}, [el("th", {}, [all]), ...["BILL NO.", "DATE", "PARTY", "TOTAL", "FROM", "EXCEL"].map((h) => el("th", { text: h }))])]),
+    el("tbody", {}, rows),
+  ]);
+  const check = el("button", { type: "button", class: "secondary", id: "excelCheck", text: "Check again", onclick: () => checkExcelWorkbook() });
+  const download = el("button", { type: "button", id: "excelDownload", text: "Download filled workbook", onclick: (e) => downloadExcelWorkbook(e.currentTarget) });
+  download.disabled = true;
+  const close = el("button", { type: "button", class: "ghost", text: "Close", onclick: () => closeDrawer($("excelDrawer")) });
+  drawerForm(form, {
+    key: "excel",
+    title: "Write bills to Excel",
+    subtitle: "Into a copy of the month's bill workbook — your file is not changed",
+    body: [
+      section("1. Bills", [
+        el("p", { class: "muted", text: "Only saved bills can be written. Each goes into the place of the workbook that has its bill no." }),
+        el("div", { class: "table-wrap excel-bills" }, [table]),
+      ], `${num(excelState.bills.length)} bills`),
+      section("2. Bill workbook", [
+        field("Bill workbook (.xlsm / .xlsx)", file, "This month's MPH BILL workbook. It is read, never changed: you download a filled copy."),
+      ]),
+      section("3. Check", [el("div", { id: "excelPreview" }, [el("p", { class: "muted", text: "Choose the bill workbook to see where each bill goes." })])]),
+    ],
+    actions: [download, check, close],
+  });
+  openDrawer($("excelDrawer"), file);
+}
+
+function excelRequest() {
+  const ids = [...$("excelForm").querySelectorAll("#excelBills tbody input[type=checkbox]:checked")].map((tick) => Number(tick.dataset.id));
+  return { ids, replace: ids.filter((id) => excelState.replace.has(id)) };
+}
+
+function excelForm(request) {
+  const form = new FormData();
+  form.append("file", $("excelFile").files[0]);
+  form.append("request", JSON.stringify(request));
+  return form;
+}
+
+function sayExcel(text, kind) {
+  const message = $("excelForm").querySelector(".form-message");
+  if (!message) return;
+  message.textContent = text;
+  message.className = `form-message message ${kind || ""}`;
+}
+
+async function checkExcelWorkbook() {
+  const ticket = ++excelState.ticket;
+  $("excelDownload").disabled = true;
+  if (!$("excelFile")?.files[0]) return;
+  const request = excelRequest();
+  if (!request.ids.length) {
+    $("excelPreview").replaceChildren(el("p", { class: "muted", text: "Tick the bills to write." }));
+    return;
+  }
+  sayExcel("Checking the workbook…", "");
+  try {
+    const preview = await api("/api/billing/excel/preview", { method: "POST", body: excelForm(request) });
+    if (ticket !== excelState.ticket) return;
+    excelState.preview = preview;
+    renderExcelPreview(preview);
+    sayExcel(preview.toWrite ? `${num(preview.toWrite)} bill(s) will be written. Nothing is saved until you download the filled workbook.` : "Nothing to write yet.", preview.toWrite ? "ok" : "warn");
+    $("excelDownload").disabled = preview.toWrite === 0;
+  } catch (error) {
+    if (ticket !== excelState.ticket) return;
+    excelState.preview = null;
+    $("excelPreview").replaceChildren(el("div", { class: "report err" }, [el("ul", {}, (error.errors || [error.message]).map((e) => el("li", { text: e })))]));
+    sayExcel(error.message, "err");
+  }
+}
+
+function renderExcelPreview(preview) {
+  const children = [el("div", { class: "chips" }, [
+    el("span", {}, ["Workbook: ", el("b", { text: preview.fileName })]),
+    el("span", {}, ["Bill nos.: ", el("b", { text: preview.firstNumber ? `${preview.firstNumber} – ${preview.lastNumber}` : "none" })]),
+    el("span", {}, ["Places filled: ", el("b", { text: `${num(preview.filledPlaces)} of ${num(preview.places)}` })]),
+    el("span", {}, ["To write: ", el("b", { text: num(preview.toWrite) })]),
+  ])];
+  if (preview.problems.length) children.push(el("ul", { class: "message err", id: "excelProblems" }, preview.problems.map((p) => el("li", { text: p }))));
+  if (preview.notes.length) children.push(el("ul", { class: "warnings", id: "excelNotes" }, preview.notes.map((n) => el("li", { text: n }))));
+  const body = preview.bills.map((b) => {
+    const [label, tone] = EXCEL_STATUS[b.status] || [b.status, ""];
+    const details = [...b.problems, ...b.differences, ...b.typed];
+    const result = el("td", { class: `${tone} left`, text: label });
+    if (b.status === "different" || b.status === "replace") {
+      const replace = el("input", { type: "checkbox", "data-instant": "", "data-replace": String(b.invoiceId) });
+      replace.checked = excelState.replace.has(b.invoiceId);
+      replace.addEventListener("change", () => {
+        if (replace.checked) excelState.replace.add(b.invoiceId);
+        else excelState.replace.delete(b.invoiceId);
+        checkExcelWorkbook();
+      });
+      result.append(el("label", { class: "check" }, [replace, "Replace"]));
+    }
+    return el("tr", { "data-id": String(b.invoiceId) }, [
+      el("td", { class: "inward", text: b.invoiceNo }), el("td", { class: "left", text: b.partyName }), el("td", { class: "money", text: rupees(b.total) }),
+      el("td", { class: "left", text: b.place || "—" }), result,
+      el("td", { class: "left excel-details" }, details.length ? [el("ul", {}, details.map((d) => el("li", { text: d })))] : []),
+    ]);
+  });
+  children.push(el("div", { class: "table-wrap" }, [el("table", { class: "register", id: "excelResult" }, [
+    el("thead", {}, [el("tr", {}, ["BILL NO.", "PARTY", "TOTAL", "PLACE", "RESULT", "TYPED / DIFFERENCES"].map((h) => el("th", { text: h })))]),
+    el("tbody", {}, body),
+  ])]));
+  $("excelPreview").replaceChildren(...children);
+}
+
+async function downloadExcelWorkbook(button) {
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = "Writing…";
+  try {
+    const response = await fetch("/api/billing/excel/export", { method: "POST", headers: { "X-MPH-Request": "1" }, body: excelForm(excelRequest()) });
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      throw new Error(body?.errors?.join(" ") || `Writing the workbook failed (${response.status}).`);
+    }
+    const name = /filename\*=UTF-8''([^;]+)/i.exec(response.headers.get("Content-Disposition") || "")?.[1];
+    const fileName = name ? decodeURIComponent(name) : $("excelFile").files[0].name;
+    const url = URL.createObjectURL(await response.blob());
+    const link = el("a", { href: url, download: fileName });
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    const count = excelState.preview?.toWrite ?? 0;
+    sayExcel(`Downloaded ${fileName} with ${num(count)} bill(s) written. Open it in Excel and check it, then replace your workbook with it (keep the old one until you have checked).`, "ok");
+    toast(`Downloaded ${fileName}: ${num(count)} bill(s) written`);
+    await refreshInvoices();
+  } catch (error) {
+    sayExcel(error.message, "err");
+    toast(`Could not write the workbook: ${error.message}`, "err");
+  } finally {
+    button.textContent = label;
+    button.disabled = !excelState.preview?.toWrite;
+  }
+}
+
 // ---------- Import Excel bills ----------
 async function sendBillImport(commit) {
   const file = $("billImportFile").files[0];
@@ -1168,12 +1359,13 @@ function renderBillImport(report) {
   billsState.importReport = report;
   const ok = report.errors.length === 0;
   const children = [
-    el("h2", { text: report.imported ? `Imported ✓ ${num(report.invoices)} bills` : ok ? `Check passed — ${num(report.invoices)} bills ready to import` : "Problems found — nothing imported" }),
+    el("h2", { text: billImportHeading(report, ok) }),
     el("div", { class: "chips" }, [
       el("span", {}, ["Bills: ", el("b", { text: num(report.invoices) })]),
       el("span", {}, ["Total of all bills: ", el("b", { text: rupees(report.total) })]),
       el("span", {}, ["Entries linked: ", el("b", { text: num(report.linkedEntries) })]),
       el("span", {}, ["Lines not linked: ", el("b", { text: num(report.unmatchedLines.length) })]),
+      ...(report.alreadyInApp ? [el("span", {}, ["Already in the app (skipped): ", el("b", { text: num(report.alreadyInApp) })])] : []),
     ]),
   ];
   if (report.errors.length) children.push(el("h3", { text: "Errors" }), el("ul", {}, report.errors.map((e) => el("li", { text: e }))));
@@ -1189,10 +1381,18 @@ function renderBillImport(report) {
   if (report.suggestions?.length) children.push(...suggestionsTable(report.suggestions));
   if (report.imported && report.leftovers.length) children.push(leftoverPanel(report.leftovers));
   $("billImportResult").replaceChildren(el("div", { class: `report ${ok ? "ok" : "err"}` }, children));
-  $("billImportRun").disabled = !ok || report.imported;
+  $("billImportRun").disabled = !ok || report.imported || report.invoices === 0;
   if (report.imported) toast(`Imported ${num(report.invoices)} bills`);
+  else if (ok && report.invoices === 0) toast("Nothing new to import", "warn");
   else if (!ok) toast(`Problems found in the bill workbook (${num(report.errors.length)}): nothing imported`, "err");
   else toast(`Check passed: ${num(report.invoices)} bills ready to import`);
+}
+
+function billImportHeading(report, ok) {
+  if (report.imported) return `Imported ✓ ${num(report.invoices)} bills`;
+  if (!ok) return "Problems found — nothing imported";
+  if (report.invoices === 0 && report.alreadyInApp) return `Nothing new — all ${num(report.alreadyInApp)} bills are already in the app`;
+  return `Check passed — ${num(report.invoices)} bills ready to import`;
 }
 
 function unmatchedLinesTable(lines) {
