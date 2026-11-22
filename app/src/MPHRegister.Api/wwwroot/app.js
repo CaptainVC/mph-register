@@ -816,8 +816,14 @@ const COLUMNS = [
   ["MORE JAWAK", (e) => (e.dispatches.length > 3 ? e.dispatches.slice(3).map((d) => `${num(d.qty)}/${d.gatePass}`).join(", ") : "")],
   ["SHORT THAN", (e) => num(e.shortThan ?? "")],
   ["BALANCE", (e) => num(e.balance)],
-  ["WARNINGS", (e) => e.warnings.join(" "), "left"],
+  ["WARNINGS", (e) => e.warnings.join(" "), "left warning-cell", (td, e) => fillWarningCell(td, e)],
 ];
+
+function fillWarningCell(td, entry) {
+  const text = entry.warnings.join(" ");
+  td.title = text;
+  td.append(el("span", { class: "warning-text", text }));
+}
 
 // The BILL NO. column holds saved bill numbers (comma separated), a "Billed outside app" note, "No bill needed" for a party that is
 // never billed, or nothing.
@@ -971,7 +977,7 @@ function entryRow(entry) {
     if (!td || td.parentElement !== tr || td.classList.contains("cell-editing")) return;
     // Let a cell that is still saving finish first, so the form opens with its new value.
     if (td.cellIndex === 0) cellSaves.then(() => loadIntoForm(rowEntry.get(tr)));
-    else if (td.classList.contains("bill-cell")) td.classList.toggle("expanded");
+    else if (td.classList.contains("bill-cell") || td.classList.contains("warning-cell")) td.classList.toggle("expanded");
     else openCellEditor(td);
   });
   return tr;
