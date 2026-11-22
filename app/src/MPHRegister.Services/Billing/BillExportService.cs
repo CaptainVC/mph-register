@@ -1,4 +1,5 @@
 using MPHRegister.Contracts.Billing;
+using MPHRegister.Data.Config;
 using MPHRegister.Data.Entities;
 using MPHRegister.Data.Repositories.Interfaces;
 using MPHRegister.Services.Exports.Bills;
@@ -10,7 +11,7 @@ using MPHRegister.Shared.Helpers;
 namespace MPHRegister.Services.Billing;
 
 /// <summary>Writes saved bills into a copy of the monthly Excel bill workbook (see <see cref="BillExporter"/>).</summary>
-public sealed class BillExportService(IInvoiceRepository invoices, IBillExportRepository exports, TimeProvider clock) : IBillExportService
+public sealed class BillExportService(IInvoiceRepository invoices, IBillExportRepository exports, TimeProvider clock, IConfigStore config) : IBillExportService
 {
     private const int MaxBills = 100;
     private const string MacroWorkbook = "application/vnd.ms-excel.sheet.macroEnabled.12";
@@ -46,7 +47,7 @@ public sealed class BillExportService(IInvoiceRepository invoices, IBillExportRe
             var invoice = invoices.Get(id) ?? throw new NotFoundException($"Bill {id} was not found. Reopen Saved bills and try again.");
             return InvoiceMapper.ToDoc(invoice, invoices.Lines(id));
         }).ToList();
-        return BillExporter.Run(File.ReadAllBytes(filePath), fileName, docs, (request.Replace ?? []).ToHashSet());
+        return BillExporter.Run(File.ReadAllBytes(filePath), fileName, docs, (request.Replace ?? []).ToHashSet(), config.Current.Colors);
     }
 
     private static List<string> WhyNothing(BillExportPreview preview)

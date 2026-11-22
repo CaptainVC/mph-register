@@ -18,21 +18,23 @@ internal sealed class DetailsSheet
     private readonly int lastRow;
     private readonly int firstRateColumn;
     private readonly int lastRateColumn;
+    private readonly int colorColumn;
 
-    private DetailsSheet(SheetXml? sheet, int firstRow, int lastRow, int firstRateColumn, int lastRateColumn)
+    private DetailsSheet(SheetXml? sheet, int firstRow, int lastRow, int firstRateColumn, int lastRateColumn, int colorColumn)
     {
         this.sheet = sheet;
         this.firstRow = firstRow;
         this.lastRow = lastRow;
         this.firstRateColumn = firstRateColumn;
         this.lastRateColumn = lastRateColumn;
+        this.colorColumn = colorColumn;
     }
 
     public bool Exists => sheet is not null;
 
     public static DetailsSheet From(SheetXml? sheet)
     {
-        if (sheet is null) return new DetailsSheet(null, 0, -1, 0, -1);
+        if (sheet is null) return new DetailsSheet(null, 0, -1, 0, -1, -1);
         var lastUsedRow = sheet.References.Select(r => A1.Parse(r).Row).DefaultIfEmpty(0).Max();
         var first = Whole(sheet.Get("B1").Value) ?? HeaderRow + 1;
         var last = Whole(sheet.Get("B2").Value) ?? lastUsedRow;
@@ -43,7 +45,7 @@ internal sealed class DetailsSheet
         var colorColumn = headers.FirstOrDefault(c => c >= 0 && string.Equals(sheet.Get(HeaderRow, c).Text.Trim(), "Color", StringComparison.OrdinalIgnoreCase), -1);
         var firstRate = Letter("E1") ?? (colorColumn >= 0 ? colorColumn + 1 : int.MaxValue);
         var lastRate = Letter("E2") ?? headers.Max();
-        return new DetailsSheet(sheet, first, last, firstRate, lastRate);
+        return new DetailsSheet(sheet, first, last, firstRate, lastRate, colorColumn);
     }
 
     /// <summary>The party's row, or null when it is not there or when Excel's match cannot be told (wildcards in the name).</summary>
@@ -94,6 +96,8 @@ internal sealed class DetailsSheet
 
     public decimal? DiscountOf(string party) =>
         PartyRow(party) is { } row && Lookup(row, DiscountColumn).Value is double d ? (decimal)d : null;
+
+    public string? ColorOf(string party) => colorColumn >= 0 && PartyRow(party) is { } row ? sheet!.Get(row, colorColumn).Text : null;
 
     private static int? Whole(object? value) => value is double d && double.IsInteger(d) && d is > 0 and < 1_048_577 ? (int)d : null;
 }

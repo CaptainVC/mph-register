@@ -83,6 +83,7 @@ public static partial class BillSheetReader
         }
         while (lines.Count > 0 && lines[^1].Kind == LineKind.Blank) lines.RemoveAt(lines.Count - 1);
         MarkAutoSums(lines);
+        lines = BillLineLayout.Compact(lines);
 
         return new SheetBill(cellName, number, fyMatch.Success ? fyMatch.Groups[1].Value : FinancialYear.Of(date),
             int.Parse(serialMatch.Groups[1].Value, CultureInfo.InvariantCulture), partyText, T(8, 0).NormalizeName(), T(9, 0).NormalizeName(),
@@ -97,9 +98,17 @@ public static partial class BillSheetReader
     {
         var run = 0;
         var details = 0;
+        var finalGap = lines.Count;
+        if (lines.Count > 0 && lines[^1].Kind == LineKind.Priced
+            && string.IsNullOrWhiteSpace(lines[^1].Gpn) && string.IsNullOrWhiteSpace(lines[^1].Dn) && string.IsNullOrWhiteSpace(lines[^1].Lot))
+        {
+            finalGap = lines.Count - 1;
+            while (finalGap > 0 && lines[finalGap - 1].Kind == LineKind.Blank) finalGap--;
+        }
         for (var i = 0; i < lines.Count; i++)
         {
             var line = lines[i];
+            if (line.Kind == LineKind.Blank && i >= finalGap) continue;
             if (line.Kind == LineKind.Detail)
             {
                 run += line.Qty ?? 0;

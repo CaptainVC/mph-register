@@ -121,6 +121,10 @@ internal sealed class SheetXml
 
     public CellContent Get(int row, int column) => Get(A1.Ref(row, column));
 
+    public int Style(string reference) => cells.TryGetValue(reference, out var cell) ? (int?)cell.Attribute("s") ?? 0 : 0;
+
+    public void SetStyle(string reference, int style) => Cell(reference).SetAttributeValue("s", style);
+
     /// <summary>Typed text; an empty text clears the cell.</summary>
     public void SetText(string reference, string text)
     {

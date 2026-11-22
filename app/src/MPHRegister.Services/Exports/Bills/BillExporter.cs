@@ -1,6 +1,7 @@
 using System.Globalization;
 using MPHRegister.Contracts.Billing;
 using MPHRegister.Services.Imports.Bills;
+using MPHRegister.Shared.Configuration;
 using MPHRegister.Shared.Enums;
 using MPHRegister.Shared.Extensions;
 using MPHRegister.Shared.Helpers;
@@ -15,7 +16,7 @@ internal sealed record ExportResult(BillExportPreview Preview, byte[]? Content, 
 
 /// <summary>
 /// Writes saved bills into their places in the bill workbook, the way they would be typed by hand: party, lines, THAN and
-/// merged-row =SUM. Each workbook formula (address, rate, discount, dates) is kept when it already shows the app's value and
+/// bottom-aligned final summary, party colours and priced-THAN outlines. Each workbook formula (address, rate, discount, dates) is kept when it already shows the app's value and
 /// replaced by the typed value when it would not. Nothing outside the written bills changes, except a first bill no. for an
 /// empty workbook and a later bill's date or period that would otherwise follow a typed one.
 /// </summary>
@@ -23,7 +24,7 @@ internal static class BillExporter
 {
     private const int MaxLines = BillSheetReader.LineRows;
 
-    public static ExportResult Run(byte[] bytes, string fileName, IReadOnlyList<InvoiceDoc> docs, IReadOnlySet<long> replace)
+    public static ExportResult Run(byte[] bytes, string fileName, IReadOnlyList<InvoiceDoc> docs, IReadOnlySet<long> replace, IReadOnlyList<NamedColor>? colors = null)
     {
         ArgumentNullException.ThrowIfNull(bytes);
         ArgumentNullException.ThrowIfNull(docs);
@@ -48,7 +49,7 @@ internal static class BillExporter
         StartEmptyWorkbook(book, filled, ordered, notes);
         var numbers = book.Numbers();
 
-        var plans = ordered.Select(doc => Plan(book, doc, numbers, filled, original, replace)).ToList();
+        var plans = ordered.Select(doc => Plan(book, doc, numbers, filled, original, replace, colors)).ToList();
         var writing = plans.Where(p => p.Status is BillExportStatus.Write or BillExportStatus.Replace).OrderBy(p => p.Slot!.Value.Index).ToList();
         byte[]? content = null;
         var problems = new List<string>();
@@ -57,7 +58,7 @@ internal static class BillExporter
             var originalBook = BillWorkbook.Open(bytes)!;
             var changedOutside = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (notes.Count > 0) changedOutside.Add(new BillSlot(0).Ref(BillSlot.NumberRow, Col.F));
-            foreach (var plan in writing) WriteBill(book, plan);
+            foreach (var plan in writing) WriteBill(book, plan, colors);
             var written = writing.Select(p => p.Slot!.Value.Index).ToHashSet();
             foreach (var plan in writing)
             {
@@ -72,7 +73,7 @@ internal static class BillExporter
             book.Package.RemoveCalcChain();
             book.Package.RecalculateOnOpen();
             var saved = book.Package.Save();
-            problems.AddRange(ExportVerifier.Check(originalBook, original, saved, writing.Select(p => (p.Slot!.Value, p.Doc)).ToList(), changedOutside));
+            problems.AddRange(ExportVerifier.Check(originalBook, original, saved, writing.Select(p => (p.Slot!.Value, p.Doc)).ToList(), changedOutside, colors));
             if (problems.Count == 0) content = saved;
             else problems.Insert(0, "The filled workbook did not pass the checks, so it is not offered (please report this):");
         }
@@ -102,7 +103,7 @@ internal static class BillExporter
         public List<string> Problems { get; } = [];
     }
 
-    private static SlotPlan Plan(BillWorkbook book, InvoiceDoc doc, string?[] numbers, HashSet<int> filled, BillSheet original, IReadOnlySet<long> replace)
+    private static SlotPlan Plan(BillWorkbook book, InvoiceDoc doc, string?[] numbers, HashSet<int> filled, BillSheet original, IReadOnlySet<long> replace, IReadOnlyList<NamedColor>? colors)
     {
         var plan = new SlotPlan(doc);
         plan.Problems.AddRange(BillProblems(doc));
@@ -130,6 +131,7 @@ internal static class BillExporter
                 return plan;
             }
             plan.Differences.AddRange(SheetBillComparer.Differences(there, doc));
+            plan.Differences.AddRange(PresentationDifferences(book, slot, doc, colors));
             if (plan.Differences.Count == 0)
             {
                 plan.Status = BillExportStatus.Same;
@@ -182,7 +184,7 @@ internal static class BillExporter
 
     // ---------- Writing one bill ----------
 
-    private static void WriteBill(BillWorkbook book, SlotPlan plan)
+    private static void WriteBill(BillWorkbook book, SlotPlan plan, IReadOnlyList<NamedColor>? colors)
     {
         var slot = plan.Slot!.Value;
         var doc = plan.Doc;
@@ -196,6 +198,9 @@ internal static class BillExporter
         WriteLookup(book, plan, BillSlot.AddressRow, DetailsSheet.AddressColumn, doc.Address.Trim(), "Address", inDetails);
         WriteLookup(book, plan, BillSlot.StateRow, DetailsSheet.StateColumn, doc.State.Trim(), "State", inDetails);
         WriteLookup(book, plan, BillSlot.GstinRow, DetailsSheet.GstinColumn, doc.Gstin.Trim().Length == 0 ? string.Empty : $"GSTIN: {doc.Gstin.Trim()}", "GSTIN", inDetails);
+        var color = WorkbookStyles.PartyColor(details.ColorOf(party), colors);
+        foreach (var row in new[] { BillSlot.PartyRow, BillSlot.AddressRow, BillSlot.StateRow, BillSlot.GstinRow })
+            book.Styles!.SetColor(main, slot.Ref(row, Col.A), color);
         WriteLines(book, plan, party, inDetails);
 
         main.SetResult(slot.Ref(BillSlot.GrossRow, Col.G), doc.Gross);
@@ -206,6 +211,7 @@ internal static class BillExporter
         main.SetResult(slot.Ref(BillSlot.CgstRow, Col.G), doc.Cgst);
         main.SetResult(slot.Ref(BillSlot.SgstRow, Col.G), doc.Sgst);
         main.SetResult(slot.Ref(BillSlot.TotalRow, Col.G), doc.Total);
+        main.SetResult(slot.Ref(BillSlot.TotalRow, Col.A), RupeeWords.Format(doc.Total));
     }
 
     private static void WriteLookup(BillWorkbook book, SlotPlan plan, int row, int detailsColumn, string wanted, string label, bool inDetails)
@@ -231,9 +237,13 @@ internal static class BillExporter
     {
         var slot = plan.Slot!.Value;
         var main = book.Main;
-        var lines = SheetBillComparer.Trimmed(plan.Doc.Lines);
+        var lines = BillLineLayout.ForWorkbook(plan.Doc.Lines);
         var typedRates = new Dictionary<(string Finish, decimal? Rate), List<int>>();
         var detailsRates = new Dictionary<string, decimal?>(StringComparer.OrdinalIgnoreCase);
+        var ordinaryQty = BillSlot.All.SelectMany(s => Enumerable.Range(BillSlot.FirstLineRow, BillSheetReader.LineRows).Select(r => s.Ref(r, Col.E)))
+            .FirstOrDefault(reference => !book.Styles!.IsBoxed(main, reference))
+            ?? throw new InvalidDataException("The workbook has no ordinary THAN border to restore.");
+        var ordinaryStyle = main.Style(ordinaryQty);
         var runStart = -1;
         for (var i = 0; i < BillSheetReader.LineRows; i++)
         {
@@ -253,8 +263,9 @@ internal static class BillExporter
                 main.SetFormula(qtyRef, $"SUM({slot.Ref(runStart, Col.E)}:{slot.Ref(row - 1, Col.E)})", line.Qty ?? 0);
             else if (line!.Qty is { } qty) main.SetNumber(qtyRef, qty);
             else main.Clear(qtyRef);
-            if (kind != LineKind.Detail) runStart = -1;
-            else if (runStart < 0) runStart = row;
+            if (kind == LineKind.Priced) runStart = -1;
+            else if (kind == LineKind.Detail && runStart < 0) runStart = row;
+            book.Styles!.SetOutline(main, qtyRef, kind == LineKind.Priced && finish.Length > 0, ordinaryStyle);
 
             var rate = kind == LineKind.Priced ? line!.Rate : null;
             var rateRef = slot.Ref(row, Col.F);
@@ -284,6 +295,33 @@ internal static class BillExporter
                 ? $"Rate for {finish} on {where}: {Number(r)} typed in (the Details sheet {has})."
                 : $"Rate for {finish} on {where} left empty, as on the app's bill (the Details sheet {has}).");
         }
+    }
+
+    internal static List<string> PresentationDifferences(BillWorkbook book, BillSlot slot, InvoiceDoc doc, IReadOnlyList<NamedColor>? colors)
+    {
+        var differences = new List<string>();
+        var color = WorkbookStyles.PartyColor(book.Details.ColorOf(doc.PartyName.Trim()), colors);
+        if (new[] { BillSlot.PartyRow, BillSlot.AddressRow, BillSlot.StateRow, BillSlot.GstinRow }
+            .Any(row => !book.Styles!.HasColor(book.Main, slot.Ref(row, Col.A), color)))
+            differences.Add("Party font colour does not match the Details sheet.");
+        var lines = BillLineLayout.ForWorkbook(doc.Lines);
+        for (var i = 0; i < BillSheetReader.LineRows; i++)
+        {
+            var row = BillSlot.FirstLineRow + i;
+            var priced = i < lines.Count && lines[i].Kind == LineKind.Priced && !string.IsNullOrWhiteSpace(lines[i].Finish);
+            if (book.Styles!.HasOutline(book.Main, slot.Ref(row, Col.E)) != priced)
+            {
+                differences.Add("The priced THAN rows need the bill's thick outline.");
+                break;
+            }
+        }
+        if (lines.Count == BillSheetReader.LineRows && lines[^1].AutoSum
+            && book.Cell(slot, BillSlot.LastLineRow, Col.D).Text != lines[^1].Finish)
+            differences.Add("The final finish total belongs at the bottom of the bill table.");
+        var words = book.Cell(slot, BillSlot.TotalRow, Col.A);
+        if (words.HasFormula && words.Text != RupeeWords.Format(doc.Total))
+            differences.Add("The saved amount in words does not match the invoice total.");
+        return differences;
     }
 
     private static void WriteDiscount(BillWorkbook book, SlotPlan plan, string party, bool inDetails)
