@@ -56,7 +56,7 @@ async function expectRows(page, view, ids) {
     await toggle("register").click();
     assert.equal(await filters("register").isVisible(), true);
     assert.equal(await toggle("register").getAttribute("aria-expanded"), "true");
-    assert.equal(await filters("register").locator(".filter-chip").count(), 13);
+    assert.equal(await filters("register").locator(".filter-chip").count(), 15);
     const starts = () => filters("register").locator(".filter-split").evaluateAll((chips) => chips.map((chip) => chip.getBoundingClientRect().left));
     const positions = await starts();
     const barHeight = () => filters("register").evaluate((bar) => bar.getBoundingClientRect().height);

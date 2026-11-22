@@ -21,6 +21,13 @@ public sealed record EntryInput(
 
 public sealed record DispatchDto(int Qty, string GatePass, string? Date, string? DateText);
 
+/// <summary>
+/// What the latest import of a month's workbook did to the entry: <c>Action</c> "added" (a new row) or "updated" (the
+/// workbook changed it; <c>Changes</c> says what, when known). <c>RegisterMonth</c> is the imported month: a later month's
+/// carryover rows can update an earlier month's entry.
+/// </summary>
+public sealed record ImportMarkDto(string Action, string FileName, string ImportedAt, string RegisterMonth, string Changes);
+
 public sealed record EntryDto(
     long Id,
     string RegisterMonth,
@@ -46,7 +53,8 @@ public sealed record EntryDto(
     EntryStatus Status,
     IReadOnlyList<string> Warnings,
     string? BilledIn,
-    bool NoBillNeeded = false);
+    bool NoBillNeeded = false,
+    ImportMarkDto? LastImport = null);
 
 public sealed record MonthSummary(string Month, int Entries);
 

@@ -336,4 +336,85 @@ public sealed class ApiImportTests(ApiFactory factory) : IClassFixture<ApiFactor
         Assert.Equal(("APP", "F1"), (Inward(entries, 2).GetProperty("lotNo").GetString(), Inward(entries, 2).GetProperty("finish").GetString()));
         Assert.Equal(10, Inward(entries, 3).GetProperty("than").GetInt32());
     }
+
+    private static (string? Action, string? Changes, string? Month) Mark(JsonElement entry) =>
+        entry.GetProperty("lastImport") is { ValueKind: JsonValueKind.Object } mark
+            ? (mark.GetProperty("action").GetString(), mark.GetProperty("changes").GetString(), mark.GetProperty("registerMonth").GetString())
+            : (null, null, null);
+
+    [Fact]
+    public async Task An_import_lists_and_remembers_which_entries_it_added_and_which_it_updated()
+    {
+        var app = await Ready();
+        SheetRow[] first = [new(1, "2025-04-01", "IMP PARTY", "D1", "L1"), new(2, "2025-04-01", "IMP PARTY", "D2"), new(3, "2025-04-02", "IMP OTHER", "D3")];
+        var report = await Import(app, Workbook("apr25-1", first), "2025-04", commit: false);
+        Assert.Equal(
+        [
+            "INW. NO. 1 of 2025-04-01 (IMP PARTY): D.N. D1, LOT N. L1, THAN 10, FINISH F1.",
+            "INW. NO. 2 of 2025-04-01 (IMP PARTY): D.N. D2, THAN 10, FINISH F1.",
+            "INW. NO. 3 of 2025-04-02 (IMP OTHER): D.N. D3, THAN 10, FINISH F1.",
+        ], Messages(report, "added"));
+        Assert.Empty(await Month(app, "2025-04"));
+        await Import(app, Workbook("apr25-1", first), "2025-04", commit: true);
+        Assert.All(await Month(app, "2025-04"), e => Assert.Equal(("added", "", "2025-04"), Mark(e)));
+
+        SheetRow[] second =
+        [
+            first[0],
+            first[1] with { Than = 15 },
+            first[2] with { Lot = "L3", Dispatches = [(4, "G3", "2025-04-05")] },
+            new SheetRow(4, "2025-04-03", "IMP PARTY", "D4", Than: 11, TwoPart: 1).Sent((2, "G4", "2025-04-04")),
+        ];
+        var path = Workbook("apr25-2", second);
+        var check = await Import(app, path, "2025-04", commit: false);
+        Assert.Equal(["INW. NO. 4 of 2025-04-03 (IMP PARTY): D.N. D4, THAN 11, TWO PART 1, FINISH F1, 1 dispatch."], Messages(check, "added"));
+        Assert.Equal(
+        [
+            "INW. NO. 2 of 2025-04-01 (IMP PARTY): THAN 10 → 15.",
+            "INW. NO. 3 of 2025-04-02 (IMP OTHER): LOT N. filled in (L3); 1 later dispatch(es) added.",
+        ], Messages(check, "changes"));
+        Assert.All(await Month(app, "2025-04"), e => Assert.Equal("added", Mark(e).Action));
+
+        var done = await Import(app, path, "2025-04", commit: true);
+        Assert.Equal((1, 2), (Messages(done, "added").Count, Messages(done, "changes").Count));
+        var entries = await Month(app, "2025-04");
+        Assert.Equal((null, null, null), Mark(Inward(entries, 1)));
+        Assert.Equal(("updated", "THAN 10 → 15", "2025-04"), Mark(Inward(entries, 2)));
+        Assert.Equal(("updated", "LOT N. filled in (L3); 1 later dispatch(es) added", "2025-04"), Mark(Inward(entries, 3)));
+        Assert.Equal(("added", "", "2025-04"), Mark(Inward(entries, 4)));
+        Assert.Equal("apr25-2.xlsx", Inward(entries, 4).GetProperty("lastImport").GetProperty("fileName").GetString());
+
+        // A copy with nothing new is not imported, so it leaves the marks as they are; an edit in the app keeps them too.
+        Assert.True((await Import(app, Workbook("apr25-3", second, salt: "again"), "2025-04", commit: true)).GetProperty("upToDate").GetBoolean());
+        await app.Put($"/api/entries/{Inward(entries, 4).GetProperty("id").GetInt64()}", Edit(Inward(entries, 4), lotNo: "APP")).Ok();
+        Assert.Equal("added", Mark(Inward(await Month(app, "2025-04"), 4)).Action);
+
+        // The next import that changes something shows only what it did.
+        await Import(app, Workbook("apr25-4", [.. second, new SheetRow(5, "2025-04-06", "IMP PARTY", "D5")]), "2025-04", commit: true);
+        var latest = await Month(app, "2025-04");
+        Assert.Equal([5], latest.Where(e => Mark(e).Action is not null).Select(e => e.GetProperty("inwardNo").GetInt32()));
+        Assert.Equal("added", Mark(Inward(latest, 5)).Action);
+    }
+
+    [Fact]
+    public async Task Carryover_rows_that_change_another_months_entry_count_as_updates()
+    {
+        var app = await Ready();
+        var june = new SheetRow(60, "2025-06-10", "IMP PARTY", "D60");
+        await Import(app, Workbook("jun25-1", [june]), "2025-06", commit: true);
+        var july = await Import(app, Workbook("jul25-1", [new(1, "2025-07-01", "IMP OTHER", "J1"), null, june with { Lot = "L60" }]), "2025-07", commit: true);
+        Assert.Equal(["INW. NO. 1 of 2025-07-01 (IMP OTHER): D.N. J1, THAN 10, FINISH F1."], Messages(july, "added"));
+        Assert.Equal(["INW. NO. 60 of 2025-06-10 (IMP PARTY), 2025-06 register: LOT N. filled in (L60)."], Messages(july, "changes"));
+        Assert.Equal((0, 1), (july.GetProperty("updatedEntries").GetInt32(), july.GetProperty("otherMonthUpdates").GetInt32()));
+        Assert.Equal(("updated", "LOT N. filled in (L60)", "2025-07"), Mark(Inward(await Month(app, "2025-06"), 60)));
+
+        // A later month's carryover adopted by its own month moves there: an update, not a new entry.
+        var august = new SheetRow(80, "2025-08-10", "IMP PARTY", "D80");
+        await Import(app, Workbook("sep25-1", [new(1, "2025-09-01", "IMP OTHER", "S1"), null, august]), "2025-09", commit: true);
+        var adopted = await Import(app, Workbook("aug25-1", [august]), "2025-08", commit: true);
+        Assert.Empty(Messages(adopted, "added"));
+        Assert.Equal(["INW. NO. 80 of 2025-08-10 (IMP PARTY): moved here from the 2025-09 register."], Messages(adopted, "changes"));
+        Assert.Equal(1, adopted.GetProperty("otherMonthUpdates").GetInt32());
+        Assert.Equal(("updated", "moved here from the 2025-09 register", "2025-08"), Mark(Inward(await Month(app, "2025-08"), 80)));
+    }
 }

@@ -19,6 +19,31 @@ public sealed class ImportLogRepository(IDbSession session) : RepositoryBase(ses
         """,
         batch);
 
+    public void AddInwardBatchEntries(IReadOnlyCollection<ImportBatchEntryEntity> rows)
+    {
+        if (rows.Count == 0) return;
+        Execute(
+            """
+            INSERT OR REPLACE INTO import_batch_entries(batch_id, entry_id, action, source_row, changes)
+            VALUES (@BatchId, @EntryId, @Action, @SourceRow, @Changes);
+            """,
+            rows);
+    }
+
+    public IReadOnlyDictionary<long, ImportMarkEntity> LatestImportMarks()
+    {
+        var marks = new Dictionary<long, ImportMarkEntity>();
+        var rows = Query<ImportMarkEntity>(
+            """
+            SELECT ie.entry_id, ie.action, ie.changes, b.id AS batch_id, b.file_name, b.imported_at, b.register_month
+            FROM import_batch_entries ie JOIN import_batches b ON b.id = ie.batch_id
+            WHERE b.id IN (SELECT MAX(id) FROM import_batches GROUP BY register_month)
+            ORDER BY b.id;
+            """);
+        foreach (var mark in rows) marks[mark.EntryId] = mark;
+        return marks;
+    }
+
     public string? BillFileByHash(string sha256) =>
         First<string>("SELECT file_name FROM bill_imports WHERE sha256 = @sha256;", new { sha256 });
 

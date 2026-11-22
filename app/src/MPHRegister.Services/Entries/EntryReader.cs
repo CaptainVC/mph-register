@@ -7,7 +7,7 @@ using MPHRegister.Shared.Configuration;
 
 namespace MPHRegister.Services.Entries;
 
-public sealed class EntryReader(IEntryRepository entries, IMasterReader masters) : IEntryReader
+public sealed class EntryReader(IEntryRepository entries, IImportLogRepository imports, IMasterReader masters) : IEntryReader
 {
     public IReadOnlyList<EntryDto> Read(IReadOnlyList<EntryEntity> rows)
     {
@@ -16,8 +16,9 @@ public sealed class EntryReader(IEntryRepository entries, IMasterReader masters)
         var dispatches = entries.Dispatches(rows.Select(r => r.Id).ToHashSet());
         var duplicates = entries.DuplicateInwardNumbers();
         var index = ConfigIndex.For(masters.Config);
+        var marks = imports.LatestImportMarks();
         return rows.Select(r => EntryMapper.ToDto(r, dispatches.TryGetValue(r.Id, out var d) ? d : [], duplicates.Contains((r.RegisterMonth, r.InwardNo)),
-                index.Party(r.Party)?.NoBillNeeded ?? false))
+                index.Party(r.Party)?.NoBillNeeded ?? false, marks.GetValueOrDefault(r.Id)))
             .ToList();
     }
 }

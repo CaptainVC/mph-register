@@ -6,6 +6,9 @@ public sealed record ImportIssue(int Row, string Message);
 /// The check (or result) of importing an inward workbook. When the month already has entries (<see cref="SavedEntries"/>
 /// above 0) the import updates them: <see cref="Changes"/> lists what the workbook changes, <see cref="Kept"/> the values
 /// kept as they are in the app and <see cref="NotInWorkbook"/> the saved entries the workbook no longer has.
+/// <see cref="Added"/> lists every row added as a new entry; <see cref="Changes"/> every saved entry the import updates,
+/// including earlier months' entries changed by carryover rows and later months' carryovers moved into this month
+/// (<see cref="OtherMonthUpdates"/> of them).
 /// </summary>
 public sealed record ImportReport(
     bool Imported,
@@ -32,7 +35,9 @@ public sealed record ImportReport(
     bool UpToDate,
     IReadOnlyList<ImportIssue> Changes,
     IReadOnlyList<ImportIssue> Kept,
-    IReadOnlyList<ImportIssue> NotInWorkbook);
+    IReadOnlyList<ImportIssue> NotInWorkbook,
+    IReadOnlyList<ImportIssue> Added,
+    int OtherMonthUpdates);
 
 public sealed record BillImportInvoice(
     string InvoiceNo,
