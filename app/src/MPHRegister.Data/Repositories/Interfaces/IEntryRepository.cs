@@ -61,6 +61,32 @@ public interface IEntryRepository
     /// <summary>Deletes an entry and its dispatches. Entries on a bill or marked as billed elsewhere cannot be deleted.</summary>
     void Delete(long id);
 
+    /// <summary>Deletes an entry made in the app's register, keeping it whole in deleted_entries so it can be restored.</summary>
+    void MoveToDeleted(long id, string at);
+
+    /// <summary>Puts a deleted entry back under its own id, with its dispatches and carryover rows.</summary>
+    void RestoreDeleted(long id);
+
+    /// <summary>Entries deleted in the app, newest first.</summary>
+    IReadOnlyList<DeletedEntryEntity> Deleted();
+
+    DeletedEntryEntity? GetDeleted(long id);
+
+    /// <summary>Deleted entries of <paramref name="month"/> and earlier: a newer workbook may still have their rows.</summary>
+    IReadOnlyList<DeletedEntryEntity> DeletedUpTo(string month);
+
+    /// <summary>
+    /// Entries holding this inward slip (INW. NO., DATE and PARTY) in any month, and, when <paramref name="numberIsTaken"/>,
+    /// the entry using the INW. NO. in the <paramref name="month"/> register.
+    /// </summary>
+    IReadOnlyList<EntryEntity> SameSlip(string month, int inwardNo, string entryDate, string party, bool numberIsTaken);
+
+    /// <summary>Entries of the month with the same DATE, PARTY, D.N., LOT N. and THAN, whatever their INW. NO.</summary>
+    IReadOnlyList<EntryEntity> SameContent(string month, string entryDate, string party, string designNo, string lotNo, int than);
+
+    /// <summary>Numbers of the cancelled bills that list the entry (they cannot be restored while it is deleted).</summary>
+    IReadOnlyList<string> CancelledBillsWith(long id);
+
     IReadOnlyDictionary<long, List<DispatchEntity>> Dispatches(IReadOnlyCollection<long> entryIds);
 
     long Insert(EntryEntity entry);

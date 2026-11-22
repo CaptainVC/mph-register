@@ -21,4 +21,15 @@ public sealed class EntriesController(IEntryService entries) : ApiControllerBase
 
     [HttpPut("{id:long}")]
     public ActionResult<EntryDto> Update(long id, [FromBody] EntryInput input) => entries.Update(id, input);
+
+    /// <summary>Deletes an entry that is on no saved bill; it is kept so it can be restored.</summary>
+    [HttpDelete("{id:long}")]
+    public ActionResult<DeleteEntryResult> Delete(long id) => entries.Delete(id);
+
+    [HttpGet("deleted")]
+    public ActionResult<IReadOnlyList<DeletedEntryDto>> Deleted() => Ok(entries.Deleted());
+
+    /// <summary>Puts a deleted entry back, refused while its INW. NO. or slip is in use again.</summary>
+    [HttpPost("deleted/{id:long}/restore")]
+    public ActionResult<EntryDto> Restore(long id) => entries.Restore(id);
 }
