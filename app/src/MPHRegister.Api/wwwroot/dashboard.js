@@ -250,6 +250,62 @@ function renderDashboard() {
   main.scrollTop = scroll;
 }
 
+// A search box with a suggestion list: pick a party, or type part of its name. Empty text (or "All parties") means every party.
+function partyInput(names) {
+  const allLabel = L("All parties", "सभी पार्टियाँ");
+  const input = el("input", {
+    type: "text", id: "dashParty", value: dashState.party || allLabel, title: dashState.party,
+    placeholder: L("All parties (type to search)", "सभी पार्टियाँ (खोजने के लिए लिखें)"), "aria-label": L("Party", "पार्टी"),
+  });
+  // Until something is typed the list shows every party, even though the box holds the chosen name.
+  let typed = false;
+  const matches = (text) => {
+    const tokens = normalize(typed ? text : "").split(" ").filter(Boolean);
+    const rank = (name) => (normalize(name).startsWith(tokens.join(" ")) ? 0 : 1);
+    const found = names.filter((name) => tokens.every((token) => normalize(name).includes(token))).sort((a, b) => rank(a) - rank(b));
+    const all = !tokens.length || tokens.every((token) => normalize(`${allLabel} All parties`).includes(token));
+    return [...(all ? [{ value: "", label: allLabel, selected: !dashState.party }] : []),
+      ...found.map((name) => ({ value: name, label: name, selected: name === dashState.party }))];
+  };
+  const resolve = () => {
+    const text = input.value.trim().toLowerCase();
+    if (!text || text === allLabel.toLowerCase() || text === "all parties") return "";
+    return names.find((name) => name.toLowerCase() === text) ?? null;
+  };
+  const settle = (party) => {
+    typed = false;
+    input.value = party || allLabel;
+    input.title = party;
+    pickParty(party);
+  };
+  const commit = () => {
+    const party = resolve();
+    if (party === null) {
+      typed = false;
+      input.value = dashState.party || allLabel;
+    } else settle(party);
+  };
+  input.addEventListener("input", () => { typed = true; });
+  attachSuggestions(input, matches, {
+    acceptOnTab: () => resolve() === null,
+    onPick: ({ value }) => settle(value),
+  });
+  input.addEventListener("focus", () => input.select());
+  input.addEventListener("blur", commit);
+  input.addEventListener("keydown", (event) => {
+    if (event.defaultPrevented) return;
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commit();
+    } else if (event.key === "Escape") {
+      typed = false;
+      input.value = dashState.party || allLabel;
+      input.select();
+    }
+  });
+  return input;
+}
+
 function header({ d }, pendingParty) {
   const year = dropdownOf(d.years.map((fy) => [String(fy), fyText(fy)]), d.fy,
     { id: "dashYear", "aria-label": L("Financial year", "Financial Year"), title: L("April to March", "April से March") });
@@ -258,9 +314,7 @@ function header({ d }, pendingParty) {
     { id: "dashMonth", "aria-label": L("Month", "Month") });
   month.addEventListener("change", () => pickMonth(month.value));
   const names = d.partyOptions.includes(dashState.party) || !dashState.party ? d.partyOptions : [...d.partyOptions, dashState.party];
-  const party = dropdownOf([["", L("All parties", "सभी पार्टियाँ")], ...names.map((name) => [name, name])],
-    dashState.party, { id: "dashParty", "aria-label": L("Party", "पार्टी"), title: dashState.party });
-  party.addEventListener("change", () => pickParty(party.value));
+  const party = partyInput(names);
   const refresh = el("button", { type: "button", id: "dashRefresh", class: "secondary", text: L("↻ Refresh", "↻ Refresh करें"), onclick: () => loadDashboard().catch(showFatal) });
   const time = new Date(dashState.loadedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
   const status = dashState.error

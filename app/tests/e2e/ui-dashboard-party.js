@@ -50,7 +50,7 @@ async function seed() {
     await page.locator('[data-view="dashboard"]').click();
     const party = page.locator("#dashParty");
     await party.waitFor();
-    assert.match(await party.textContent(), /All parties/);
+    assert.equal(await party.inputValue(), "All parties");
     assert.equal((await dropdownValues(party))[0], "");
     assert.equal(await page.locator("#dash-overall").count(), 0);
 
@@ -59,7 +59,7 @@ async function seed() {
     await chooseDropdown(party, PARTY);
     const overall = page.locator("#dash-overall");
     await overall.waitFor();
-    assert.equal(await dropdownValue(party), PARTY);
+    assert.equal(await party.inputValue(), PARTY);
     assert.equal(await dropdownValue(page.locator("#dashMonth")), MONTH);
     assert.match(await overall.textContent(), /Compared with all parties/);
     const monthCells = overall.locator("tbody tr").first().locator("td");
@@ -77,6 +77,27 @@ async function seed() {
     await page.locator("#dash-parties").waitFor();
     assert.equal(await overall.count(), 0);
     assert.equal(await dropdownValue(page.locator("#dashMonth")), "2024-09");
+
+    // Typing a part of the name narrows the list; Enter picks the first match.
+    await party.click();
+    await party.fill("test b");
+    assert.deepEqual(await dropdownValues(party), [OTHER]);
+    await party.fill("test b");
+    await party.press("Enter");
+    await page.waitForFunction((name) => document.querySelector("#dash-overall")?.textContent.includes("Compared") && document.querySelector("#dashParty").value === name, OTHER);
+    assert.equal(await dropdownValue(page.locator("#dashMonth")), "2024-09");
+    // Text that is no party goes back to the chosen one; "All parties" or empty text shows everyone again.
+    await party.fill("no such party");
+    await party.press("Tab");
+    assert.equal(await party.inputValue(), OTHER);
+    await party.fill("");
+    await party.press("Enter");
+    await page.locator("#dash-parties").waitFor();
+    assert.equal(await party.inputValue(), "All parties");
+    // With a party chosen the list still opens in full.
+    await chooseDropdown(party, PARTY);
+    await page.locator("#dash-overall").waitFor();
+    assert.ok((await dropdownValues(page.locator("#dashParty"))).length > 2);
     assert.deepEqual(errors, []);
     console.log("Dashboard party filter and overall comparisons passed.");
   } finally {

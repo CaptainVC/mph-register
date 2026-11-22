@@ -1144,7 +1144,7 @@ dialog.modal[open]::backdrop { background: var(--backdrop); }
 .dash-controls { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
 .dash-controls .field { min-width: 190px; }
 .dash-controls .dash-party-field { width: min(300px, 100%); }
-.dash-controls [data-dropdown] { height: 46px; font-size: 18px; font-weight: 600; }
+.dash-controls :is([data-dropdown], input[data-suggestions]) { height: 46px; font-size: 18px; font-weight: 600; }
 .dash-controls button { height: 46px; font-size: 17px; }
 .dash-card h2 { font-size: 22px; }
 .dash-card .card-head .muted { font-size: 15.5px; }
