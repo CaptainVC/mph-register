@@ -13,7 +13,11 @@ public enum RowAction
     KeepDeleted,
 }
 
-public sealed record RowPlan(InwardRow Row, RowAction Action, EntryEntity Entry, IReadOnlyList<DispatchEntity> Dispatches, bool Changed, bool DispatchesChanged = true);
+/// <summary>What importing does with one workbook row; <c>Changes</c> says what it changes in a saved entry.</summary>
+public sealed record RowPlan(InwardRow Row, RowAction Action, EntryEntity Entry, IReadOnlyList<DispatchEntity> Dispatches, bool Changed, bool DispatchesChanged = true)
+{
+    public IReadOnlyList<string> Changes { get; init; } = [];
+}
 
 /// <summary>
 /// A carryover row repeats an earlier month's inward slip (same party, INW. NO. and date) with its later dispatches.

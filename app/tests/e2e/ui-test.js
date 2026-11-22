@@ -196,7 +196,7 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
     clear: getComputedStyle(b.querySelector(".filter-clear")).visibility,
     captions: [...b.querySelectorAll(".filter-caption")].map((c) => c.textContent),
   }));
-  check("filters in 3 groups that wrap whole, none ticked, Clear hidden", bar.splitGroups === 0 && bar.pressed === 0 && bar.clear === "hidden" && bar.captions.join() === "Dispatch,Bill,Other", JSON.stringify(bar));
+  check("filters in 4 groups that wrap whole, none ticked, Clear hidden", bar.splitGroups === 0 && bar.pressed === 0 && bar.clear === "hidden" && bar.captions.join() === "Dispatch,Bill,Other,Last import", JSON.stringify(bar));
 
   await page.click(chip("pending"));
   await waitShown(counts.pending);

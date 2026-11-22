@@ -924,6 +924,15 @@ function draftCellText(draft, part) {
   return draft.gatePass;
 }
 
+// "Added by the import of NOV.xlsm on 22/Nov/26 21:40" — the row's tooltip says what the latest import did to it.
+function importNote(mark) {
+  if (!mark) return "";
+  const [day, time = ""] = mark.importedAt.split(" ");
+  const when = `${formatDate(day)} ${time.slice(0, 5)}`.trim();
+  if (mark.action === "added") return `Added by the import of ${mark.fileName} on ${when}`;
+  return `Updated by the import of ${mark.fileName} (${formatMonth(mark.registerMonth)}) on ${when}${mark.changes ? `: ${mark.changes}` : ""}`;
+}
+
 function fillEntryRow(tr, entry) {
   rowEntry.set(tr, entry);
   tr.dataset.entryId = String(entry.id);
@@ -931,7 +940,10 @@ function fillEntryRow(tr, entry) {
   tr.classList.add(entry.status);
   tr.classList.toggle("carried", entry.carriedOver);
   tr.classList.toggle("has-warning", entry.warnings.length > 0);
-  tr.title = entry.status === "allZero" ? [ALL_ZERO_TIP, ...entry.warnings].join("\n") : entry.warnings.join("\n");
+  const tips = entry.status === "allZero" ? [ALL_ZERO_TIP, ...entry.warnings] : [...entry.warnings];
+  const imported = importNote(entry.lastImport);
+  if (imported) tips.push(imported);
+  tr.title = tips.join("\n");
   [...tr.cells].forEach((td, index) => { if (!td.classList.contains("cell-editing")) fillEntryCell(td, entry, index); });
 }
 
@@ -1341,6 +1353,13 @@ function financialYearMonthFilter(yearSelect, monthSelect, onChange) {
       year = fillFinancialYearOptions(yearSelect, months, year);
       fillMonths();
     },
+    // Picks one month (and its financial year), as when the import report opens the Register.
+    show: (available, month) => {
+      months = available;
+      year = fillFinancialYearOptions(yearSelect, months, financialYearOf(month));
+      fillMonths();
+      monthSelect.value = month;
+    },
   };
 }
 
@@ -1399,6 +1418,10 @@ const ROW_FILTERS = [
     { key: "carried", label: "Carryover", group: "carried", swatch: true, tip: "Slip repeated from the previous month's register", test: (e) => e.carriedOver },
     { key: "balance", label: "Has balance", group: "balance", tip: "Still to dispatch: BALANCE is above 0, so some stock is still with you", test: (e) => e.balance > 0 },
     { key: "warning", label: "Has warning", group: "warning", swatch: true, tip: "Point at the row to read the warning", test: (e) => e.warnings.length > 0 },
+  ] },
+  { caption: "Last import", help: "What the latest import of each month's inward workbook did: include New or Updated to see those entries", filters: [
+    { key: "importAdded", label: "New", tip: "Added as a new row by the latest import of its month's workbook", test: (e) => e.lastImport?.action === "added" },
+    { key: "importUpdated", label: "Updated", tip: "Changed by the latest import of a month's workbook (a later month's carryover rows can change an earlier entry). Point at the row to see what changed", test: (e) => e.lastImport?.action === "updated" },
   ] },
 ];
 
@@ -1506,7 +1529,7 @@ function rowFilters(container, onChange, toggle) {
   container.replaceChildren(...groups, el("div", { class: "filter-actions" }, [summary, clear]));
 
   let summaryText = "";
-  return (entries) => {
+  const apply = (entries) => {
     const included = new Map();
     const excluded = [];
     for (const { filter, group } of chips) {
@@ -1543,6 +1566,14 @@ function rowFilters(container, onChange, toggle) {
     badge.classList.toggle("hidden", !modes.size);
     return modes.size ? entries.filter((e) => passesIncludes(e) && !excluded.some((filter) => filter.test(e))) : entries;
   };
+  // Shows only the rows matching these filters (with the filter bar open, so it is clear why).
+  apply.only = (keys) => {
+    modes.clear();
+    keys.forEach((key) => modes.set(key, "include"));
+    container.classList.remove("hidden");
+    toggle.setAttribute("aria-expanded", "true");
+  };
+  return apply;
 }
 
 const registerRowFilter = rowFilters($("registerFilters"), () => renderRegister(), $("registerFiltersToggle"));
@@ -1917,6 +1948,12 @@ $("importFile").addEventListener("change", () => {
   if (file) $("importMonth").value = guessMonth(file.name) || $("importMonth").value;
   importPeriodInput.sync();
 });
+// Cancel drops the chosen workbook and its check result, so nothing can be imported until a file is chosen and checked again.
+$("cancelImport").addEventListener("click", () => {
+  $("importFile").value = "";
+  invalidateImportPreview();
+});
+
 $("importMonth").addEventListener("input", () => { invalidateImportPreview(); importPeriodInput.sync(); });
 
 async function sendImport(commit) {
@@ -1942,6 +1979,7 @@ function renderReport(report) {
     ...(update ? [["Entries already saved", report.savedEntries]] : []),
     ["New entries", report.entries],
     ...(update ? [["Entries changed", report.updatedEntries], ["Entries unchanged", report.unchangedEntries], ["Entries removed", report.removedEntries]] : []),
+    ...(report.otherMonthUpdates ? [["Entries of other months changed", report.otherMonthUpdates]] : []),
     ["Carryover rows", report.carriedOver], ["Carryovers merged into earlier months", report.mergedCarryovers ?? 0],
     ["Dispatch lines", report.dispatches], ["THAN", report.than], ["TP", report.tp],
     ["NAG", report.nag], ["NETT THAN", report.nettThan], ["TWO PART", report.twoPart], ["JAWAK NAG", report.dispatched],
@@ -1951,12 +1989,27 @@ function renderReport(report) {
     : !ok ? "Problems found — nothing imported"
       : report.upToDate ? "Nothing to update — no new changes in this workbook"
         : update ? "Check passed — ready to update" : "Check passed — ready to import";
+  // After an import, the Register can show just the entries it added or updated.
+  const actions = report.imported && (report.added.length || report.changes.length) ? [el("div", { class: "report-actions" }, [
+    ...(report.added.length ? [el("button", { type: "button", class: "secondary", id: "showImportAdded", text: "Show new entries in the Register",
+      onclick: () => showImportInRegister("importAdded", report.registerMonth).catch(showFatal) })] : []),
+    ...(report.changes.length ? [el("button", { type: "button", class: "secondary", id: "showImportUpdated", text: "Show updated entries in the Register",
+      onclick: () => showImportInRegister("importUpdated", report.registerMonth).catch(showFatal) })] : []),
+  ])] : [];
   const children = [
     el("h2", { text: title }),
+    ...actions,
     el("table", {}, [el("tbody", {}, rows.map(([k, v]) => el("tr", {}, [el("th", { text: k }), el("td", { text: typeof v === "number" ? num(v) : String(v) })])))]),
   ];
   if (report.errors.length) children.push(el("h3", { text: `Errors (${report.errors.length})` }), el("ul", {}, report.errors.map(issue)));
-  if (report.changes.length) children.push(el("h3", { text: `Changes from the workbook (${report.changes.length})` }), el("ul", {}, report.changes.map(issue)));
+  if (report.added.length) {
+    children.push(el("h3", { id: "importAddedTitle", text: `New entries (${report.added.length})` }),
+      el("ul", { id: "importAddedList" }, report.added.map(issue)));
+  }
+  if (report.changes.length) {
+    children.push(el("h3", { id: "importUpdatedTitle", text: `Updated entries (${report.changes.length})` }),
+      el("ul", { id: "importUpdatedList" }, report.changes.map(issue)));
+  }
   if (report.kept.length) {
     children.push(el("h3", { text: `Kept as in the app (${report.kept.length})` }),
       el("p", { class: "muted", text: "These were changed in the app (or by a later month's carryover rows) since the last import. If the workbook is right, change them in the Register." }),
@@ -1968,7 +2021,7 @@ function renderReport(report) {
   const month = formatMonth(report.registerMonth);
   if (report.imported) {
     toast(update
-      ? `Updated ${month}: ${num(report.entries)} new, ${num(report.updatedEntries)} changed, ${num(report.removedEntries)} removed`
+      ? `Updated ${month}: ${num(report.entries)} new, ${num(report.changes.length)} changed, ${num(report.removedEntries)} removed`
       : `Imported ${num(report.entries)} entries into ${month}`);
   } else if (!ok) toast(`Problems found in the workbook (${num(report.errors.length)}): nothing imported`, "err");
   else if (report.upToDate) toast(`${month} is up to date: no new changes in this workbook`, "warn");
@@ -1976,6 +2029,16 @@ function renderReport(report) {
   $("runImport").disabled = !ok || report.imported || report.upToDate;
   state.importRemoves = report.imported ? 0 : report.removedEntries;
   state.importMonth = report.registerMonth;
+}
+
+// Opens the Register on the imported month with only the entries the import added (or updated).
+async function showImportInRegister(filterKey, month) {
+  $("registerSearch").value = "";
+  registerSearchPick = null;
+  registerRowFilter.only([filterKey]);
+  registerPeriodFilter.show(await api("/api/months"), month);
+  returnTrips.length = 0;
+  await switchView("register");
 }
 
 $("previewImport").addEventListener("click", async () => {

@@ -9,6 +9,7 @@ using MPHRegister.Data.Entities;
 using MPHRegister.Data.Repositories.Interfaces;
 using MPHRegister.Services.Interfaces;
 using MPHRegister.Shared.Configuration;
+using MPHRegister.Shared.Constants;
 using MPHRegister.Shared.Helpers;
 
 namespace MPHRegister.Services.Imports.Inward;
@@ -90,14 +91,16 @@ public sealed partial class InwardImportService(
                 EntryCount = inserts.Count,
                 DispatchCount = inserts.Sum(p => p.Dispatches.Count),
             });
+            var marks = new List<ImportBatchEntryEntity>();
             foreach (var p in plans)
             {
                 var source = SourceValues.Of(p.Row).ToJson();
+                var entryId = p.Entry.Id;
                 switch (p.Action)
                 {
                     case RowAction.Insert:
-                        var id = entries.Insert(p.Entry with { ImportBatchId = batchId, SourceValues = source, CreatedAt = now, UpdatedAt = now });
-                        entries.ReplaceDispatches(id, p.Dispatches);
+                        entryId = entries.Insert(p.Entry with { ImportBatchId = batchId, SourceValues = source, CreatedAt = now, UpdatedAt = now });
+                        entries.ReplaceDispatches(entryId, p.Dispatches);
                         break;
                     case RowAction.AdoptLaterCarryover:
                         entries.MoveToMonth(p.Entry.Id, month, batchId, p.Row.Row, source);
@@ -115,8 +118,11 @@ public sealed partial class InwardImportService(
                         entries.SaveCarryoverSource(p.Entry.Id, month, source);
                         break;
                 }
+                if (Mark(p) is { } action)
+                    marks.Add(new ImportBatchEntryEntity { BatchId = batchId, EntryId = entryId, Action = action, SourceRow = p.Row.Row, Changes = string.Join("; ", p.Changes) });
             }
             foreach (var removed in plan.Removals) entries.Delete(removed.Id);
+            log.AddInwardBatchEntries(marks.GroupBy(m => m.EntryId).Select(Combine).ToList());
             unit.Commit();
             imported = true;
             AddInactive(addedParties, addedFinishes);
@@ -127,12 +133,48 @@ public sealed partial class InwardImportService(
             .OrderBy(x => x.Entry.InwardNo).ThenBy(x => x.Entry.Id)
             .Select(x => new ImportIssue(0, $"{Slip(x.Entry)} {x.Note}."))
             .ToList();
+        var added = plans.Where(p => p.Action == RowAction.Insert).Select(p => new ImportIssue(p.Row.Row, Describe(p.Row))).ToList();
         return new ImportReport(imported, fileName, month, plans.Count(p => p.Action == RowAction.Insert), rows.Sum(r => r.Dispatches.Count),
             rows.Count(r => r.AfterBlankRows), rows.Sum(r => r.Than), rows.Sum(r => r.Tp), rows.Sum(r => r.Than + r.Tp),
             rows.Sum(r => r.Repair ? 0 : r.Than), rows.Sum(r => r.TwoPart), rows.Sum(r => r.Dispatches.Sum(d => d.Qty)),
             plans.Count(p => p.Action is RowAction.MergeIntoEarlier or RowAction.AdoptLaterCarryover), addedParties, addedFinishes, warnings, errors,
             plan.Saved, plans.Count(p => p.Action == RowAction.UpdateSaved && p.Changed), plans.Count(p => p.Action == RowAction.UpdateSaved && !p.Changed),
-            plan.Removals.Count, upToDate, plan.Changes, plan.Kept, notInWorkbook);
+            plan.Removals.Count, upToDate, plan.Changes, plan.Kept, notInWorkbook, added,
+            plans.Count(p => p.Action == RowAction.AdoptLaterCarryover || (p.Action == RowAction.MergeIntoEarlier && p.Changed)));
+    }
+
+    /// <summary>What the import is remembered to have done to the row's entry (the Register's New and Updated filters).</summary>
+    private static string? Mark(RowPlan plan) => plan.Action switch
+    {
+        RowAction.Insert => ImportMarks.Added,
+        RowAction.AdoptLaterCarryover => ImportMarks.Updated,
+        RowAction.UpdateSaved or RowAction.MergeIntoEarlier when plan.Changed => ImportMarks.Updated,
+        _ => null,
+    };
+
+    /// <summary>Two carryover rows of one earlier slip update the same entry: kept once, with both rows' changes.</summary>
+    private static ImportBatchEntryEntity Combine(IGrouping<long, ImportBatchEntryEntity> marks)
+    {
+        var first = marks.First();
+        if (!marks.Skip(1).Any()) return first;
+        var action = marks.Any(m => m.Action == ImportMarks.Added) ? ImportMarks.Added : ImportMarks.Updated;
+        return first with { Action = action, Changes = string.Join("; ", marks.Select(m => m.Changes).Where(c => c.Length > 0)) };
+    }
+
+    /// <summary>"INW. NO. 7 of 2026-04-04 (PARTY): D.N. D7, LOT N. L7, THAN 11, FINISH F1, 1 dispatch."</summary>
+    private static string Describe(InwardRow row)
+    {
+        var parts = new List<string>();
+        if (row.Design.Length > 0) parts.Add($"D.N. {row.Design}");
+        if (row.Lot.Length > 0) parts.Add($"LOT N. {row.Lot}");
+        if (row.Repair) parts.Add("REP. YES");
+        parts.Add(string.Create(CultureInfo.InvariantCulture, $"THAN {row.Than}"));
+        if (row.Tp != 0) parts.Add(string.Create(CultureInfo.InvariantCulture, $"TP {row.Tp}"));
+        if (row.TwoPart != 0) parts.Add(string.Create(CultureInfo.InvariantCulture, $"TWO PART {row.TwoPart}"));
+        if (row.Finish.Length > 0) parts.Add($"FINISH {row.Finish}");
+        if (row.Dispatches.Count > 0) parts.Add(string.Create(CultureInfo.InvariantCulture, $"{row.Dispatches.Count} {(row.Dispatches.Count == 1 ? "dispatch" : "dispatches")}"));
+        if (row.AfterBlankRows) parts.Add("carryover row");
+        return string.Create(CultureInfo.InvariantCulture, $"INW. NO. {row.InwardNo} of {row.Date} ({row.Party}): {string.Join(", ", parts)}.");
     }
 
     /// <summary>Names the register uses but the config file lacks are added as inactive, after the entries are safely saved.</summary>
@@ -178,7 +220,7 @@ public sealed partial class InwardImportService(
         var plans = new RowPlan?[rows.Count];
         for (var i = 0; i < rows.Count; i++)
         {
-            if (!matches.ContainsKey(i) && !sharedRows.Contains(i)) plans[i] = FromOtherMonth(rows[i], month, importedBefore, carried, NewParty(rows[i]), NewFinish(rows[i]), warnings, kept);
+            if (!matches.ContainsKey(i) && !sharedRows.Contains(i)) plans[i] = FromOtherMonth(rows[i], month, importedBefore, carried, NewParty(rows[i]), NewFinish(rows[i]), warnings, changes, kept);
         }
         var bySlip = matches.Values.Select(e => e.Id).ToHashSet();
         foreach (var (i, entry) in SavedEntryMatcher.Loosely(rows, Enumerable.Range(0, rows.Count).Where(i => !matches.ContainsKey(i) && plans[i] is null), saved.Where(e => !bySlip.Contains(e.Id))))
@@ -203,7 +245,7 @@ public sealed partial class InwardImportService(
                 if (update.Changes.Count > 0) changes.Add(new ImportIssue(row.Row, $"{slip}: {string.Join("; ", update.Changes)}."));
                 if (update.Kept.Count > 0) kept.Add(new ImportIssue(row.Row, $"{slip}: {string.Join("; ", update.Kept)}."));
                 if (update.FieldsChanged) WarnIfBilled(stored, row.Row, slip, warnings);
-                plans[i] = new RowPlan(row, RowAction.UpdateSaved, update.Entry, update.Dispatches, update.Changed, update.DispatchesChanged);
+                plans[i] = new RowPlan(row, RowAction.UpdateSaved, update.Entry, update.Dispatches, update.Changed, update.DispatchesChanged) { Changes = update.Changes };
             }
             else
             {
@@ -227,7 +269,7 @@ public sealed partial class InwardImportService(
             else
                 removals.Add(entry);
         }
-        return new MonthPlan(saved.Count, [.. plans.Select(p => p!)], removals, typed, changes, kept);
+        return new MonthPlan(saved.Count, [.. plans.Select(p => p!)], removals, typed, [.. changes.OrderBy(c => c.Row)], kept);
     }
 
     /// <summary>
@@ -297,7 +339,8 @@ public sealed partial class InwardImportService(
     /// A carryover row still finds its entry after the entry's INW. NO., DATE or PARTY was corrected: through this month's
     /// carryover rows as last imported, or (for the carryover section) any row the entry was ever imported as.
     /// </summary>
-    private RowPlan? FromOtherMonth(InwardRow row, string month, bool importedBefore, CarriedRows carried, bool newParty, bool newFinish, List<ImportIssue> warnings, List<ImportIssue> kept)
+    private RowPlan? FromOtherMonth(
+        InwardRow row, string month, bool importedBefore, CarriedRows carried, bool newParty, bool newFinish, List<ImportIssue> warnings, List<ImportIssue> updated, List<ImportIssue> kept)
     {
         if (row.InwardNo <= 0) return null;
         var earlier = entries.FindEarlier(row.Party, row.Date, row.InwardNo, month);
@@ -342,7 +385,16 @@ public sealed partial class InwardImportService(
         }
         if (changes.Any(c => c.StartsWith("THAN", StringComparison.Ordinal) || c.StartsWith("FINISH", StringComparison.Ordinal) || c.StartsWith("REP.", StringComparison.Ordinal)))
             WarnIfBilled(stored, row.Row, slip, warnings);
-        return new RowPlan(row, earlier is not null ? RowAction.MergeIntoEarlier : RowAction.AdoptLaterCarryover, merged, dispatches, changes.Count > 0);
+        // An earlier month's entry this row changes, and a later month's carryover moved here, are entries the import updates.
+        var changed = changes.Count > 0;
+        if (later is not null) changes.Insert(0, $"moved here from the {later.RegisterMonth} register");
+        if (changes.Count > 0)
+        {
+            updated.Add(new ImportIssue(row.Row, earlier is not null
+                ? $"{Slip(earlier)}, {earlier.RegisterMonth} register: {string.Join("; ", changes)}."
+                : $"{Slip(later!)}: {string.Join("; ", changes)}."));
+        }
+        return new RowPlan(row, earlier is not null ? RowAction.MergeIntoEarlier : RowAction.AdoptLaterCarryover, merged, dispatches, changed) { Changes = changes };
     }
 
     private static void WarnIfBilled(EntryEntity entry, int row, string slip, List<ImportIssue> warnings)
