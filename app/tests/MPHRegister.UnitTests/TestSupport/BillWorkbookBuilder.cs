@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Security;
 using System.Text;
 using MPHRegister.Services.Exports.Bills;
+using MPHRegister.Services.Imports.Bills;
 
 namespace MPHRegister.UnitTests.TestSupport;
 
@@ -30,11 +31,23 @@ internal static class BillWorkbookBuilder
 
     private const string NumberLink = "LEFT(F7,FIND(\"\\\",F7,FIND(\"\\\",F7)+1))&(MID(F7,FIND(\"\\\",F7,FIND(\"\\\",F7)+1)+1,LEN(F7))+1)";
 
+    /// <summary>The bill columns' widths in the real workbook (characters).</summary>
+    public static readonly double[] ColumnWidths = [11.8181818181818, 12.2727272727273, 28.2727272727273, 9.54545454545454, 7.72727272727273, 7.45454545454545, 15];
+
+    /// <summary>The height the real workbook's line rows have (not fixed, so Excel grows them for wrapped text).</summary>
+    public const double LineRowHeight = 14.5;
+
+    /// <summary>
+    /// The workbook; with <paramref name="realLayout"/> its Main sheet also has the real workbook's column widths, row heights
+    /// (fixed for the party rows, not for the line rows), merged party and amount-in-words cells, and fonts: 14 pt Arial
+    /// Narrow for the party, wrapped 10 pt Calibri for the line texts.
+    /// </summary>
     public static byte[] Build(IReadOnlyList<DetailsParty> parties, string firstNumber = "26-27\\JOB\\101", string firstDate = "31.10.26",
-        string firstPeriod = "01.10.26 TO 31.10.26", Action<Dictionary<string, Cell>>? change = null)
+        string firstPeriod = "01.10.26 TO 31.10.26", Action<Dictionary<string, Cell>>? change = null, bool realLayout = false)
     {
         var strings = new List<string>();
         var main = MainCells(firstNumber, firstDate, firstPeriod);
+        if (realLayout) UseRealLayout(main);
         change?.Invoke(main);
         var details = DetailsCells(parties);
         using var output = new MemoryStream();
@@ -67,10 +80,8 @@ internal static class BillWorkbookBuilder
                 + "<Relationship Id=\"rId4\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>"
                 + "<Relationship Id=\"rId5\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/calcChain\" Target=\"calcChain.xml\"/>"
                 + "<Relationship Id=\"rId6\" Type=\"http://schemas.microsoft.com/office/2006/relationships/vbaProject\" Target=\"vbaProject.bin\"/></Relationships>");
-            Add(zip, "xl/styles.xml",
-                "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><fonts count=\"1\"><font><sz val=\"11\"/><color rgb=\"FFFF0000\"/><name val=\"Calibri\"/></font></fonts><fills count=\"1\"><fill/></fills>"
-                + "<borders count=\"1\"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count=\"1\"><xf/></cellStyleXfs><cellXfs count=\"2\"><xf/><xf numFmtId=\"49\" applyNumberFormat=\"1\"/></cellXfs></styleSheet>");
-            Add(zip, "xl/worksheets/sheet1.xml", Sheet(main, strings));
+            Add(zip, "xl/styles.xml", realLayout ? RealStyles : Styles);
+            Add(zip, "xl/worksheets/sheet1.xml", realLayout ? Sheet(main, strings, RealSheetHead, RealRowAttributes, RealMerges()) : Sheet(main, strings));
             Add(zip, "xl/worksheets/sheet2.xml", Sheet(details, strings));
             Add(zip, "xl/calcChain.xml", "<calcChain xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><c r=\"F13\" i=\"1\"/><c r=\"G38\"/></calcChain>");
             var entry = zip.CreateEntry("xl/vbaProject.bin");
@@ -176,12 +187,62 @@ internal static class BillWorkbookBuilder
         return cells;
     }
 
-    private static string Sheet(Dictionary<string, Cell> cells, List<string> strings)
+    private const string Styles =
+        "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><fonts count=\"1\"><font><sz val=\"11\"/><color rgb=\"FFFF0000\"/><name val=\"Calibri\"/></font></fonts><fills count=\"1\"><fill/></fills>"
+        + "<borders count=\"1\"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count=\"1\"><xf/></cellStyleXfs><cellXfs count=\"2\"><xf/><xf numFmtId=\"49\" applyNumberFormat=\"1\"/></cellXfs></styleSheet>";
+
+    /// <summary>Style 1: wrapped 10 pt Calibri line texts; style 2: wrapped 14 pt Arial Narrow party lines (red, like an empty place).</summary>
+    private const string RealStyles =
+        "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><fonts count=\"3\"><font><sz val=\"11\"/><color rgb=\"FFFF0000\"/><name val=\"Calibri\"/></font>"
+        + "<font><sz val=\"10\"/><color theme=\"1\"/><name val=\"Calibri\"/></font><font><sz val=\"14\"/><color rgb=\"FFFF0000\"/><name val=\"Arial Narrow\"/></font></fonts><fills count=\"1\"><fill/></fills>"
+        + "<borders count=\"1\"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count=\"1\"><xf/></cellStyleXfs><cellXfs count=\"3\"><xf/>"
+        + "<xf numFmtId=\"49\" fontId=\"1\" applyNumberFormat=\"1\" applyFont=\"1\" applyAlignment=\"1\"><alignment horizontal=\"center\" wrapText=\"1\"/></xf>"
+        + "<xf numFmtId=\"0\" fontId=\"2\" applyFont=\"1\" applyAlignment=\"1\"><alignment horizontal=\"center\" wrapText=\"1\"/></xf></cellXfs></styleSheet>";
+
+    private static void UseRealLayout(Dictionary<string, Cell> cells)
     {
-        var xml = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>");
+        foreach (var slot in BillSlot.All)
+        {
+            foreach (var row in new[] { BillSlot.PartyRow, BillSlot.AddressRow, BillSlot.StateRow, BillSlot.GstinRow })
+            {
+                var reference = slot.Ref(row, Col.A);
+                cells[reference] = (cells.TryGetValue(reference, out var cell) ? cell : new Cell(null)) with { Style = 2 };
+            }
+            for (var row = BillSlot.FirstLineRow; row <= BillSlot.LastLineRow; row++) cells[slot.Ref(row, Col.D)] = new Cell(null, Style: 1);
+        }
+    }
+
+    private static string RealSheetHead =>
+        "<sheetFormatPr defaultRowHeight=\"15\" customHeight=\"1\"/><cols>"
+        + string.Concat(Enumerable.Range(0, BillSheetReader.Panels * BillSheetReader.BlockColumns).Select(c => string.Create(CultureInfo.InvariantCulture,
+            $"<col min=\"{c + 1}\" max=\"{c + 1}\" width=\"{ColumnWidths[c % ColumnWidths.Length]}\" customWidth=\"1\"/>")))
+        + "</cols>";
+
+    private static string RealRowAttributes(int row) => (((row - 1) % BillSlot.Rows) + 1) switch
+    {
+        >= BillSlot.FirstLineRow and <= BillSlot.LastLineRow => string.Create(CultureInfo.InvariantCulture, $" ht=\"{LineRowHeight}\""),
+        >= BillSlot.PartyRow and <= BillSlot.GstinRow => " ht=\"16\" customHeight=\"1\"",
+        _ => string.Empty,
+    };
+
+    private static string RealMerges()
+    {
+        var merges = BillSlot.All.SelectMany(s => new[]
+        {
+            $"{s.Ref(BillSlot.PartyRow, Col.A)}:{s.Ref(BillSlot.PartyRow, Col.C)}", $"{s.Ref(BillSlot.AddressRow, Col.A)}:{s.Ref(BillSlot.AddressRow, Col.C)}",
+            $"{s.Ref(BillSlot.StateRow, Col.A)}:{s.Ref(BillSlot.StateRow, Col.C)}", $"{s.Ref(BillSlot.GstinRow, Col.A)}:{s.Ref(BillSlot.GstinRow, Col.C)}",
+            $"{s.Ref(BillSlot.TotalRow, Col.A)}:{s.Ref(BillSlot.TotalRow, Col.D)}",
+        }).ToList();
+        return string.Create(CultureInfo.InvariantCulture, $"<mergeCells count=\"{merges.Count}\">") + string.Concat(merges.Select(m => $"<mergeCell ref=\"{m}\"/>")) + "</mergeCells>";
+    }
+
+    private static string Sheet(Dictionary<string, Cell> cells, List<string> strings, string head = "", Func<int, string>? rowAttributes = null, string tail = "")
+    {
+        var xml = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\">")
+            .Append(head).Append("<sheetData>");
         foreach (var row in cells.Select(c => (Ref: c.Key, Pos: A1.Parse(c.Key), c.Value)).GroupBy(c => c.Pos.Row).OrderBy(g => g.Key))
         {
-            xml.Append(CultureInfo.InvariantCulture, $"<row r=\"{row.Key}\">");
+            xml.Append(CultureInfo.InvariantCulture, $"<row r=\"{row.Key}\"{rowAttributes?.Invoke(row.Key)}>");
             foreach (var (reference, _, cell) in row.OrderBy(c => c.Pos.Column))
             {
                 xml.Append(CultureInfo.InvariantCulture, $"<c r=\"{reference}\"{(cell.Style > 0 ? $" s=\"{cell.Style}\"" : string.Empty)}");
@@ -227,7 +288,7 @@ internal static class BillWorkbookBuilder
             }
             xml.Append("</row>");
         }
-        return xml.Append("</sheetData></worksheet>").ToString();
+        return xml.Append("</sheetData>").Append(tail).Append("</worksheet>").ToString();
     }
 
     private static void Add(ZipArchive zip, string name, string content)

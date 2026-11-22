@@ -16,8 +16,9 @@ internal sealed record ExportResult(BillExportPreview Preview, byte[]? Content, 
 
 /// <summary>
 /// Writes saved bills into their places in the bill workbook, the way they would be typed by hand: party, lines, THAN and
-/// bottom-aligned final summary, party colours and priced-THAN outlines. Each workbook formula (address, rate, discount, dates) is kept when it already shows the app's value and
-/// replaced by the typed value when it would not. Nothing outside the written bills changes, except a first bill no. for an
+/// bottom-aligned final summary, party colours and priced-THAN outlines, with long texts squeezed into their cells (smaller
+/// font, more lines) so no row grows. Each workbook formula (address, rate, discount, dates) is kept when it already shows
+/// the app's value and replaced by the typed value when it would not. Nothing outside the written bills changes, except a first bill no. for an
 /// empty workbook and a later bill's date or period that would otherwise follow a typed one.
 /// </summary>
 internal static class BillExporter
@@ -49,7 +50,8 @@ internal static class BillExporter
         StartEmptyWorkbook(book, filled, ordered, notes);
         var numbers = book.Numbers();
 
-        var plans = ordered.Select(doc => Plan(book, doc, numbers, filled, original, replace, colors)).ToList();
+        var fit = new BillTextFit(book);
+        var plans = ordered.Select(doc => Plan(book, doc, numbers, filled, original, replace, colors, fit)).ToList();
         var writing = plans.Where(p => p.Status is BillExportStatus.Write or BillExportStatus.Replace).OrderBy(p => p.Slot!.Value.Index).ToList();
         byte[]? content = null;
         var problems = new List<string>();
@@ -58,7 +60,7 @@ internal static class BillExporter
             var originalBook = BillWorkbook.Open(bytes)!;
             var changedOutside = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (notes.Count > 0) changedOutside.Add(new BillSlot(0).Ref(BillSlot.NumberRow, Col.F));
-            foreach (var plan in writing) WriteBill(book, plan, colors);
+            foreach (var plan in writing) WriteBill(book, plan, colors, fit);
             var written = writing.Select(p => p.Slot!.Value.Index).ToHashSet();
             foreach (var plan in writing)
             {
@@ -103,7 +105,8 @@ internal static class BillExporter
         public List<string> Problems { get; } = [];
     }
 
-    private static SlotPlan Plan(BillWorkbook book, InvoiceDoc doc, string?[] numbers, HashSet<int> filled, BillSheet original, IReadOnlySet<long> replace, IReadOnlyList<NamedColor>? colors)
+    private static SlotPlan Plan(BillWorkbook book, InvoiceDoc doc, string?[] numbers, HashSet<int> filled, BillSheet original, IReadOnlySet<long> replace,
+        IReadOnlyList<NamedColor>? colors, BillTextFit fit)
     {
         var plan = new SlotPlan(doc);
         plan.Problems.AddRange(BillProblems(doc));
@@ -131,7 +134,7 @@ internal static class BillExporter
                 return plan;
             }
             plan.Differences.AddRange(SheetBillComparer.Differences(there, doc));
-            plan.Differences.AddRange(PresentationDifferences(book, slot, doc, colors));
+            plan.Differences.AddRange(PresentationDifferences(book, slot, doc, colors, fit));
             if (plan.Differences.Count == 0)
             {
                 plan.Status = BillExportStatus.Same;
@@ -184,7 +187,7 @@ internal static class BillExporter
 
     // ---------- Writing one bill ----------
 
-    private static void WriteBill(BillWorkbook book, SlotPlan plan, IReadOnlyList<NamedColor>? colors)
+    private static void WriteBill(BillWorkbook book, SlotPlan plan, IReadOnlyList<NamedColor>? colors, BillTextFit fit)
     {
         var slot = plan.Slot!.Value;
         var doc = plan.Doc;
@@ -212,6 +215,7 @@ internal static class BillExporter
         main.SetResult(slot.Ref(BillSlot.SgstRow, Col.G), doc.Sgst);
         main.SetResult(slot.Ref(BillSlot.TotalRow, Col.G), doc.Total);
         main.SetResult(slot.Ref(BillSlot.TotalRow, Col.A), RupeeWords.Format(doc.Total));
+        fit.Apply(slot);
     }
 
     private static void WriteLookup(BillWorkbook book, SlotPlan plan, int row, int detailsColumn, string wanted, string label, bool inDetails)
@@ -297,7 +301,7 @@ internal static class BillExporter
         }
     }
 
-    internal static List<string> PresentationDifferences(BillWorkbook book, BillSlot slot, InvoiceDoc doc, IReadOnlyList<NamedColor>? colors)
+    internal static List<string> PresentationDifferences(BillWorkbook book, BillSlot slot, InvoiceDoc doc, IReadOnlyList<NamedColor>? colors, BillTextFit? fit = null)
     {
         var differences = new List<string>();
         var color = WorkbookStyles.PartyColor(book.Details.ColorOf(doc.PartyName.Trim()), colors);
@@ -321,6 +325,8 @@ internal static class BillExporter
         var words = book.Cell(slot, BillSlot.TotalRow, Col.A);
         if (words.HasFormula && words.Text != RupeeWords.Format(doc.Total))
             differences.Add("The saved amount in words does not match the invoice total.");
+        if ((fit ?? new BillTextFit(book)).Overflowing(slot) is { } overflowing)
+            differences.Add($"The text in {overflowing} needs a smaller font or more lines to keep the bill's row heights.");
         return differences;
     }
 

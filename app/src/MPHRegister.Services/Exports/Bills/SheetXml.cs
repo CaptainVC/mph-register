@@ -82,8 +82,13 @@ internal sealed class SharedStrings
 /// <summary>One worksheet's cells, read and changed in place (styles and every other part of the sheet are kept).</summary>
 internal sealed class SheetXml
 {
+    /// <summary>Excel's height for rows that do not give one (points).</summary>
+    public const double StandardRowHeight = 15;
+
+    private readonly XElement root;
     private readonly XElement sheetData;
     private readonly SharedStrings strings;
+    private readonly List<(int Row, int Column, int LastRow, int LastColumn)> merges = [];
     private readonly SortedDictionary<int, XElement> rows = [];
     private readonly Dictionary<string, XElement> cells = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, (int Row, int Column, string Formula)> sharedMasters = new(StringComparer.Ordinal);
@@ -92,7 +97,16 @@ internal sealed class SheetXml
     {
         ArgumentNullException.ThrowIfNull(doc);
         this.strings = strings;
-        sheetData = doc.Root?.Element(X("sheetData")) ?? throw new InvalidDataException("The sheet has no cells.");
+        root = doc.Root ?? throw new InvalidDataException("The sheet is empty.");
+        sheetData = root.Element(X("sheetData")) ?? throw new InvalidDataException("The sheet has no cells.");
+        foreach (var merge in root.Element(X("mergeCells"))?.Elements(X("mergeCell")) ?? [])
+        {
+            var range = ((string?)merge.Attribute("ref") ?? string.Empty).Split(':');
+            if (range.Length != 2) continue;
+            var (top, left) = A1.Parse(range[0]);
+            var (bottom, right) = A1.Parse(range[1]);
+            merges.Add((top, left, bottom, right));
+        }
         var lastRow = 0;
         foreach (var row in sheetData.Elements(X("row")))
         {
@@ -120,6 +134,8 @@ internal sealed class SheetXml
     public CellContent Get(string reference) => cells.TryGetValue(reference, out var cell) ? Read(cell) : new CellContent(null, null);
 
     public CellContent Get(int row, int column) => Get(A1.Ref(row, column));
+
+    public bool Has(string reference) => cells.ContainsKey(reference);
 
     public int Style(string reference) => cells.TryGetValue(reference, out var cell) ? (int?)cell.Attribute("s") ?? 0 : 0;
 
@@ -205,18 +221,82 @@ internal sealed class SheetXml
         sharedMasters[si] = (nextRow, nextColumn, moved);
     }
 
+    // ---------- Layout: row heights, column widths and merged cells ----------
+
+    /// <summary>The row's height in points, as Excel shows it (the sheet's default when the row gives none).</summary>
+    public double RowHeight(int row) =>
+        rows.TryGetValue(row, out var element) && (string?)element.Attribute("ht") is { } ht
+            && double.TryParse(ht, NumberStyles.Float, CultureInfo.InvariantCulture, out var points) ? points : DefaultRowHeight;
+
+    /// <summary>True when Excel keeps the row's height whatever its cells hold (it does not grow it for wrapped text).</summary>
+    public bool HeightLocked(int row) => rows.TryGetValue(row, out var element) && (string?)element.Attribute("customHeight") is "1" or "true";
+
+    /// <summary>Keeps the row at the height it shows now, so wrapped or bigger text can never make Excel grow it.</summary>
+    public void LockHeight(int row)
+    {
+        if (HeightLocked(row)) return;
+        var height = RowHeight(row);
+        var element = Row(row);
+        element.SetAttributeValue("ht", height.ToString("0.##########", CultureInfo.InvariantCulture));
+        element.SetAttributeValue("customHeight", "1");
+    }
+
+    /// <summary>The column's width in Excel's character units (the sheet's default when no column entry gives one).</summary>
+    public double ColumnWidth(int column)
+    {
+        var number = column + 1;
+        foreach (var col in root.Element(X("cols"))?.Elements(X("col")) ?? [])
+        {
+            if ((int?)col.Attribute("min") > number || (int?)col.Attribute("max") < number) continue;
+            if ((string?)col.Attribute("hidden") is "1" or "true") return 0;
+            if (double.TryParse((string?)col.Attribute("width"), NumberStyles.Float, CultureInfo.InvariantCulture, out var width)) return width;
+        }
+        return DefaultColumnWidth;
+    }
+
+    /// <summary>The cells the text of this cell is shown across: its merged range, or just the cell.</summary>
+    public (int Row, int Column, int LastRow, int LastColumn) Area(string reference)
+    {
+        var (row, column) = A1.Parse(reference);
+        foreach (var merge in merges)
+        {
+            if (merge.Row <= row && row <= merge.LastRow && merge.Column <= column && column <= merge.LastColumn) return merge;
+        }
+        return (row, column, row, column);
+    }
+
+    private double DefaultRowHeight =>
+        double.TryParse((string?)root.Element(X("sheetFormatPr"))?.Attribute("defaultRowHeight"), NumberStyles.Float, CultureInfo.InvariantCulture, out var height)
+            ? height : StandardRowHeight;
+
+    private double DefaultColumnWidth
+    {
+        get
+        {
+            var format = root.Element(X("sheetFormatPr"));
+            if (double.TryParse((string?)format?.Attribute("defaultColWidth"), NumberStyles.Float, CultureInfo.InvariantCulture, out var width)) return width;
+            // Excel's default: 8 characters (or the sheet's base width) plus 5 pixels of padding at 7 pixels a character.
+            var characters = double.TryParse((string?)format?.Attribute("baseColWidth"), NumberStyles.Float, CultureInfo.InvariantCulture, out var b) ? b : 8;
+            return Math.Truncate((characters * 7 + 5) / 7 * 256) / 256;
+        }
+    }
+
+    private XElement Row(int r)
+    {
+        if (rows.TryGetValue(r, out var row)) return row;
+        row = new XElement(X("row"), new XAttribute("r", r));
+        var after = rows.Keys.Where(k => k < r).DefaultIfEmpty(0).Max();
+        if (after == 0) sheetData.AddFirst(row);
+        else rows[after].AddAfterSelf(row);
+        rows[r] = row;
+        return row;
+    }
+
     private XElement Cell(string reference)
     {
         if (cells.TryGetValue(reference, out var existing)) return existing;
         var (r, column) = A1.Parse(reference);
-        if (!rows.TryGetValue(r, out var row))
-        {
-            row = new XElement(X("row"), new XAttribute("r", r));
-            var after = rows.Keys.Where(k => k < r).DefaultIfEmpty(0).Max();
-            if (after == 0) sheetData.AddFirst(row);
-            else rows[after].AddAfterSelf(row);
-            rows[r] = row;
-        }
+        var row = Row(r);
         var cell = new XElement(X("c"), new XAttribute("r", A1.Ref(r, column)));
         var before = row.Elements(X("c")).FirstOrDefault(c => A1.Parse((string)c.Attribute("r")!).Column > column);
         if (before is null) row.Add(cell);
