@@ -522,6 +522,7 @@ async function resetForm({ keepDate = true } = {}) {
   state.editing = null;
   $("entryForm").classList.remove("editing");
   $("cancelEdit").classList.add("hidden");
+  $("deleteEntry").classList.add("hidden");
   $("saveButton").textContent = "Save entry (Enter)";
   document.querySelectorAll("#entryForm .invalid").forEach((n) => n.classList.remove("invalid"));
   showWarnings([]);
@@ -536,6 +537,7 @@ function loadIntoForm(entry) {
   $("entryForm").classList.add("editing");
   $("formTitle").textContent = `Correcting INW. NO. ${entry.inwardNo} — ${entry.party} (${formatMonth(entry.registerMonth)} register${entry.carriedOver ? ", carryover" : ""})`;
   $("cancelEdit").classList.remove("hidden");
+  $("deleteEntry").classList.remove("hidden");
   $("saveButton").textContent = "Save correction";
   $("inwardNo").value = entry.inwardNo;
   $("entryDate").value = entry.entryDate;
@@ -558,6 +560,152 @@ function loadIntoForm(entry) {
 }
 
 $("cancelEdit").addEventListener("click", () => { resetForm(); setMessage("Edit cancelled.", ""); });
+
+// ---------- Deleting an entry and putting it back ----------
+// A deleted entry is kept whole on the server, so it can be restored under the same id. The server refuses to delete an entry
+// on a saved bill, and to restore one whose INW. NO. or slip is in use again or whose party or finish left the lists.
+function slipText(entry) {
+  return `INW. NO. ${entry.inwardNo} — ${entry.party} (${formatMonth(entry.registerMonth)} register)`;
+}
+
+function errorText(error) {
+  return (error.errors || [error.message]).join(" ");
+}
+
+async function deleteEditingEntry() {
+  const entry = state.editing;
+  if (!entry) return;
+  const ok = await showConfirm({
+    title: "Delete this entry?",
+    message: slipText(entry),
+    detail: "It moves to Register → Deleted entries and can be restored from there, as long as nothing has taken its INW. NO. or slip.",
+    confirmText: "Delete entry",
+    cancelText: "Keep entry",
+    tone: "danger",
+  });
+  if (!ok) return;
+  $("deleteEntry").disabled = true;
+  try {
+    const result = await api(`/api/entries/${entry.id}`, { method: "DELETE" });
+    state.entriesCache.clear();
+    await resetForm();
+    const undo = el("button", { type: "button", id: "undoDelete", class: "secondary small", text: "Undo", onclick: () => undoDelete(result.deleted.id) });
+    $("formMessage").replaceChildren(`Deleted ✓ ${slipText(result.deleted)}`, " ", undo);
+    $("formMessage").className = "message ok";
+    showWarnings(result.notes);
+    await Promise.all([refreshRecent(), refreshInfo()]);
+  } catch (error) {
+    await showAlert({ title: "Entry not deleted", message: errorText(error), tone: "danger" });
+  } finally {
+    $("deleteEntry").disabled = false;
+  }
+}
+
+$("deleteEntry").addEventListener("click", deleteEditingEntry);
+
+// Asks the server for the entry's restore check first, so a clash is shown before anything is changed.
+async function undoDelete(id) {
+  try {
+    const item = (await api("/api/entries/deleted")).find((d) => d.id === id);
+    if (!item) {
+      setMessage("This entry is no longer among the deleted entries.", "err");
+      return;
+    }
+    if (await restoreDeleted(item)) showWarnings([]);
+  } catch (error) {
+    setMessage(errorText(error), "err");
+  }
+}
+
+// Returns the restored entry, or null when it was not restored.
+async function restoreDeleted(item) {
+  const check = item.restore;
+  if (!check.allowed) {
+    await showAlert({ title: "This entry cannot be restored", message: slipText(item), detail: check.clashes.join(" "), tone: "danger" });
+    return null;
+  }
+  const ok = await showConfirm({
+    title: "Restore this entry?",
+    message: slipText(item),
+    detail: check.warnings.length ? `Check first: ${check.warnings.join(" ")}` : "It goes back into the register as it was when it was deleted.",
+    confirmText: "Restore entry",
+    cancelText: "Cancel",
+  });
+  if (!ok) return null;
+  try {
+    const entry = await api(`/api/entries/deleted/${item.id}/restore`, { method: "POST" });
+    state.entriesCache.clear();
+    setMessage(`Restored ✓ ${slipText(entry)}`, "ok");
+    toast(`Restored ✓ ${slipText(entry)}`);
+    await Promise.all([refreshRecent(), refreshInfo()]);
+    if ($("view-register").classList.contains("active")) await renderRegister();
+    return entry;
+  } catch (error) {
+    await showAlert({ title: "This entry cannot be restored", message: slipText(item), detail: errorText(error), tone: "danger" });
+    return null;
+  }
+}
+
+function deletedEntryItem(item) {
+  const facts = [
+    formatDate(item.entryDate),
+    item.designNo ? `D.N. ${item.designNo}` : "",
+    item.lotNo ? `LOT N. ${item.lotNo}` : "",
+    `${num(item.than)} THAN`,
+    item.finish,
+    item.repair ? "Repair" : "",
+    item.dispatches ? `${num(item.dispatches)} dispatch${item.dispatches === 1 ? "" : "es"}` : "",
+    item.carriedOver ? "Carryover" : "",
+    item.imported ? "From Excel" : "",
+  ].filter(Boolean).join(" · ");
+  const restore = el("button", {
+    type: "button", class: "secondary small", text: "Restore",
+    onclick: async () => {
+      restore.disabled = true;
+      if (await restoreDeleted(item)) await showDeletedEntries();
+      else restore.disabled = !item.restore.allowed;
+    },
+  });
+  if (!item.restore.allowed) {
+    restore.disabled = true;
+    restore.title = "Something now clashes with this entry; see the reasons below";
+  }
+  const notes = [
+    ...item.restore.clashes.map((text) => el("li", { class: "clash", text })),
+    ...item.restore.warnings.map((text) => el("li", { class: "warn", text })),
+  ];
+  return el("li", { class: "deleted-item", "data-id": String(item.id) }, [
+    el("div", { class: "deleted-head" }, [
+      el("div", {}, [
+        el("b", { text: `INW. NO. ${item.inwardNo}` }), " — ", el("span", { class: "party-name", text: item.party }),
+        el("span", { class: "muted", text: ` · ${formatMonth(item.registerMonth)} register` }),
+      ]),
+      restore,
+    ]),
+    el("div", { class: "deleted-facts", text: facts }),
+    el("div", { class: "muted deleted-when", text: `Deleted ${formatDate(item.deletedAt.slice(0, 10))} ${item.deletedAt.slice(11, 16)}` }),
+    notes.length ? el("ul", { class: "deleted-notes" }, notes) : "",
+  ]);
+}
+
+async function showDeletedEntries() {
+  const dialog = $("deletedDrawer");
+  const items = await api("/api/entries/deleted");
+  const close = el("button", { type: "button", class: "secondary", text: "Close", onclick: () => closeDrawer(dialog) });
+  drawerForm($("deletedForm"), {
+    title: "Deleted entries",
+    subtitle: items.length ? `${num(items.length)} deleted` : "",
+    body: [
+      el("p", { class: "muted", text: "Entries deleted in the app stay here until they are restored. One can be restored while its INW. NO. and slip are still free." }),
+      items.length ? el("ul", { class: "deleted-list" }, items.map(deletedEntryItem)) : el("p", { class: "deleted-empty", text: "No deleted entries." }),
+    ],
+    actions: [close],
+    key: "deleted",
+  });
+  openDrawer(dialog, close);
+}
+
+$("openDeletedEntries").addEventListener("click", () => showDeletedEntries().catch(showFatal));
 
 $("entryForm").addEventListener("submit", async (event) => {
   event.preventDefault();

@@ -51,3 +51,32 @@ public sealed record EntryDto(
 public sealed record MonthSummary(string Month, int Entries);
 
 public sealed record NextInwardDto(string Month, int Next);
+
+/// <summary>
+/// Whether a deleted entry can go back now. <c>Clashes</c> stop it (its INW. NO. or slip is in use again, its party or finish
+/// left the lists); <c>Warnings</c> only ask the user to check (another entry looks the same).
+/// </summary>
+public sealed record EntryRestoreCheck(bool Allowed, IReadOnlyList<string> Clashes, IReadOnlyList<string> Warnings);
+
+/// <summary>An entry deleted in the app, kept so it can be restored.</summary>
+public sealed record DeletedEntryDto(
+    long Id,
+    string RegisterMonth,
+    int InwardNo,
+    string EntryDate,
+    string Party,
+    string DesignNo,
+    string LotNo,
+    bool Repair,
+    int Than,
+    int Tp,
+    int TwoPart,
+    string Finish,
+    bool CarriedOver,
+    bool Imported,
+    int Dispatches,
+    string DeletedAt,
+    EntryRestoreCheck Restore);
+
+/// <summary>The entry just deleted, and notes about what still refers to it.</summary>
+public sealed record DeleteEntryResult(DeletedEntryDto Deleted, IReadOnlyList<string> Notes);

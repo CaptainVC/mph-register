@@ -8,6 +8,9 @@ public enum RowAction
     MergeIntoEarlier,
     AdoptLaterCarryover,
     UpdateSaved,
+
+    /// <summary>The row of an entry deleted in the app: it stays deleted (nothing is saved for the row).</summary>
+    KeepDeleted,
 }
 
 public sealed record RowPlan(InwardRow Row, RowAction Action, EntryEntity Entry, IReadOnlyList<DispatchEntity> Dispatches, bool Changed, bool DispatchesChanged = true);

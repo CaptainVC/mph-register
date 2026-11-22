@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentValidation;
 using MPHRegister.Contracts.Entries;
 using MPHRegister.Data.Config;
@@ -53,6 +54,87 @@ public sealed class EntryService(
         unit.Commit();
         return Get(id);
     }
+
+    public DeleteEntryResult Delete(long id)
+    {
+        using var unit = session.Begin();
+        var entry = entries.Get(id) ?? throw new NotFoundException("Entry not found.");
+        if (entry.Bill is not null)
+            throw new AppValidationException($"{Slip(entry)} is on bill {entry.Bill}. Take it off that bill (or cancel the bill) before deleting the entry.");
+        if (entry.Elsewhere is not null)
+            throw new AppValidationException($"{Slip(entry)} is marked as billed outside the app. Undo that mark before deleting the entry.");
+        var cancelled = entries.CancelledBillsWith(id);
+        entries.MoveToDeleted(id, Dates.Timestamp(clock.GetLocalNow()));
+        var deleted = entries.GetDeleted(id)!;
+        unit.Commit();
+        var notes = new List<string>();
+        if (cancelled.Count > 0)
+            notes.Add($"Cancelled bill {string.Join(", ", cancelled)} lists this entry; that bill cannot be restored while the entry is deleted.");
+        if (entry.ImportBatchId is not null)
+            notes.Add("This entry came from an Excel workbook. Importing a newer copy of that workbook keeps it deleted.");
+        return new DeleteEntryResult(ToDto(deleted), notes);
+    }
+
+    public IReadOnlyList<DeletedEntryDto> Deleted() => entries.Deleted().Select(ToDto).ToList();
+
+    public EntryDto Restore(long id)
+    {
+        using (var unit = session.Begin())
+        {
+            var deleted = entries.GetDeleted(id) ?? throw new NotFoundException("Deleted entry not found. It may have been restored already.");
+            var check = RestoreCheck(deleted);
+            if (!check.Allowed) throw new AppValidationException(check.Clashes);
+            entries.RestoreDeleted(id);
+            unit.Commit();
+        }
+        return Get(id);
+    }
+
+    /// <summary>
+    /// What stops a deleted entry from going back: its INW. NO. or its slip is in use again (typed or imported after the
+    /// delete), or its party or finish is no longer in the lists. Entries that only look the same are warnings.
+    /// </summary>
+    private EntryRestoreCheck RestoreCheck(DeletedEntryEntity deleted)
+    {
+        var clashes = new List<string>();
+        var warnings = new List<string>();
+        if (entries.Get(deleted.Id) is not null) clashes.Add("This entry is already in the register.");
+        var index = ConfigIndex.For(config.Current);
+        if (index.Party(deleted.Party) is null)
+            clashes.Add($"Party \"{deleted.Party}\" is no longer in the party list. Add it in Masters first.");
+        if (deleted.Finish.Length > 0 && index.Finish(deleted.Finish) is null)
+            clashes.Add($"Finish \"{deleted.Finish}\" is no longer in the finish list. Add it in Masters first.");
+        var numbered = !deleted.CarriedOver && deleted.InwardNo > 0;
+        var taken = entries.SameSlip(deleted.RegisterMonth, deleted.InwardNo, deleted.EntryDate, deleted.Party, numbered)
+            .Where(e => e.Id != deleted.Id).ToList();
+        foreach (var other in taken)
+        {
+            var sameSlip = other.InwardNo == deleted.InwardNo && other.EntryDate == deleted.EntryDate
+                && string.Equals(other.Party, deleted.Party, StringComparison.OrdinalIgnoreCase);
+            clashes.Add(sameSlip
+                ? $"The same slip is in the register again: {Slip(other)} in the {other.RegisterMonth} register."
+                : $"INW. NO. {deleted.InwardNo} of the {deleted.RegisterMonth} register is now used by {Slip(other)}.");
+        }
+        var seen = taken.Select(e => e.Id).ToHashSet();
+        foreach (var other in entries.SameContent(deleted.RegisterMonth, deleted.EntryDate, deleted.Party, deleted.DesignNo, deleted.LotNo, deleted.Than)
+            .Where(e => e.Id != deleted.Id && !seen.Contains(e.Id)))
+        {
+            warnings.Add($"{Slip(other)} has the same date, party, D.N., LOT N. and THAN. Check that it is not this slip entered again.");
+        }
+        return new EntryRestoreCheck(clashes.Count == 0, clashes, warnings);
+    }
+
+    private DeletedEntryDto ToDto(DeletedEntryEntity d) => new(
+        d.Id, d.RegisterMonth, d.InwardNo, d.EntryDate, d.Party, d.DesignNo, d.LotNo, d.Repair, d.Than, d.Tp, d.TwoPart, d.Finish,
+        d.CarriedOver, d.ImportBatchId is not null, DispatchCount(d.Dispatches), d.DeletedAt, RestoreCheck(d));
+
+    private static int DispatchCount(string json)
+    {
+        using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(json) ? "[]" : json);
+        return doc.RootElement.ValueKind == JsonValueKind.Array ? doc.RootElement.GetArrayLength() : 0;
+    }
+
+    private static string Slip(EntryEntity entry) => $"INW. NO. {entry.InwardNo} of {entry.EntryDate} ({entry.Party})";
 
     public IReadOnlyList<EntryDto> PartyWise(string? month, string? party)
     {
