@@ -89,7 +89,8 @@ const invoice = (id, allowed) => ({
     await page.waitForFunction(() => document.querySelectorAll("#invoiceTable tbody tr").length === 1);
     assert.deepEqual(requests.at(-1), { neverIssued: true, token: "token-2" });
     assert.equal(await page.locator("#invoiceTable tbody tr").getAttribute("data-id"), "1");
-    await page.waitForFunction(() => document.querySelector("#billMessage").textContent.includes("Next bill number: 280."));
+    await page.locator(".toast", { hasText: "Next bill number: 280." }).waitFor();
+    assert.equal(await page.locator("#billMessage").textContent(), "");
 
     await page.locator('#invoiceTable tr[data-id="1"]').click();
     await page.locator("#ie-cancel").click();

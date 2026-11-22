@@ -77,7 +77,7 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   await page.fill("#than", "37");
   await page.fill("#finish", finish);
   await page.click("#saveButton");
-  await page.waitForFunction(() => document.getElementById("formMessage").textContent.includes("Saved"));
+  await page.waitForFunction(() => document.getElementById("toasts").textContent.includes("Saved"));
   await openDashboard();
   await page.waitForFunction((than) => dashState.data.thisMonth.than === than, before.than + 37);
   check("new entry counted in cloth received this month", (await dashboard()).thisMonth.than === before.than + 37);

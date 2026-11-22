@@ -257,7 +257,6 @@ function openSisterForm(group) {
       renderPartyMasters();
       renderSisterGroups();
       openSisterForm(sisterGroups().find((x) => x.name.toLowerCase() === saved.name.toLowerCase()));
-      formMessage($("sisterForm"), null, `Saved ✓ ${saved.name}`);
       toast(`Saved ${saved.name}`);
     } catch (error) {
       formMessage(form, errorsOf(error));
@@ -389,7 +388,6 @@ function openPartyForm(party) {
       await Promise.all([loadFullMasters(), loadMasters()]);
       renderPartyMasters();
       openPartyForm(mastersState.data.parties.find((x) => x.name === saved.name));
-      formMessage($("partyForm"), null, `Saved ✓ ${saved.name}`);
       toast(`Saved ${saved.name}`);
     } catch (error) {
       formMessage(form, errorsOf(error));
@@ -420,7 +418,6 @@ function ratesSection(party) {
     markRow("partyMasterTable", "data-party", party.name);
     editing = null;
     render();
-    say(text, "ok");
     toast(text);
   };
 
@@ -637,8 +634,7 @@ function openStyleForm(style) {
       renderStyles();
       renderPartyMasters();
       openStyleForm(mastersState.data.styles.find((x) => x.name === saved.name));
-      formMessage($("styleForm"), null, `Saved ✓ ${saved.name}${saved.parties ? ` — the bills of ${num(saved.parties)} part${saved.parties === 1 ? "y" : "ies"} follow it` : ""}`);
-      toast(`Saved ${saved.name}`);
+      toast(`Saved ✓ ${saved.name}${saved.parties ? ` — the bills of ${num(saved.parties)} part${saved.parties === 1 ? "y" : "ies"} follow it` : ""}`);
     } catch (error) {
       formMessage(form, errorsOf(error));
     }
@@ -720,7 +716,6 @@ function openFinishForm(finish) {
       renderFinishMasters();
       renderGroupMasters();
       openFinishForm(mastersState.data.finishes.find((x) => x.name === saved.name));
-      formMessage($("finishForm"), null, `Saved ✓ ${saved.name}`);
       toast(`Saved ${saved.name}`);
     } catch (error) {
       formMessage(form, errorsOf(error));
@@ -764,7 +759,6 @@ function openGroupForm(group) {
       renderGroupMasters();
       renderFinishMasters();
       openGroupForm(mastersState.data.groups.find((x) => x.name === saved.name));
-      formMessage($("groupForm"), null, `Saved ✓ ${saved.name}`);
       toast(`Saved ${saved.name}`);
     } catch (error) {
       formMessage(form, errorsOf(error));
@@ -836,7 +830,6 @@ function openColorForm(color) {
       renderColors();
       renderPartyMasters();
       openColorForm(mastersState.data.colors.find((x) => x.name === saved.name));
-      formMessage($("colorForm"), null, `Saved ✓ ${saved.name}`);
       toast(`Saved ${saved.name}`);
     } catch (error) {
       formMessage(form, errorsOf(error));
@@ -988,7 +981,6 @@ async function renderFirmForm(fy) {
       await refreshInfo();
       await renderFirmForm(saved.fy);
       $("settingsScroll").scrollTop = scroll;
-      formMessage($("firmForm"), null, "Saved ✓ to the config file");
       toast("Settings saved");
     } catch (error) {
       formMessage(form, errorsOf(error));
@@ -1069,16 +1061,15 @@ function signatureBlock(settings) {
   };
   const file = el("input", { type: "file", id: "sig-file", accept: "image/png,image/jpeg" });
   const upload = el("button", { type: "button", class: "secondary", id: "sig-upload", text: "Use this picture", onclick: async () => {
-    if (!file.files[0]) { status.textContent = "Choose a PNG or JPG picture first."; return; }
+    if (!file.files[0]) { toast("Choose a PNG or JPG picture first.", "warn"); return; }
     const form = new FormData();
     form.append("file", file.files[0]);
     try {
       const saved = await api("/api/settings/signature", { method: "PUT", body: form });
       show(saved.hasSignature);
-      status.textContent = "Saved ✓";
       toast("Signature saved");
     } catch (error) {
-      status.textContent = error.message;
+      toast(error.message, "err");
     }
   } });
   const remove = el("button", { type: "button", class: "secondary", id: "sig-remove", text: "Remove signature", onclick: async () => {

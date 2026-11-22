@@ -284,7 +284,7 @@ function toast(text, kind = "ok") {
       item.remove();
       if (!box.children.length && box.matches?.(":popover-open")) box.hidePopover();
     }, 300);
-  }, kind === "err" ? 5000 : 2600);
+  }, Math.max(kind === "err" ? 5000 : 2600, Math.min(1200 + text.length * 45, 8000)));
 }
 
 // ---------- Searchable combo box ----------
@@ -492,9 +492,12 @@ function readForm() {
   };
 }
 
+// Confirmations ("Saved", "Edit cancelled.") pop up as toasts; problems stay in the form beside what needs fixing.
 function setMessage(text, kind) {
-  $("formMessage").textContent = text;
-  $("formMessage").className = `message ${kind || ""}`;
+  const popup = text && kind !== "err";
+  $("formMessage").textContent = popup ? "" : text;
+  $("formMessage").className = `message ${popup ? "" : kind || ""}`;
+  if (popup) toast(text, kind === "warn" ? "warn" : "ok");
 }
 
 function showWarnings(list) {
@@ -1582,6 +1585,7 @@ async function sendImport(commit) {
 }
 
 function renderImportError(errors) {
+  toast(errors.length > 1 ? `Cannot import: ${errors[0]} (and ${num(errors.length - 1)} more)` : `Cannot import: ${errors[0]}`, "err");
   $("importResult").replaceChildren(el("div", { class: "report err" }, [el("b", { text: "Cannot import:" }), el("ul", {}, errors.map((e) => el("li", { text: e })))]));
 }
 
@@ -1616,6 +1620,14 @@ function renderReport(report) {
   if (report.notInWorkbook.length) children.push(el("h3", { text: `Not in the workbook (${report.notInWorkbook.length})` }), el("ul", {}, report.notInWorkbook.map(issue)));
   if (report.warnings.length) children.push(el("h3", { text: `Warnings — imported as-is, flagged in the Register (${report.warnings.length})` }), el("ul", {}, report.warnings.map(issue)));
   $("importResult").replaceChildren(el("div", { class: `report ${ok ? "ok" : "err"}` }, children));
+  const month = formatMonth(report.registerMonth);
+  if (report.imported) {
+    toast(update
+      ? `Updated ${month}: ${num(report.entries)} new, ${num(report.updatedEntries)} changed, ${num(report.removedEntries)} removed`
+      : `Imported ${num(report.entries)} entries into ${month}`);
+  } else if (!ok) toast(`Problems found in the workbook (${num(report.errors.length)}): nothing imported`, "err");
+  else if (report.upToDate) toast(`${month} is up to date: no new changes in this workbook`, "warn");
+  else toast(`Check passed: ready to ${update ? "update" : "import"} ${month}`);
   $("runImport").disabled = !ok || report.imported || report.upToDate;
   state.importRemoves = report.imported ? 0 : report.removedEntries;
   state.importMonth = report.registerMonth;
