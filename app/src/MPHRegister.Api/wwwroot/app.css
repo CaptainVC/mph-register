@@ -1,6 +1,13 @@
 /* MPH Register screens. One layout system: app shell (header / scrolling content / footer), cards, field grids,
    tables that fill the space they are given, and slide-in panels (<dialog class="drawer">) for every edit window. */
 
+/* Carlito has Calibri's character widths, so the screens keep the Windows layout on computers without Calibri (macOS,
+   Linux) instead of falling back to a wider font that cuts off numbers in narrow columns (SIL OFL, fonts/). */
+@font-face { font-family: "Carlito"; src: url("fonts/Carlito-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; }
+@font-face { font-family: "Carlito"; src: url("fonts/Carlito-Bold.woff2") format("woff2"); font-weight: 700; font-style: normal; }
+@font-face { font-family: "Carlito"; src: url("fonts/Carlito-Italic.woff2") format("woff2"); font-weight: 400; font-style: italic; }
+@font-face { font-family: "Carlito"; src: url("fonts/Carlito-BoldItalic.woff2") format("woff2"); font-weight: 700; font-style: italic; }
+
 :root {
   color-scheme: light;
   --brand: #0b2a5b;
