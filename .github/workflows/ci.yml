@@ -81,6 +81,7 @@ jobs:
           done
           curl --fail --silent "$MPH_BASE_URL/api/info" > /dev/null
           node tests/e2e/ui-register-financial-year.js
+          node tests/e2e/ui-register-search.js
           node tests/e2e/ui-financial-year-views.js
           node tests/e2e/ui-dashboard-party.js
           node tests/e2e/ui-invoice-undo.js
