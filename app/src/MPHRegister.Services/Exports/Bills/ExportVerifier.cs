@@ -44,14 +44,16 @@ internal static class ExportVerifier
             }
         }
 
+        var fit = new BillTextFit(after, before);
         foreach (var (slot, doc) in written)
         {
             problems.AddRange(ExcelView(after, slot, doc).Select(d => $"{doc.InvoiceNo} as Excel will work it out — {d}"));
-            problems.AddRange(BillExporter.PresentationDifferences(after, slot, doc, colors).Select(d => $"{doc.InvoiceNo} formatting — {d}"));
+            problems.AddRange(BillExporter.PresentationDifferences(after, slot, doc, colors, fit).Select(d => $"{doc.InvoiceNo} formatting — {d}"));
             if (after.Cell(slot, BillSlot.TotalRow, Col.A).HasFormula && after.Cell(slot, BillSlot.TotalRow, Col.A).Text != RupeeWords.Format(doc.Total))
                 problems.Add($"{doc.InvoiceNo} amount in words does not match the invoice total.");
         }
         problems.AddRange(OtherCells(before, after, written.Select(w => w.Slot).ToList(), changedOutside));
+        if (BillTextFit.ChangedRowHeight(before, after, written.Select(w => w.Slot).ToList()) is { } height) problems.Add(height);
         problems.AddRange(OtherParts(before, after));
         return problems.Take(MaxReported * 3).ToList();
     }

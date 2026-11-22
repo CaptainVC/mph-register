@@ -1,14 +1,19 @@
 using System.Buffers;
+using System.Globalization;
 using System.Xml.Linq;
 using MPHRegister.Shared.Configuration;
 
 namespace MPHRegister.Services.Exports.Bills;
+
+/// <summary>The font a cell format shows its text in, and whether it wraps text onto more lines.</summary>
+internal readonly record struct CellFont(string? Name, double Size, bool Bold, bool Wrap);
 
 /// <summary>Reuses or appends style variants; styles used by other cells are never edited.</summary>
 internal sealed class WorkbookStyles
 {
     private static readonly SearchValues<char> HexDigits = SearchValues.Create("0123456789abcdefABCDEF");
     private static readonly string[] Edges = ["left", "right", "top", "bottom"];
+    private static readonly string[] AfterSize = ["color", "name", "family", "charset", "scheme"];
     private readonly XlsxPackage package;
     private readonly string part;
     private readonly XElement fonts;
@@ -16,12 +21,15 @@ internal sealed class WorkbookStyles
     private readonly XElement formats;
     private readonly Dictionary<(int Style, string Color), int> colored = [];
     private readonly Dictionary<(int Style, bool Box), int> outlined = [];
+    private readonly Dictionary<(int Style, double Size, bool Wrap), int> fitted = [];
+    private readonly Dictionary<int, CellFont> cellFonts = [];
+    private readonly XElement root;
 
     public WorkbookStyles(XlsxPackage package, string part)
     {
         this.package = package;
         this.part = part;
-        var root = package.Xml(part).Root ?? throw new InvalidDataException("The workbook's styles are empty.");
+        root = package.Xml(part).Root ?? throw new InvalidDataException("The workbook's styles are empty.");
         fonts = root.Element(X("fonts")) ?? throw new InvalidDataException("The workbook has no fonts.");
         borders = root.Element(X("borders")) ?? throw new InvalidDataException("The workbook has no borders.");
         formats = root.Element(X("cellXfs")) ?? throw new InvalidDataException("The workbook has no cell formats.");
@@ -114,6 +122,75 @@ internal sealed class WorkbookStyles
         }
         sheet.SetStyle(reference, index);
     }
+
+    public CellFont FontOf(SheetXml sheet, string reference) => FontOf(sheet.Style(reference));
+
+    /// <summary>The pixel width of a digit in the workbook's Normal font, the unit Excel measures column widths in.</summary>
+    public int DigitPixels()
+    {
+        var normal = root.Element(X("cellStyleXfs"))?.Elements(X("xf")).FirstOrDefault();
+        var font = fonts.Elements().ElementAtOrDefault(normal is null ? 0 : FontId(normal)) ?? fonts.Elements().First();
+        return TextFit.DigitPixels(FontName(font), FontSize(font), IsBold(font));
+    }
+
+    /// <summary>Shows the cell's text at <paramref name="size"/> points, wrapping it onto more lines when asked.</summary>
+    public void SetFit(SheetXml sheet, string reference, double size, bool wrap)
+    {
+        var style = sheet.Style(reference);
+        var current = FontOf(style);
+        if (SameSize(current.Size, size) && (!wrap || current.Wrap)) return;
+        if (!fitted.TryGetValue((style, size, wrap), out var index))
+        {
+            var format = new XElement(Format(style));
+            if (!SameSize(current.Size, size))
+            {
+                var font = new XElement(fonts.Elements().ElementAt(FontId(format)));
+                var sz = font.Element(X("sz"));
+                if (sz is null)
+                {
+                    sz = new XElement(X("sz"));
+                    var following = font.Elements().FirstOrDefault(e => AfterSize.Contains(e.Name.LocalName));
+                    if (following is null) font.Add(sz);
+                    else following.AddBeforeSelf(sz);
+                }
+                sz.ReplaceAttributes(new XAttribute("val", size.ToString("0.##", CultureInfo.InvariantCulture)));
+                format.SetAttributeValue("fontId", FindOrAdd(fonts, font));
+                format.SetAttributeValue("applyFont", "1");
+            }
+            if (wrap && !current.Wrap)
+            {
+                var alignment = format.Element(X("alignment"));
+                if (alignment is null)
+                {
+                    alignment = new XElement(X("alignment"));
+                    format.AddFirst(alignment);
+                }
+                alignment.SetAttributeValue("wrapText", "1");
+                format.SetAttributeValue("applyAlignment", "1");
+            }
+            index = FindOrAdd(formats, format);
+            fitted[(style, size, wrap)] = index;
+        }
+        sheet.SetStyle(reference, index);
+    }
+
+    public static bool SameSize(double a, double b) => Math.Abs(a - b) < 0.01;
+
+    private CellFont FontOf(int style)
+    {
+        if (cellFonts.TryGetValue(style, out var known)) return known;
+        var format = Format(style);
+        var font = fonts.Elements().ElementAt(FontId(format));
+        var wrap = (string?)format.Element(X("alignment"))?.Attribute("wrapText") is "1" or "true";
+        return cellFonts[style] = new CellFont(FontName(font), FontSize(font), IsBold(font), wrap);
+    }
+
+    private static string? FontName(XElement font) => (string?)font.Element(X("name"))?.Attribute("val");
+
+    private static double FontSize(XElement font) =>
+        double.TryParse((string?)font.Element(X("sz"))?.Attribute("val"), NumberStyles.Float, CultureInfo.InvariantCulture, out var size) && size > 0 ? size : 11;
+
+    private static bool IsBold(XElement font) => font.Element(X("b")) is { } b && (string?)b.Attribute("val") is null or "1" or "true";
 
     private XElement Format(int index) => formats.Elements().ElementAt(index);
 
