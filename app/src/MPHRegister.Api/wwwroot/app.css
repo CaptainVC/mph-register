@@ -573,6 +573,12 @@ table.register td.left { text-align: left; }
   left: calc(var(--col-inw) + var(--col-date)); width: var(--col-party); min-width: var(--col-party); max-width: var(--col-party);
   box-shadow: 2px 0 0 var(--line);
 }
+:where(#registerTable, #partyTable) :is(thead th, tr[data-entry-id] > td):is(:nth-child(4), :nth-child(5)) {
+  box-sizing: border-box; width: 96px; min-width: 96px; max-width: 96px;
+}
+:where(#registerTable, #partyTable) tr[data-entry-id] > td:is(:nth-child(4), :nth-child(5)) {
+  white-space: normal; overflow-wrap: anywhere;
+}
 :where(#registerTable, #partyTable) tr[data-entry-id] > td:nth-child(-n+3) { z-index: 1; background: var(--panel); }
 :where(#registerTable, #partyTable) thead th:nth-child(-n+3) { z-index: 3; }
 :where(#registerTable, #partyTable) tr[data-entry-id] > td:nth-child(3) { white-space: normal; overflow-wrap: anywhere; }

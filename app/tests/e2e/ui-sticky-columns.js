@@ -1,13 +1,15 @@
-// Register and Party-wise: INW. NO., DATE and PARTY stay put when the table scrolls sideways, and BILL NO. (right after
-// NETT THAN) wraps long text, showing all of it on hover and on click. Read-only, against deterministic API responses.
+// Register and Party-wise: sticky columns stay put, D.N. and LOT N. stay compact, and BILL NO. expands on click.
+// Read-only, against deterministic API responses.
 const assert = require("node:assert/strict");
 const { chromium } = require("playwright-core");
 
 const BASE = process.env.MPH_BASE_URL || "http://127.0.0.1:5152";
 const LONG_BILL = "Billed outside app: entered in the old Excel register under bill 1234, 1235, 1236 and 1237 by the previous clerk";
+const LONG_DN = "DN-2026-11-VERY-LONG-DESIGN-CODE";
+const LONG_LOT = "LOT-2026-11-VERY-LONG-BATCH-CODE";
 const entries = [1, 2].map((id) => ({
   id, inwardNo: id, party: id === 1 ? "A VERY LONG PARTY NAME TRADING COMPANY PRIVATE LIMITED" : "ABC", finish: "S2G", status: "pending", than: 5,
-  nettThan: 5, nag: 5, registerMonth: "2026-10", entryDate: "2026-10-15", designNo: "", lotNo: "", repair: false, tp: 0, twoPart: 0,
+  nettThan: 5, nag: 5, registerMonth: "2026-10", entryDate: "2026-10-15", designNo: LONG_DN, lotNo: LONG_LOT, repair: false, tp: 0, twoPart: 0,
   shortThan: null, carriedOver: false, dispatched: 0, balance: 5, dispatches: [], warnings: [],
   billedIn: id === 1 ? LONG_BILL : "INV-1, INV-2",
 }));
@@ -35,6 +37,18 @@ async function checkSticky(page, table) {
   assert.equal(headers[headers.indexOf("NETT THAN") + 1], "BILL NO.", `${table}: BILL NO. follows NETT THAN`);
   assert.equal(headers.at(-1), "WARNINGS");
   assert.equal(headers.filter((h) => h === "BILL NO.").length, 1);
+  for (const [index, expected] of [[4, LONG_DN], [5, LONG_LOT]]) {
+    const cell = page.locator(`${table} tr[data-entry-id]`).first().locator(`td:nth-child(${index})`);
+    const dimensions = await cell.evaluate((node) => ({
+      width: node.getBoundingClientRect().width,
+      whiteSpace: getComputedStyle(node).whiteSpace,
+      overflowWrap: getComputedStyle(node).overflowWrap,
+    }));
+    assert.ok(Math.abs(dimensions.width - 96) < 1.5, `${table} column ${index} is compact (${dimensions.width}px)`);
+    assert.equal(dimensions.whiteSpace, "normal", `${table} column ${index} wraps long identifiers`);
+    assert.equal(dimensions.overflowWrap, "anywhere", `${table} column ${index} keeps long identifiers within the column`);
+    assert.equal((await cell.textContent()).trim(), expected);
+  }
 }
 
 (async () => {
@@ -79,7 +93,7 @@ async function checkSticky(page, table) {
     await checkSticky(page, "#partyTable");
 
     assert.deepEqual(errors, []);
-    console.log("PASS: INW. NO., DATE and PARTY stay put; BILL NO. follows NETT THAN and wraps with the full text on hover or click.");
+    console.log("PASS: sticky columns remain pinned; D.N. and LOT N. stay 96px wide; BILL NO. preview expands on click.");
   } finally {
     await browser.close();
   }
