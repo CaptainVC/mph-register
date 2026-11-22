@@ -1,6 +1,10 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using MPHRegister.Contracts.Dashboard;
+using MPHRegister.Services.Dashboard;
 using MPHRegister.Shared.Configuration;
 using MPHRegister.Shared.Json;
 
@@ -44,9 +48,10 @@ public sealed class ApiDashboardTests(DashboardApiFactory factory) : IClassFixtu
     /// still in the factory, and DASH QUIET's only cloth (September). One DASH A entry is a repair. A year before, DASH B had one
     /// October bill of 4 × ₹80 = ₹320.
     /// </summary>
-    private async Task<Business> Build()
+    private Task<Business> Build() => Build(factory.App());
+
+    private static async Task<Business> Build(HttpClient app)
     {
-        var app = factory.App();
         await Setup.Basics(app);
         var settings = await app.Get("/api/settings").Ok();
         var rules = settings.GetProperty("billRules").Deserialize<BillRules>(JsonDefaults.Options)! with
@@ -240,5 +245,149 @@ public sealed class ApiDashboardTests(DashboardApiFactory factory) : IClassFixtu
         Assert.False(factory.ConfigOnDisk.Display.ShowDashboard);
         await app.Put("/api/settings", new { display = new DisplaySettings() }).Ok();
         Assert.True((await app.Get("/api/info").Ok()).GetProperty("showDashboard").GetBoolean());
+    }
+
+    private static async Task<(DashboardFactsDto Facts, string Tag)> Facts(HttpClient app)
+    {
+        using var response = await app.Get("/api/dashboard/facts");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var tag = response.Headers.ETag?.Tag;
+        Assert.NotNull(tag);
+        return ((await response.Content.ReadFromJsonAsync<DashboardFactsDto>(JsonDefaults.Options))!, tag);
+    }
+
+    private static async Task<HttpStatusCode> FactsStatus(HttpClient app, string tag)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri("/api/dashboard/facts", UriKind.Relative));
+        request.Headers.IfNoneMatch.Add(EntityTagHeaderValue.Parse(tag));
+        using var response = await app.SendAsync(request);
+        return response.StatusCode;
+    }
+
+    private static long[] Total(IEnumerable<long[]> rows, int from, int width)
+    {
+        var total = new long[width];
+        foreach (var row in rows)
+        {
+            for (var i = 0; i < width; i++) total[i] += row[from + i];
+        }
+        return total;
+    }
+
+    private static WorkEstimate Sum(IEnumerable<WorkEstimate> work)
+    {
+        var list = work.ToList();
+        return new WorkEstimate(list.Sum(w => w.Entries), list.Sum(w => w.Than), list.Sum(w => w.Value));
+    }
+
+    private static StockBalance Sum(IEnumerable<StockBalance> balances)
+    {
+        var list = balances.ToList();
+        return new StockBalance(list.Sum(b => b.Entries), list.Sum(b => b.Pieces), list.Sum(b => b.UndispatchedThan), list.Sum(b => b.PartialEntries));
+    }
+
+    [Fact]
+    public async Task Facts_hold_each_party_and_month_and_add_up_to_the_dashboard_figures()
+    {
+        using var isolated = new DashboardApiFactory();
+        var app = (await Build(isolated.App())).App;
+        var (f, tag) = await Facts(app);
+        var d = await Dashboard(app);
+        var past = await Dashboard(app, "?fy=25-26");
+        string Name(long i) => f.Parties[(int)i].Name;
+        string Month(long i) => f.Months[(int)i];
+        bool ThisYear(long[] row) => string.CompareOrdinal(Month(row[1]), "2026-04") >= 0;
+
+        Assert.Equal(("2026-11-21", "2025-04", "2026-11", 20), (f.Today, f.Months[0], f.Months[^1], f.Months.Count));
+        Assert.Equal(d.PartyOptions, f.Parties.Select(p => p.Name));
+        Assert.Equal(new FactsParty("DASH A", "DASH SISTERS", true, false, "2026-10-02", "2026-10-03", "2026-10-31"), f.Parties.Single(p => p.Name == "DASH A"));
+        Assert.Equal(new FactsParty("DASH QUIET", "", true, false, "2026-09-02", "2026-09-03", null), f.Parties.Single(p => p.Name == "DASH QUIET"));
+        Assert.Equal(d.Coverage, f.Coverage);
+        Assert.Equal(DashboardService.OldAfterDays, f.OldAfterDays);
+
+        // Bills per party and month add up to the dashboard's year, months and parties, this year and last.
+        var year = Total(f.Bills.Where(ThisYear), 2, 9);
+        Assert.Equal((d.Year.Bills, d.Year.Than, d.Year.Gross, d.Year.Discount, d.Year.Taxable, d.Year.Gst, d.Year.Total),
+            ((int)year[0], (int)year[1], year[2], year[3], year[4], year[5] + year[6] + year[7], year[8]));
+        Assert.Equal(past.Year.Taxable, Total(f.Bills.Where(r => !ThisYear(r)), 2, 9)[4]);
+        foreach (var month in d.Monthly)
+        {
+            var bills = Total(f.Bills.Where(r => Month(r[1]) == month.Month), 2, 9);
+            Assert.Equal((month.Bills, month.Than, month.Gross, month.Discount, month.Taxable, month.Cgst, month.Sgst, month.Igst, month.Total),
+                ((int)bills[0], (int)bills[1], bills[2], bills[3], bills[4], bills[5], bills[6], bills[7], bills[8]));
+            var inward = Total(f.Inward.Where(r => Month(r[1]) == month.Month), 2, 7);
+            Assert.Equal((month.InwardEntries, month.InwardThan), ((int)inward[0], (int)inward[1]));
+        }
+        Assert.Equal(d.Parties.Select(p => (p.Party, p.Bills, p.Than, p.Gross, p.Discount, p.Taxable)),
+            f.Bills.Where(ThisYear).GroupBy(r => Name(r[0])).Select(g => (Party: g.Key, Sum: Total(g, 2, 9)))
+                .OrderByDescending(p => p.Sum[4]).Select(p => (p.Party, (int)p.Sum[0], (int)p.Sum[1], p.Sum[2], p.Sum[3], p.Sum[4])));
+        Assert.Equal(d.Finishes.Select(x => (x.Finish, x.Than, x.Amount)),
+            f.FinishLines.Where(ThisYear).GroupBy(r => f.Finishes[(int)r[2]]).Select(g => (Finish: g.Key, Than: (int)g.Sum(r => r[3]), Amount: g.Sum(r => r[4]))).OrderByDescending(x => x.Amount));
+
+        // DASH A's October cloth: 10 + 20 + 4 THAN and a 2 THAN repair; worth 900 + 900 + 4 × its ₹60 per THAN; 34 pieces went back.
+        Assert.Equal([f.Parties.ToList().FindIndex(p => p.Name == "DASH A"), f.Months.ToList().IndexOf("2026-10"), 4, 36, 36, 1, 2, 2040, 34],
+            f.Inward.Single(r => Name(r[0]) == "DASH A" && Month(r[1]) == "2026-10"));
+
+        // Today's billing queue per party adds up to the dashboard's queue, ageing and review flags.
+        var u = d.Unbilled;
+        Assert.Equal(new WorkEstimate(u.ReadyEntries, u.ReadyThan, u.ReadyValue), Sum(f.Unbilled.Select(q => q.Ready)));
+        Assert.Equal(new WorkEstimate(u.FactoryEntries, u.FactoryThan, u.FactoryValue), Sum(f.Unbilled.Select(q => q.Factory)));
+        Assert.Equal((u.NoRateEntries, u.NoRateThan), (Sum(f.Unbilled.Select(q => q.NoRate)).Entries, Sum(f.Unbilled.Select(q => q.NoRate)).Than));
+        Assert.Equal((u.OldEntries, u.OldValue), (Sum(f.Unbilled.Select(q => q.Old)).Entries, Sum(f.Unbilled.Select(q => q.Old)).Value));
+        Assert.Equal(u.Ageing.Select(b => new WorkEstimate(b.Entries, b.Than, b.Value)), Enumerable.Range(0, 4).Select(i => Sum(f.Unbilled.Select(q => q.Ageing[i]))));
+        Assert.Equal([d.Review.EarlierInward, d.Review.MissingRate, d.Review.DispatchIssue, d.Review.BeforeDispatch],
+            [Sum(f.Unbilled.Select(q => q.EarlierInward)), Sum(f.Unbilled.Select(q => q.MissingRate)), Sum(f.Unbilled.Select(q => q.DispatchIssue)), Sum(f.Unbilled.Select(q => q.BeforeDispatch))]);
+        Assert.Equal(d.UnbilledParties.Select(p => (p.Party, p.Entries, p.Than, p.Value, p.Oldest, p.DaysWaiting, p.FactoryThan, p.FactoryValue)),
+            f.Unbilled.Select(q => (Name(q.Party), q.Ready.Entries, q.Ready.Than, q.Ready.Value, q.Oldest ?? string.Empty, q.DaysWaiting, q.Factory.Than, q.Factory.Value)));
+        // Earlier inward is measured against the last billing run of all parties, so DASH QUIET's September cloth counts too.
+        Assert.Equal(new WorkEstimate(1, 90, 810), f.Unbilled.Single(q => Name(q.Party) == "DASH QUIET").EarlierInward);
+
+        Assert.Equal(d.Stock.Total, Sum(f.Stock.Select(s => s.Total)));
+        Assert.Equal(d.Stock.Unbilled, Sum(f.Stock.Select(s => s.Unbilled)));
+        Assert.Equal(2, f.Stock.Single(s => Name(s.Party) == "DASH A").Total.Pieces);
+        Assert.Equal(d.QuietParties.Select(q => new FactsQuiet(f.Parties.ToList().FindIndex(p => p.Name == q.Party), q.UsualThan, q.RecentThan, q.LastInward, q.DaysSinceLast)), f.Quiet);
+        Assert.Equal(("2026-11", "2026-11-10", false), (f.ThisMonth.Month, f.ThisMonth.UpTo, f.ThisMonth.Comparable));
+        Assert.Empty(f.ThisMonth.SameDaysLastMonth);
+
+        // Unchanged data answers 304, so the screen's refresh costs nothing; a new entry changes the answer.
+        Assert.Equal(HttpStatusCode.NotModified, await FactsStatus(app, tag));
+        await Add(app, Entry(9, "DASH B", "F1", 2, "2026-11-11", null));
+        Assert.Equal(HttpStatusCode.OK, await FactsStatus(app, tag));
+        var (after, newTag) = await Facts(app);
+        Assert.NotEqual(tag, newTag);
+        Assert.Equal(3, Total(after.Inward.Where(r => after.Parties[(int)r[0]].Name == "DASH B" && after.Months[(int)r[1]] == "2026-11"), 2, 7)[1]);
+    }
+
+    [Fact]
+    public async Task Facts_count_pieces_sent_back_and_compare_the_same_days_of_last_month()
+    {
+        using var isolated = new DashboardApiFactory();
+        var app = isolated.App();
+        await Setup.Basics(app);
+        await app.Post("/api/masters/party", Setup.Party("STOCK", discount: 0)).Ok();
+        await app.Post("/api/masters/party", Setup.Party("EARLY", beforeDispatch: true, discount: 0)).Ok();
+        await app.Put("/api/masters/party/rate", new { party = "STOCK", finish = "F1", rate = 100 }).Ok();
+        await app.Put("/api/masters/party/rate", new { party = "EARLY", finish = "F1", rate = 100 }).Ok();
+        await Add(app, Entry(81, "STOCK", "F1", 10, "2026-10-10", "2026-10-12", tp: 2, twoPart: 3, dispatchQty: 8));
+        await Add(app, Entry(82, "STOCK", "F1", 8, "2026-10-12", "2026-10-14", dispatchQty: 5));
+        await Add(app, Entry(83, "EARLY", "F1", 6, "2026-10-13", null, tp: 1));
+        await Add(app, Entry(84, "STOCK", "", 4, "2026-11-12", null, repair: true));
+        await Add(app, Entry(85, "STOCK", "F1", 3, "2026-11-12", "2026-11-25"));
+        await Add(app, Entry(86, "STOCK", "F1", 9, "2026-11-25", null));
+        var (f, _) = await Facts(app);
+        var d = await Dashboard(app);
+        int P(string name) => f.Parties.ToList().FindIndex(p => p.Name == name);
+        int M(string month) => f.Months.ToList().IndexOf(month);
+
+        // Pieces = THAN + TP + TWO PART; the dispatch dated after today and the entry dated after today are not counted yet.
+        Assert.Equal(
+            [[P("EARLY"), M("2026-10"), 1, 6, 7, 0, 0, 600, 0], [P("STOCK"), M("2026-10"), 2, 18, 23, 0, 0, 1800, 13], [P("STOCK"), M("2026-11"), 2, 7, 7, 1, 4, 300, 0]],
+            f.Inward);
+        Assert.Equal(d.Stock.Total, Sum(f.Stock.Select(s => s.Total)));
+        Assert.Equal([d.Stock.Unbilled, d.Stock.BeforeDispatch, d.Stock.Billed, d.Stock.Repairs, d.Stock.NoBill],
+            [Sum(f.Stock.Select(s => s.Unbilled)), Sum(f.Stock.Select(s => s.BeforeDispatch)), Sum(f.Stock.Select(s => s.Billed)), Sum(f.Stock.Select(s => s.Repairs)), Sum(f.Stock.Select(s => s.NoBill))]);
+        Assert.Equal(("2026-11", "2026-11-12", true), (f.ThisMonth.Month, f.ThisMonth.UpTo, f.ThisMonth.Comparable));
+        Assert.Equal([new FactsPartyCount(P("STOCK"), 2, 18)], f.ThisMonth.SameDaysLastMonth);
+        Assert.Equal(d.ThisMonth.LastMonthSameDaysThan, f.ThisMonth.SameDaysLastMonth.Sum(c => c.Than));
     }
 }

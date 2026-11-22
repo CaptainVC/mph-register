@@ -214,14 +214,15 @@ const invoice = (id, month, extra = {}) => ({
     assert.equal(await page.locator('label[for="dashYear"]').textContent(), "Financial year");
     assert.equal(await page.locator("#dashYear").count(), 1, "Dashboard retains its existing year selector");
     assert.equal(await page.locator("#dashYear").getAttribute("title"), "April to March");
-    const months = await values("dashMonth");
-    if (months.length > 1) {
-      const target = months.at(-1);
-      const response = page.waitForResponse((r) => r.url().includes("/api/dashboard?") && r.url().includes(`month=${target}`));
-      await chooseDropdown(page.locator("#dashMonth"), target);
-      await response;
-      await page.waitForFunction((month) => document.querySelector("#dashMonth").value === month, target);
-    }
+    // The months of the chosen year are buttons; picking one is worked out on the screen, without asking the server again.
+    const months = await page.locator("#dashMonths [data-month]:not([disabled])").evaluateAll((buttons) => buttons.map((b) => b.dataset.month));
+    assert.ok(months.length > 0, "the dashboard lists the months of the year");
+    const requests = [];
+    page.on("request", (request) => { if (request.url().includes("/api/dashboard")) requests.push(request.url()); });
+    const target = months.at(0);
+    await page.locator(`#dashMonths [data-month="${target}"]`).click();
+    await page.locator(`#dashMonths [data-month="${target}"][aria-pressed="true"]`).waitFor();
+    assert.deepEqual(requests, [], "picking a month does not wait for the server");
     assert.deepEqual(errors, [], "no screen errors");
     console.log("Passed Party-wise, Make bills, Saved bills/printing, Import, and Dashboard financial-year boundary, refresh, carryover, empty-data, and responsive checks.");
   } finally {

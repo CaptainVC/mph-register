@@ -1,7 +1,7 @@
 // Run against a test data folder: this creates two parties and a saved bill for each.
 const assert = require("node:assert/strict");
 const { chromium } = require("playwright-core");
-const { chooseDropdown, dropdownValue, dropdownValues } = require("./dropdown-helpers");
+const { chooseDropdown, dropdownValues } = require("./dropdown-helpers");
 
 const BASE = process.env.MPH_BASE_URL || "http://127.0.0.1:5152";
 const PARTY = "DASH TEST A & CO";
@@ -38,6 +38,8 @@ async function seed() {
   }
 }
 
+const chips = (page) => page.locator("#dashChips .dash-chip-name").allTextContents();
+
 (async () => {
   await seed();
   const browser = await chromium.launch({ channel: process.env.MPH_BROWSER_CHANNEL || "msedge", headless: true });
@@ -50,56 +52,62 @@ async function seed() {
     await page.locator('[data-view="dashboard"]').click();
     const party = page.locator("#dashParty");
     await party.waitFor();
-    assert.equal(await party.inputValue(), "All parties");
-    assert.equal((await dropdownValues(party))[0], "");
+    assert.equal(await page.locator("#dashChips").textContent(), "All parties");
     assert.equal(await page.locator("#dash-overall").count(), 0);
 
+    // October 2024: the year first, then its month.
     await chooseDropdown(page.locator("#dashYear"), "24-25");
-    await page.waitForFunction((month) => document.querySelector("#dashMonth").value === month, MONTH);
-    await chooseDropdown(party, PARTY);
+    await page.locator(`#dashMonths [data-month="${MONTH}"]`).click();
+    await page.locator(`#dashMonths [data-month="${MONTH}"][aria-pressed="true"]`).waitFor();
+    assert.match(await page.locator("#dashSummary").textContent(), /October 2024/);
+
+    // Typing part of a name and pressing Enter adds the party; its share of all parties is shown.
+    await party.fill("test a");
+    await party.press("Enter");
     const overall = page.locator("#dash-overall");
     await overall.waitFor();
-    assert.equal(await party.inputValue(), PARTY);
-    assert.equal(await dropdownValue(page.locator("#dashMonth")), MONTH);
+    assert.deepEqual(await chips(page), [PARTY]);
     assert.match(await overall.textContent(), /Compared with all parties/);
     const monthCells = overall.locator("tbody tr").first().locator("td");
-    assert.deepEqual(await monthCells.allTextContents(), ["₹1,000", "₹4,000", "25.0%"]);
-    assert.equal(await page.locator("#dash-parties").count(), 0);
-    assert.match(await page.locator("#dash-stock tbody tr").first().textContent(), /10/);
+    assert.deepEqual((await monthCells.allTextContents()).slice(0, 1), ["₹1,000"]);
+    const all = Number((await monthCells.nth(1).getAttribute("title")).replace(/[₹,]/g, ""));
+    assert.ok(all >= 4000, `all parties include both bills (${all})`);
+    assert.equal(await monthCells.nth(2).textContent(), `${((1000 * 100) / all).toFixed(1)}%`);
+    assert.equal(await page.locator("#kpi-billed .kpi-value").getAttribute("title"), "₹1,000");
+    assert.match(await page.locator("#kpi-stock .kpi-value").textContent(), /^10 pieces$/, "the unsent entry is in the factory");
 
-    await chooseDropdown(page.locator("#dashMonth"), "2024-09");
-    await page.waitForFunction(() => document.querySelector("#dash-overall tbody tr th")?.textContent === "September 2024");
-    assert.deepEqual(await monthCells.allTextContents(), ["₹0", "₹0", "—"]);
-    const refreshed = page.waitForResponse((r) => new URL(r.url()).searchParams.get("party") === PARTY && r.url().includes("/api/dashboard?"));
-    await page.locator("#dashRefresh").click();
-    assert.ok((await refreshed).ok());
-    await chooseDropdown(party, "");
-    await page.locator("#dash-parties").waitFor();
-    assert.equal(await overall.count(), 0);
-    assert.equal(await dropdownValue(page.locator("#dashMonth")), "2024-09");
-
-    // Typing a part of the name narrows the list; Enter picks the first match.
-    await party.click();
+    // A second party: both are added up and listed side by side; the list no longer offers the parties already picked.
     await party.fill("test b");
-    assert.deepEqual(await dropdownValues(party), [OTHER]);
+    const offered = await dropdownValues(party);
+    assert.equal(offered.length, 1, `one match for "test b": ${offered}`);
     await party.fill("test b");
     await party.press("Enter");
-    await page.waitForFunction((name) => document.querySelector("#dash-overall")?.textContent.includes("Compared") && document.querySelector("#dashParty").value === name, OTHER);
-    assert.equal(await dropdownValue(page.locator("#dashMonth")), "2024-09");
-    // Text that is no party goes back to the chosen one; "All parties" or empty text shows everyone again.
+    await page.waitForFunction(() => document.querySelectorAll("#dashChips .dash-chip-name").length === 2);
+    assert.deepEqual(await chips(page), [PARTY, OTHER]);
+    assert.equal(await page.locator("#kpi-billed .kpi-value").getAttribute("title"), "₹4,000");
+    assert.deepEqual(await page.locator("#dash-top-parties .hbar-name").allTextContents(), [OTHER, PARTY]);
+    await party.fill("dash test");
+    assert.deepEqual(await dropdownValues(party), [], "picked parties are not offered again");
+
+    // Text that is no party adds nothing; removing a chip and "All parties" bring the others back.
     await party.fill("no such party");
-    await party.press("Tab");
-    assert.equal(await party.inputValue(), OTHER);
-    await party.fill("");
     await party.press("Enter");
-    await page.locator("#dash-parties").waitFor();
-    assert.equal(await party.inputValue(), "All parties");
-    // With a party chosen the list still opens in full.
-    await chooseDropdown(party, PARTY);
-    await page.locator("#dash-overall").waitFor();
-    assert.ok((await dropdownValues(page.locator("#dashParty"))).length > 2);
+    assert.deepEqual(await chips(page), [PARTY, OTHER]);
+    await page.locator("#dashChips .dash-chip", { hasText: PARTY }).locator(".dash-chip-x").click();
+    await page.waitForFunction(() => document.querySelectorAll("#dashChips .dash-chip-name").length === 1);
+    assert.equal(await page.locator("#kpi-billed .kpi-value").getAttribute("title"), "₹3,000");
+    await page.locator("#dashPartyClear").click();
+    await page.locator("#dash-top-parties").waitFor();
+    assert.equal(await page.locator("#dashChips").textContent(), "All parties");
+    assert.equal(await overall.count(), 0);
+    assert.match(await page.locator("#dashSummary").textContent(), /October 2024/, "the period stays when parties change");
+
+    // Refresh asks again; while nothing changed the server answers 304 and the screen stays as it is.
+    const refreshed = page.waitForResponse((r) => r.url().endsWith("/api/dashboard/facts"));
+    await page.locator("#dashRefresh").click();
+    assert.equal((await refreshed).status(), 304);
     assert.deepEqual(errors, []);
-    console.log("Dashboard party filter and overall comparisons passed.");
+    console.log("Dashboard party picking, adding up and overall comparisons passed.");
   } finally {
     await browser.close();
   }

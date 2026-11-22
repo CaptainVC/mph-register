@@ -36,6 +36,30 @@ public sealed record DashboardFinishRow
     public long Amount { get; init; }
 }
 
+/// <summary>Priced bill lines of saved bills, added up per bill-to party, bill month (yyyy-MM) and finish.</summary>
+public sealed record DashboardFinishMonthRow
+{
+    public string Party { get; init; } = string.Empty;
+
+    public string Month { get; init; } = string.Empty;
+
+    public string Finish { get; init; } = string.Empty;
+
+    public int Than { get; init; }
+
+    public long Amount { get; init; }
+}
+
+/// <summary>Pieces sent back for one register party in one dispatch month (yyyy-MM).</summary>
+public sealed record DashboardSentRow
+{
+    public string Party { get; init; } = string.Empty;
+
+    public string Month { get; init; } = string.Empty;
+
+    public int Pieces { get; init; }
+}
+
 public sealed record DashboardPartyBillDate
 {
     public string Party { get; init; } = string.Empty;

@@ -8,6 +8,13 @@ GET {{baseUrl}}/api/dashboard
 ### Dashboard for one party, with all-party benchmarks for the same dates
 GET {{baseUrl}}/api/dashboard?fy=26-27&month=2026-10&party=TEST%20PARTY
 
+### Everything the dashboard screen adds up itself: every month per party, and today's queue and stock
+GET {{baseUrl}}/api/dashboard/facts
+
+### Answers 304 Not Modified while nothing changed (paste the ETag of the last answer)
+GET {{baseUrl}}/api/dashboard/facts
+If-None-Match: "replace-with-the-etag"
+
 ### Read the current bill and undo eligibility
 GET {{baseUrl}}/api/invoices/{{invoiceId}}
 
