@@ -9,5 +9,6 @@ namespace MPHRegister.Api.Controllers;
 public sealed class DashboardController(IDashboardService dashboard) : ApiControllerBase
 {
     [HttpGet]
-    public ActionResult<DashboardDto> Get([FromQuery] string? fy, [FromQuery] string? month) => dashboard.Get(fy, month);
+    public ActionResult<DashboardDto> Get([FromQuery] string? fy, [FromQuery] string? month, [FromQuery] string? party) =>
+        dashboard.Get(fy, month, party);
 }

@@ -3,7 +3,7 @@
 // Financial dashboard. The server works every figure out from the register, the saved bills and the rates each time it is
 // asked; this screen asks again whenever it is opened, when the window comes back into view and every minute while it is shown,
 // so it always follows the data. Written in plain words, with big numbers in lakh / crore, in English or Hindi.
-const dashState = { data: null, fy: "", month: "", ticket: 0, loadedAt: 0, allParties: false, allFinishes: false, allUnbilled: false, error: "" };
+const dashState = { data: null, fy: "", month: "", party: "", ticket: 0, loadedAt: 0, allParties: false, allFinishes: false, allUnbilled: false, error: "" };
 const DASH_REFRESH_MS = 60000;
 const DASH_MIN_GAP_MS = 5000;
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -146,18 +146,21 @@ async function loadDashboard({ quiet = false } = {}) {
   const query = new URLSearchParams();
   if (dashState.fy) query.set("fy", dashState.fy);
   if (dashState.month) query.set("month", dashState.month);
+  if (dashState.party) query.set("party", dashState.party);
   try {
     const data = await api(`/api/dashboard?${query}`);
     if (ticket !== dashState.ticket) return;
     dashState.data = data;
     dashState.fy = data.fy;
     dashState.month = data.month;
+    dashState.party = data.party ?? "";
     dashState.loadedAt = Date.now();
     dashState.error = "";
     renderDashboard();
   } catch (error) {
     if (ticket !== dashState.ticket) return;
     dashState.error = error.message;
+    dashState.party = dashState.data?.party ?? "";
     if (!dashState.data) {
       root.replaceChildren(el("div", { class: "report err" }, [el("b", { text: L("Could not work out the dashboard.", "Dashboard नहीं बन सका।") }), el("p", { text: error.message })]));
     } else {
@@ -168,7 +171,7 @@ async function loadDashboard({ quiet = false } = {}) {
 
 function refreshIfShown() {
   if (!dashboardShown() || Date.now() - dashState.loadedAt < DASH_MIN_GAP_MS) return;
-  if (document.querySelector("dialog[open]")) return;
+  if (document.querySelector("dialog[open], #dashRoot [aria-expanded=true]")) return;
   loadDashboard({ quiet: true }).catch(() => {});
 }
 
@@ -188,6 +191,15 @@ function pickMonth(month) {
   if (month === dashState.month) return;
   dashState.month = month;
   loadDashboard({ quiet: true }).catch(showFatal);
+}
+
+function pickParty(party) {
+  if (party === dashState.party) return;
+  dashState.party = party;
+  dashState.allFinishes = false;
+  dashState.allUnbilled = false;
+  renderDashboard();
+  loadDashboard().catch(showFatal);
 }
 
 function scrollToCard(id) {
@@ -214,33 +226,41 @@ function renderDashboard() {
   const d = dashState.data;
   const main = $("main");
   const scroll = main.scrollTop;
+  const focusParty = document.activeElement === $("dashParty");
   const index = d.monthly.findIndex((m) => m.month === d.month);
   const selected = d.monthly[index] || null;
   const previous = index > 0 ? d.monthly[index - 1] : null;
   const view = { d, selected, previous, isCurrent: d.fy === fyOf(d.today) };
-  $("dashRoot").replaceChildren(
-    header(view),
+  const pendingParty = dashState.party !== (d.party ?? "");
+  const cards = pendingParty ? [el("div", { class: "dash-loading", role: "status", text: L("Working out the figures…", "आँकड़े तैयार हो रहे हैं…") })] : [
     insightsCard(view),
     kpis(view),
+    ...(d.party ? [overallCard(view)] : []),
     monthlyIncomeCard(view),
     thanCard(view),
-    el("div", { class: "dash-two" }, [partiesCard(view), finishesCard(view)]),
+    d.party ? finishesCard(view) : el("div", { class: "dash-two" }, [partiesCard(view), finishesCard(view)]),
     unbilledCard(view),
     stockCard(view),
     gstCard(view),
     el("div", { class: "dash-two" }, [quietCard(view), repairsCard(view)]),
     footnote(view),
-  );
+  ];
+  $("dashRoot").replaceChildren(header(view, pendingParty), ...cards);
+  if (focusParty) $("dashParty").focus({ preventScroll: true });
   main.scrollTop = scroll;
 }
 
-function header({ d }) {
+function header({ d }, pendingParty) {
   const year = dropdownOf(d.years.map((fy) => [String(fy), fyText(fy)]), d.fy,
     { id: "dashYear", "aria-label": L("Financial year", "Financial Year"), title: L("April to March", "April से March") });
   year.addEventListener("change", () => pickYear(year.value));
   const month = dropdownOf([...d.months].reverse().map((m) => [m, longMonth(m)]), d.month,
     { id: "dashMonth", "aria-label": L("Month", "Month") });
   month.addEventListener("change", () => pickMonth(month.value));
+  const names = d.partyOptions.includes(dashState.party) || !dashState.party ? d.partyOptions : [...d.partyOptions, dashState.party];
+  const party = dropdownOf([["", L("All parties", "सभी पार्टियाँ")], ...names.map((name) => [name, name])],
+    dashState.party, { id: "dashParty", "aria-label": L("Party", "पार्टी"), title: dashState.party });
+  party.addEventListener("change", () => pickParty(party.value));
   const refresh = el("button", { type: "button", id: "dashRefresh", class: "secondary", text: L("↻ Refresh", "↻ Refresh करें"), onclick: () => loadDashboard().catch(showFatal) });
   const time = new Date(dashState.loadedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
   const status = dashState.error
@@ -252,14 +272,42 @@ function header({ d }) {
     [L("Last saved bill", "आख़िरी सेव किया बिल"), d.coverage.lastBill],
   ].map(([label, date]) => `${label}: ${date ? niceDate(date) : L("none recorded", "दर्ज नहीं")}`).join(" · ");
   return el("div", { class: "card dash-head" }, [
-    el("div", { class: "dash-title" }, [el("h1", { text: L("Business dashboard", "व्यापार Dashboard") }), status,
-      el("p", { class: "dash-sub", id: "dash-coverage", text: dates }),
-      el("p", { class: "dash-sub", text: L("Filters apply to billing and historical charts. The queue, stock and current inward use all records through today.", "फ़िल्टर बिलिंग और पुराने चार्ट पर लागू हैं। बिल की जाँच, स्टॉक और मौजूदा आवक में आज तक के रिकॉर्ड हैं।") })]),
+    el("div", { class: "dash-title" }, [el("h1", { text: L("Business dashboard", "व्यापार Dashboard") }),
+      ...(pendingParty ? [] : [status, el("p", { class: "dash-sub", id: "dash-coverage", text: dates })]),
+      el("p", { class: "dash-sub", text: L("Year and month apply to billing and history. The queue, stock and current inward show the chosen party or all parties through today.", "साल और महीना बिलिंग और पुराने आँकड़ों पर लागू हैं। बिलिंग सूची, स्टॉक और मौजूदा आवक चुनी हुई पार्टी या सभी पार्टियों के लिए आज तक हैं।") }),
+      dashState.party ? el("p", { class: "dash-sub", text: L("Bills follow the party on the saved invoice; inward and stock follow the party in the register. Sister firms are not combined.", "बिल सेव किए गए बिल की पार्टी के अनुसार हैं; आवक और स्टॉक रजिस्टर की पार्टी के अनुसार हैं। सिस्टर फ़र्म अलग रहती हैं।") }) : ""]),
     el("div", { class: "dash-controls" }, [
+      el("div", { class: "field dash-party-field" }, [el("label", { for: "dashParty", text: L("Party", "पार्टी") }), party]),
       el("div", { class: "field" }, [el("label", { for: "dashYear", text: L("Financial year", "Financial Year") }), year]),
       el("div", { class: "field" }, [el("label", { for: "dashMonth", text: L("Month to look at", "देखने का Month") }), month]),
       refresh,
     ]),
+  ]);
+}
+
+function overallCard({ d, selected }) {
+  const overall = d.overall;
+  const rows = [
+    [longMonth(d.month), selected.taxable, overall.monthTaxable],
+    [L(`Financial year ${fyText(d.fy)}`, `Financial Year ${fyText(d.fy)}`), d.year.taxable, overall.yearTaxable],
+  ];
+  const headings = [L("Period", "अवधि"), d.party, L("All parties", "सभी पार्टियाँ"), L("Share of all parties", "सभी पार्टियों में हिस्सा")];
+  return el("section", { class: "card dash-card", id: "dash-overall" }, [
+    el("div", { class: "card-head" }, [el("h2", { text: L("Compared with all parties", "सभी पार्टियों से तुलना") }),
+      el("span", { class: "muted", text: L("Billed before GST · all parties includes the selected party", "GST से पहले बिलिंग · सभी पार्टियों में चुनी हुई पार्टी शामिल है") })]),
+    el("div", { class: "table-scroll" }, [el("table", { class: "dash-table" }, [
+      el("thead", {}, [el("tr", {}, headings.map((text, i) => el("th", { class: i ? "num" : "left", text })))]),
+      el("tbody", {}, rows.map(([period, partyValue, allValue]) => el("tr", {}, [
+        el("th", { scope: "row", class: "left", text: period }),
+        el("td", { class: "num strong", title: rsFull(partyValue), text: rs(partyValue) }),
+        el("td", { class: "num", title: rsFull(allValue), text: rs(allValue) }),
+        el("td", { class: "num", text: allValue > 0 ? pct(partyValue * 100 / allValue) : "—" }),
+      ]))),
+    ])]),
+    overall.yearThan > 0 ? el("p", { class: "muted", text: L(
+      `Financial year per priced THAN: ${d.year.than ? perThan(d.year.taxable / d.year.than) : "—"} for ${d.party}, ${perThan(overall.yearTaxable / overall.yearThan)} for all parties. Finish mixes and rates may differ.`,
+      `Financial Year में प्रति थान: ${d.party} की राशि ${d.year.than ? perThan(d.year.taxable / d.year.than) : "—"}, सभी पार्टियों की ${perThan(overall.yearTaxable / overall.yearThan)}। फ़िनिश और Rate अलग हो सकते हैं।`,
+    ) }) : "",
   ]);
 }
 
@@ -268,7 +316,7 @@ function buildInsights({ d, selected, previous, isCurrent }) {
   const list = [];
   const u = d.unbilled;
   const y = d.year;
-  const topUnbilled = d.unbilledParties.find((p) => p.value > 0);
+  const topUnbilled = !d.party && d.unbilledParties.find((p) => p.value > 0);
   const scroll = (id) => ({ text: L("See the list", "List देखें"), run: () => scrollToCard(id) });
 
   if (u.oldEntries > 0) {
@@ -308,7 +356,7 @@ function buildInsights({ d, selected, previous, isCurrent }) {
       text: L(`Billed before GST in ${span}: ${rs(cmp.thisYear)}, ${changeText(c, "the same months last year")} (${rs(cmp.lastYear)}).`,
         `${span} में GST से पहले बिल राशि ${rs(cmp.thisYear)}: ${changeText(c, "पिछले साल के इन्हीं महीनों")} (${rs(cmp.lastYear)})।`) });
   }
-  if (d.parties.length >= 3 && y.taxable > 0) {
+  if (!d.party && d.parties.length >= 3 && y.taxable > 0) {
     const top = d.parties[0];
     const five = d.parties.slice(0, 5);
     const fiveShare = five.reduce((s, p) => s + p.share, 0);
@@ -320,9 +368,10 @@ function buildInsights({ d, selected, previous, isCurrent }) {
   }
   if (d.quietParties.length) {
     const names = d.quietParties.slice(0, 3).map((p) => L(`${p.party} (usually ${num(p.usualThan)}, now ${num(p.recentThan)} THAN)`, `${p.party} (आम तौर पर ${num(p.usualThan)}, अब ${num(p.recentThan)} थान)`)).join(", ");
-    list.push({ tone: "warn", icon: "📞", title: L("Parties sending less cloth", "कम माल भेज रही पार्टियाँ"),
-      text: L(`In the 30 days ending ${niceDate(d.coverage.lastInward)}, the register shows less cloth than usual from: ${names}.`,
-        `${niceDate(d.coverage.lastInward)} तक के 30 दिनों में रजिस्टर में इन पार्टियों की आवक सामान्य से कम है: ${names}।`),
+    const end = niceDate(d.overall?.lastInward ?? d.coverage.lastInward);
+    list.push({ tone: "warn", icon: "📞", title: d.party ? L("Sending less cloth", "कम माल आ रहा है") : L("Parties sending less cloth", "कम माल भेज रही पार्टियाँ"),
+      text: L(`In the 30 days ending ${end}, the register shows less cloth than usual from: ${names}.`,
+        `${end} तक के 30 दिनों में रजिस्टर में आवक सामान्य से कम है: ${names}।`),
       action: scroll("dash-quiet") });
   }
   if (selected && selected.cgst + selected.sgst + selected.igst > 0) {
@@ -334,12 +383,12 @@ function buildInsights({ d, selected, previous, isCurrent }) {
       action: scroll("dash-gst") });
   }
   if (y.discount > 0 && y.gross > 0) {
-    const biggest = d.parties.slice(0, 15).filter((p) => p.discountPercent > 0).sort((a, b) => b.discountPercent - a.discountPercent)[0];
+    const biggest = !d.party && d.parties.slice(0, 15).filter((p) => p.discountPercent > 0).sort((a, b) => b.discountPercent - a.discountPercent)[0];
     list.push({ tone: "info", icon: "🏷", title: L(`Discount given in ${fyText(d.fy)}: ${rs(y.discount)}`, `${fyText(d.fy)} में दिया गया Discount: ${rs(y.discount)}`),
       text: L(`That is ${pct((y.discount / y.gross) * 100)} of all job charges.${biggest ? ` Highest among the bigger parties: ${biggest.party} at ${pct(biggest.discountPercent)}.` : ""}`,
         `यह कुल Job Charge का ${pct((y.discount / y.gross) * 100)} है।${biggest ? ` बड़ी पार्टियों में सबसे ज़्यादा: ${biggest.party}, ${pct(biggest.discountPercent)}।` : ""}`) });
   }
-  if (y.than > 0) {
+  if (!d.party && y.than > 0) {
     const average = y.taxable / y.than;
     const lowest = d.parties.filter((p) => p.than >= Math.max(500, y.than * 0.02)).sort((a, b) => a.perThan - b.perThan)[0];
     if (lowest && lowest.perThan < average * 0.92) {
@@ -363,7 +412,7 @@ function buildInsights({ d, selected, previous, isCurrent }) {
         `${niceDate(t.upTo)} तक${t.estimatedValue > 0 ? `, लगभग ${rs(t.estimatedValue)} का काम` : ""}।${c === null ? "" : ` ${changeText(c, "पिछले महीने के इन्हीं दिनों")} (${num(t.lastMonthSameDaysThan)} थान)।`}`) });
   }
   if (d.repairs.than > 0) {
-    const top = d.repairs.topParties[0];
+    const top = !d.party && d.repairs.topParties[0];
     list.push({ tone: "info", icon: "🔧", title: L(`Re-work (REP.) in ${fyText(d.fy)}: ${num(d.repairs.than)} THAN`, `${fyText(d.fy)} में रिपेयर: ${num(d.repairs.than)} थान`),
       text: L(`${num(d.repairs.entries)} entries marked as repairs.${top ? ` Most for ${top.party} (${num(top.than)} THAN).` : ""}`,
         `${num(d.repairs.entries)} Entries पर रिपेयर का निशान है।${top ? ` सबसे ज़्यादा ${top.party} के लिए (${num(top.than)} थान)।` : ""}`),
@@ -706,9 +755,10 @@ function gstCard({ d }) {
 
 function quietCard({ d }) {
   const quiet = d.quietParties;
+  const end = niceDate(d.overall?.lastInward ?? d.coverage.lastInward);
   return el("section", { class: "card dash-card", id: "dash-quiet" }, [
-    el("div", { class: "card-head" }, [el("h2", { text: L("Parties sending less cloth", "कम माल भेज रही पार्टियाँ") }),
-      el("span", { class: "muted", text: d.coverage.lastInward ? L(`30 days ending ${niceDate(d.coverage.lastInward)} versus the earlier recorded pace`, `${niceDate(d.coverage.lastInward)} तक के 30 दिनों की पुरानी दर्ज रफ़्तार से तुलना`) : "" })]),
+    el("div", { class: "card-head" }, [el("h2", { text: d.party ? L("Recent inward pace", "हाल की आवक की रफ़्तार") : L("Parties sending less cloth", "कम माल भेज रही पार्टियाँ") }),
+      el("span", { class: "muted", text: end ? L(`30 days ending ${end} versus the earlier recorded pace`, `${end} तक के 30 दिनों की पुरानी दर्ज रफ़्तार से तुलना`) : "" })]),
     quiet.length ? el("div", { class: "table-scroll" }, [el("table", { class: "dash-table" }, [
       el("thead", {}, [el("tr", {}, [L("Party", "पार्टी"), L("Usual (THAN)", "सामान्य (थान)"), L("Last 30 days", "पिछले 30 दिन"), L("Last cloth came", "आख़िरी माल आया")].map((h, i) => el("th", { class: i === 0 ? "left" : "num", text: h })))]),
       el("tbody", {}, quiet.map((p) => el("tr", {}, [
@@ -728,7 +778,7 @@ function repairsCard({ d }) {
       el("span", { class: "muted", text: L("Done again without a bill", "बिना बिल के दोबारा किया गया") })]),
     repairs.than ? el("div", {}, [
       el("p", { text: L(`${num(repairs.than)} THAN in ${entriesText(repairs.entries)} were re-done without a bill.`, `${num(repairs.entries)} Entries में ${num(repairs.than)} थान बिना बिल के दोबारा किए गए।`) }),
-      el("ul", { class: "repair-list" }, repairs.topParties.map((p) => el("li", {}, [el("b", { text: p.party }), ` — ${L(`${num(p.than)} THAN, ${entriesText(p.entries)}`, `${num(p.than)} थान, ${entriesText(p.entries)}`)}`]))),
+      d.party ? "" : el("ul", { class: "repair-list" }, repairs.topParties.map((p) => el("li", {}, [el("b", { text: p.party }), ` — ${L(`${num(p.than)} THAN, ${entriesText(p.entries)}`, `${num(p.than)} थान, ${entriesText(p.entries)}`)}`]))),
     ]) : el("p", { class: "good-note", text: L("✓ No repairs this year.", "✓ इस साल कोई रिपेयर नहीं।") }),
   ]);
 }

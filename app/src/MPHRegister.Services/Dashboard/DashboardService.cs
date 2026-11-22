@@ -34,7 +34,7 @@ public sealed class DashboardService(IDashboardRepository data, IMasterReader ma
 
     private static readonly (string Key, int UpTo)[] AgeBuckets = [("0-30", 30), ("31-60", 60), ("61-90", 90), ("90+", int.MaxValue)];
 
-    public DashboardDto Get(string? fy, string? month)
+    public DashboardDto Get(string? fy, string? month, string? party)
     {
         using var snapshot = session.Begin(deferred: true);
         var today = Dates.Today(clock);
@@ -51,18 +51,34 @@ public sealed class DashboardService(IDashboardRepository data, IMasterReader ma
 
         var through = isCurrent ? today : end;
         var asOf = Dates.Iso(today);
-        var bills = data.Bills(Dates.Iso(start), Dates.Iso(through));
-        var lastYearBills = data.Bills(Dates.Iso(start.AddYears(-1)), Dates.Iso(end.AddYears(-1)));
-        var entries = data.Entries(asOf);
-        var lastBill = data.LatestBillDate(asOf);
+        var allBills = data.Bills(Dates.Iso(start), Dates.Iso(through));
+        var priorBills = data.Bills(Dates.Iso(start.AddYears(-1)), Dates.Iso(end.AddYears(-1)));
+        var allEntries = data.Entries(asOf);
+        var billDates = data.LatestBillDates(asOf);
+        var lastBill = billDates.Select(b => b.LastBill).Max();
+        var lastInward = allEntries.Count == 0 ? null : allEntries[^1].EntryDate;
+        var config = masters.Config;
+        var partyOptions = config.Parties.Select(p => p.Name).Concat(allEntries.Select(e => e.Party)).Concat(billDates.Select(b => b.Party))
+            .Select(p => p.NormalizeName()).Where(p => p.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
+        var requested = party.NormalizeName();
+        bool Matches(string name) => string.Equals(requested, name.NormalizeName(), StringComparison.OrdinalIgnoreCase);
+        var chosenParty = requested.Length == 0 ? null : partyOptions.Find(Matches) ?? requested;
+        var bills = chosenParty is null ? allBills : allBills.Where(b => Matches(b.Party)).ToList();
+        var lastYearBills = chosenParty is null ? priorBills : priorBills.Where(b => Matches(b.Party)).ToList();
+        var entries = chosenParty is null ? allEntries : allEntries.Where(e => Matches(e.Party)).ToList();
+        var scopedLastBill = chosenParty is null ? lastBill : billDates.Where(b => Matches(b.Party)).Select(b => b.LastBill).Max();
         var valuer = new Valuer(masters, data.Bills(Dates.Iso(today.AddYears(-1)), asOf));
 
-        var chosenMonth = month is not null && months.Contains(month) ? month : DefaultMonth(months, bills, isCurrent, today);
+        var chosenMonth = month is not null && months.Contains(month) ? month : DefaultMonth(months, allBills, isCurrent, today);
         var monthly = Monthly(months, bills, lastYearBills, entries);
         var completed = isCurrent ? CompletedMonths(monthly, today) : null;
         var year = YearOf(bills, completed);
+        var overall = chosenParty is null ? null : new DashboardOverall(
+            allBills.Where(b => b.BillDate.StartsWith(chosenMonth, StringComparison.Ordinal)).Sum(b => b.Taxable),
+            allBills.Sum(b => b.Taxable), allBills.Sum(b => b.Than), lastInward);
 
-        var (unbilled, unbilledParties, review) = Unbilled(entries, valuer, today, lastBill);
+        var (unbilled, unbilledParties, review) = Unbilled(entries, valuer, today, scopedLastBill);
         return new DashboardDto(
             asOf,
             chosenFy,
@@ -74,14 +90,17 @@ public sealed class DashboardService(IDashboardRepository data, IMasterReader ma
             monthly,
             unbilled,
             unbilledParties,
-            PartiesOf(bills, year.Taxable),
-            FinishesOf(data.Finishes(Dates.Iso(start), Dates.Iso(through))),
-            Quiet(entries, today),
+            PartiesOf(bills, overall?.YearTaxable ?? year.Taxable),
+            FinishesOf(data.Finishes(Dates.Iso(start), Dates.Iso(through), chosenParty is null ? null : bills.Select(b => b.Party).Distinct().ToList())),
+            Quiet(entries, today, lastInward),
             RepairsOf(entries, start, end),
-            ThisMonth(entries, valuer, today),
-            new DashboardCoverage(entries.Count == 0 ? null : entries[^1].EntryDate, entries.Max(e => e.LastValidDispatch), lastBill),
+            ThisMonth(entries, allEntries, valuer, today, lastInward),
+            new DashboardCoverage(entries.Count == 0 ? null : entries[^1].EntryDate, entries.Max(e => e.LastValidDispatch), scopedLastBill),
             Stock(entries, valuer),
-            review);
+            review,
+            chosenParty,
+            partyOptions,
+            overall);
     }
 
     /// <summary>Every financial year from the first bill or entry up to today, newest first.</summary>
@@ -277,11 +296,10 @@ public sealed class DashboardService(IDashboardRepository data, IMasterReader ma
     /// Parties that sent much less cloth in the last 30 days than in their usual 30 days (the average of the 90 days before).
     /// The window ends at the last inward date, so a few days without entries in the app do not make every party look quiet.
     /// </summary>
-    private List<QuietParty> Quiet(IReadOnlyList<DashboardEntryRow> entries, DateOnly today)
+    private List<QuietParty> Quiet(IReadOnlyList<DashboardEntryRow> entries, DateOnly today, string? lastInward)
     {
+        if (!Dates.TryParseIso(lastInward, out var anchor)) return [];
         var dated = entries.Select(e => (Entry: e, Date: Dates.ParseIsoOrDefault(e.EntryDate))).Where(x => x.Date != default && x.Date <= today).ToList();
-        if (dated.Count == 0) return [];
-        var anchor = dated.Max(x => x.Date);
         var recentFrom = anchor.AddDays(1 - RecentDays);
         var usualFrom = recentFrom.AddDays(-UsualDays);
         var index = ConfigIndex.For(masters.Config);
@@ -315,17 +333,18 @@ public sealed class DashboardService(IDashboardRepository data, IMasterReader ma
     }
 
     /// <summary>Cloth received this month up to the last inward date entered, against the same days of the month before.</summary>
-    private static InwardNow ThisMonth(IReadOnlyList<DashboardEntryRow> entries, Valuer valuer, DateOnly today)
+    private static InwardNow ThisMonth(IReadOnlyList<DashboardEntryRow> entries, IReadOnlyList<DashboardEntryRow> allEntries,
+        Valuer valuer, DateOnly today, string? lastInward)
     {
         var first = new DateOnly(today.Year, today.Month, 1);
         static bool Between(DashboardEntryRow e, DateOnly from, DateOnly to) =>
             string.CompareOrdinal(e.EntryDate, Dates.Iso(from)) >= 0 && string.CompareOrdinal(e.EntryDate, Dates.Iso(to)) <= 0;
         var now = entries.Where(e => Between(e, first, today)).ToList();
-        if (now.Count == 0) return new InwardNow(Dates.Month(today), null, 0, 0, null, 0, 0);
-        var upTo = Dates.ParseIsoOrDefault(now.Max(e => e.EntryDate));
+        if (!Dates.TryParseIso(lastInward, out var upTo) || upTo < first)
+            return new InwardNow(Dates.Month(today), null, 0, 0, null, 0, 0);
         var previous = first.AddMonths(-1);
         var previousTo = previous.AddDays(upTo.Day - 1);
-        int? comparison = previousTo < first && entries.Any(e => Between(e, previousTo, first.AddDays(-1)))
+        int? comparison = previousTo < first && allEntries.Any(e => Between(e, previousTo, first.AddDays(-1)))
             ? entries.Where(e => Between(e, previous, previousTo)).Sum(e => e.Than)
             : null;
         var value = now.Where(e => !e.Repair && e.Than > 0).Sum(e => valuer.Value(valuer.BillParty(e.Party), e.Finish, e.Than).Value);

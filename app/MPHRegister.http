@@ -2,6 +2,12 @@
 @invoiceId = 1
 @undoToken = replace-with-undoSave-token-from-the-get-response
 
+### Dashboard for all parties
+GET {{baseUrl}}/api/dashboard
+
+### Dashboard for one party, with all-party benchmarks for the same dates
+GET {{baseUrl}}/api/dashboard?fy=26-27&month=2026-10&party=TEST%20PARTY
+
 ### Read the current bill and undo eligibility
 GET {{baseUrl}}/api/invoices/{{invoiceId}}
 

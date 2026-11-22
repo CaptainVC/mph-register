@@ -22,9 +22,15 @@ public sealed record DashboardDto(
     InwardNow ThisMonth,
     DashboardCoverage Coverage,
     StockFigures Stock,
-    BillingReview Review);
+    BillingReview Review,
+    string? Party,
+    IReadOnlyList<string> PartyOptions,
+    DashboardOverall? Overall);
 
-/// <summary>Latest dates recorded in the app, across all years, not confirmation that the source data is complete.</summary>
+/// <summary>All-party billing benchmarks for the same month and financial year, and the business-wide inward cutoff.</summary>
+public sealed record DashboardOverall(long MonthTaxable, long YearTaxable, int YearThan, string? LastInward);
+
+/// <summary>Latest dates recorded for the selected scope, across all years, not confirmation that the source data is complete.</summary>
 public sealed record DashboardCoverage(string? LastInward, string? LastDispatch, string? LastBill);
 
 /// <summary>Positive register balances, irrespective of billing. Pieces = THAN + TP + TWO PART minus dispatched quantity.</summary>
