@@ -34,7 +34,7 @@ public sealed class InvoiceService(
         .List(Dates.IsValidMonth(month) ? month : null, string.IsNullOrWhiteSpace(party) ? null : party.NormalizeName())
         .Select(r => new InvoiceSummary(r.Id, r.InvoiceNo, r.BillDate, r.BillMonth, r.Party, r.PartyName, r.Than, r.Total,
             r.Status.ToEnum(InvoiceStatus.Saved), r.Source.ToEnum(InvoiceSource.App), r.Finishes ?? string.Empty, r.Entries,
-            r.ExportedAt, r.ExportedTo, r.ChangedSinceExport))
+            r.ExportedAt, r.ExportedTo, r.ChangedSinceExport, r.Fy, r.Serial))
         .ToList();
 
     public InvoiceDoc Get(long id)

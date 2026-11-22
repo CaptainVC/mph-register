@@ -533,6 +533,9 @@ table.register tbody tr { cursor: pointer; transition: background .1s; }
 table.register tbody tr[data-entry-id] { cursor: default; }
 table.register tbody tr:hover td { background: var(--hover); }
 table.register tbody tr.selected td { background: var(--selected); }
+#invoiceTable .pick { width: 48px; padding-inline: 12px; }
+#invoiceTable input[type=checkbox] { display: block; margin: 0 auto; width: 22px; height: 22px; accent-color: var(--accent); cursor: pointer; }
+#invoiceTable tr.bill-row-selected td { background: var(--accent-soft); }
 /* Cells edit in place like a spreadsheet; INW. NO. opens the whole entry. */
 table.register td.editable { cursor: cell; }
 table.register td.editable:hover { box-shadow: inset 0 0 0 1px var(--accent); }

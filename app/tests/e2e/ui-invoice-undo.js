@@ -100,7 +100,7 @@ const invoice = (id, allowed) => ({
     assert.equal(await page.locator("#ie-undo").count(), 0);
     assert.equal(await page.locator("#ie-print").isEnabled(), true);
     assert.equal(await page.locator("#invoiceTable tbody tr").count(), 1);
-    assert.equal(await page.locator("#invoiceTable tbody tr").locator("td").nth(7).textContent(), "CANCELLED");
+    assert.equal(await page.locator("#invoiceTable tbody tr").locator("td").nth(8).textContent(), "CANCELLED");
     assert.deepEqual(errors, []);
     console.log("PASS: invoice undo eligibility, explicit confirmation, decline, dirty/stale protection, release refresh, and unchanged cancellation.");
   } finally {

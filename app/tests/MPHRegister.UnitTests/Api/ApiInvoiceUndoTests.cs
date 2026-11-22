@@ -62,6 +62,19 @@ public sealed class ApiInvoiceUndoTests
     }
 
     [Fact]
+    public async Task Saved_bill_list_shows_financial_year_and_serial_so_the_screen_can_tell_the_newest_bills()
+    {
+        using var factory = new ApiFactory();
+        using var app = await Ready(factory);
+        await Save(app, "UNDO A", 1);
+        await Save(app, "UNDO B", 2);
+
+        var listed = (await app.Get("/api/invoices").Ok()).EnumerateArray().ToList();
+        Assert.Equal([279, 280], listed.Select(i => i.GetProperty("serial").GetInt32()));
+        Assert.All(listed, i => Assert.Equal("26-27", i.GetProperty("fy").GetString()));
+    }
+
+    [Fact]
     public async Task Latest_never_issued_save_releases_number_and_entries_but_preserves_audit_and_old_identity()
     {
         using var factory = new ApiFactory();
