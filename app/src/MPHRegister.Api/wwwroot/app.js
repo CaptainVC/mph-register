@@ -270,9 +270,13 @@ function markSaved(form) {
 }
 
 // Toasts live in the browser's top layer (a popover), re-raised each time so they show above an open edit window.
-function toast(text, kind = "ok") {
+// An action ({ id, label, run }) adds a button, such as Undo, and keeps the toast up longer.
+function toast(text, kind = "ok", action = null) {
   const box = $("toasts");
-  const item = el("div", { class: `toast ${kind}`, text });
+  const item = el("div", { class: `toast ${kind}` }, [el("span", { text })]);
+  if (action) {
+    item.append(el("button", { type: "button", id: action.id, class: "secondary small toast-action", text: action.label, onclick: () => { item.remove(); action.run(); } }));
+  }
   box.append(item);
   if (box.showPopover) {
     if (box.matches(":popover-open")) box.hidePopover();
@@ -284,7 +288,7 @@ function toast(text, kind = "ok") {
       item.remove();
       if (!box.children.length && box.matches?.(":popover-open")) box.hidePopover();
     }, 300);
-  }, Math.max(kind === "err" ? 5000 : 2600, Math.min(1200 + text.length * 45, 8000)));
+  }, action ? 10000 : Math.max(kind === "err" ? 5000 : 2600, Math.min(1200 + text.length * 45, 8000)));
 }
 
 // ---------- Searchable combo box ----------
@@ -592,9 +596,7 @@ async function deleteEditingEntry() {
     const result = await api(`/api/entries/${entry.id}`, { method: "DELETE" });
     state.entriesCache.clear();
     await resetForm();
-    const undo = el("button", { type: "button", id: "undoDelete", class: "secondary small", text: "Undo", onclick: () => undoDelete(result.deleted.id) });
-    $("formMessage").replaceChildren(`Deleted ✓ ${slipText(result.deleted)}`, " ", undo);
-    $("formMessage").className = "message ok";
+    toast(`Deleted ✓ ${slipText(result.deleted)}`, "ok", { id: "undoDelete", label: "Undo", run: () => undoDelete(result.deleted.id) });
     showWarnings(result.notes);
     await Promise.all([refreshRecent(), refreshInfo()]);
   } catch (error) {
@@ -639,7 +641,6 @@ async function restoreDeleted(item) {
     const entry = await api(`/api/entries/deleted/${item.id}/restore`, { method: "POST" });
     state.entriesCache.clear();
     setMessage(`Restored ✓ ${slipText(entry)}`, "ok");
-    toast(`Restored ✓ ${slipText(entry)}`);
     await Promise.all([refreshRecent(), refreshInfo()]);
     if ($("view-register").classList.contains("active")) await renderRegister();
     return entry;

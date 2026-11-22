@@ -88,14 +88,14 @@ async function waitFor(check, message) {
     await dialogTitled(page, "Delete this entry?");
     await page.locator("#appDialogConfirm").click();
     await page.locator("#undoDelete").waitFor();
-    assert.ok((await page.locator("#formMessage").textContent()).startsWith("Deleted ✓ INW. NO. 8801"));
+    await waitFor(async () => (await page.locator("#toasts").textContent()).includes("Deleted ✓ INW. NO. 8801"), "delete is announced by a toast");
     assert.equal((await call(`/api/entries/${firstId}`)).status, 404);
     assert.equal(await page.locator("#deleteEntry").isVisible(), false, "the form is back to a new entry");
 
     await page.locator("#undoDelete").click();
     await dialogTitled(page, "Restore this entry?");
     await page.locator("#appDialogConfirm").click();
-    await waitFor(async () => (await page.locator("#formMessage").textContent()).startsWith("Restored ✓ INW. NO. 8801"), "undo restores the entry");
+    await waitFor(async () => (await page.locator("#toasts").textContent()).includes("Restored ✓ INW. NO. 8801"), "undo restores the entry");
     const restored = await must(`/api/entries/${firstId}`);
     assert.equal(restored.dispatches.length, 1, "dispatches come back with the entry");
     assert.equal(restored.designNo, "DEL1");
