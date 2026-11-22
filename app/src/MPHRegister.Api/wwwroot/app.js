@@ -270,12 +270,14 @@ function markSaved(form) {
 }
 
 // Toasts live in the browser's top layer (a popover), re-raised each time so they show above an open edit window.
-// An action ({ id, label, run }) adds a button, such as Undo, and keeps the toast up longer.
+// A plain toast lets clicks pass through to whatever is underneath, so it never blocks a button while it fades.
+// An action ({ id, label, run }) adds a button, such as Undo, and a close button, and keeps the toast up longer.
 function toast(text, kind = "ok", action = null) {
   const box = $("toasts");
-  const item = el("div", { class: `toast ${kind}` }, [el("span", { text })]);
+  const item = el("div", { class: `toast ${kind}${action ? " has-action" : ""}` }, [el("span", { text })]);
   if (action) {
     item.append(el("button", { type: "button", id: action.id, class: "secondary small toast-action", text: action.label, onclick: () => { item.remove(); action.run(); } }));
+    item.append(el("button", { type: "button", class: "secondary small toast-close", title: "Dismiss", "aria-label": "Dismiss", text: "×", onclick: () => item.remove() }));
   }
   box.append(item);
   if (box.showPopover) {
@@ -288,7 +290,7 @@ function toast(text, kind = "ok", action = null) {
       item.remove();
       if (!box.children.length && box.matches?.(":popover-open")) box.hidePopover();
     }, 300);
-  }, action ? 10000 : Math.max(kind === "err" ? 5000 : 2600, Math.min(1200 + text.length * 45, 8000)));
+  }, action ? 10000 : Math.max(kind === "err" ? 4500 : 2200, Math.min(1000 + text.length * 40, 7000)));
 }
 
 // ---------- Searchable combo box ----------
