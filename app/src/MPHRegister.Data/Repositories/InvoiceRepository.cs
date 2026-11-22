@@ -14,7 +14,7 @@ public sealed class InvoiceRepository(IDbSession session) : RepositoryBase(sessi
 
     public IReadOnlyList<InvoiceSummaryRow> List(string? month, string? party) => Query<InvoiceSummaryRow>(
         """
-        SELECT i.id, i.invoice_no, i.bill_date, i.bill_month, i.party, i.party_name,
+        SELECT i.id, i.invoice_no, i.bill_date, i.bill_month, i.fy, i.serial, i.party, i.party_name,
             (SELECT COALESCE(SUM(qty), 0) FROM invoice_lines l WHERE l.invoice_id = i.id AND l.kind = 'priced') AS than,
             i.total, i.status, i.source,
             (SELECT group_concat(DISTINCT finish) FROM invoice_lines l WHERE l.invoice_id = i.id AND l.kind = 'priced') AS finishes,

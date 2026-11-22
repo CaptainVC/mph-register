@@ -120,7 +120,9 @@ public sealed record InvoiceSummary(
     int Entries,
     string? ExportedAt = null,
     string? ExportedTo = null,
-    bool ChangedSinceExport = false);
+    bool ChangedSinceExport = false,
+    string Fy = "",
+    int Serial = 0);
 
 /// <param name="PeriodFrom">The period printed on the bill.</param>
 /// <param name="EntriesFrom">The inward dates the ticked entries must fall in; the bill period when left out.</param>
