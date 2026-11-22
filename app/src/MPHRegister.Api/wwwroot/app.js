@@ -269,9 +269,10 @@ function markSaved(form) {
   form.dataset.dirty = "";
 }
 
-// Toasts live in the browser's top layer (a popover), re-raised each time so they show above an open edit window.
-// A plain toast lets clicks pass through to whatever is underneath, so it never blocks a button while it fades.
-// An action ({ id, label, run }) adds a button, such as Undo, and a close button, and keeps the toast up longer.
+// Toasts are messages along the bottom edge of the window, over the status bar, so they never cover a button. They live
+// in the browser's top layer (a popover), re-raised each time so they show above an open edit window, and go away after a
+// few seconds. A plain toast lets clicks pass through. An action ({ id, label, run }) adds a button, such as Undo, and a
+// close button, and keeps the toast up a little longer.
 function toast(text, kind = "ok", action = null) {
   const box = $("toasts");
   const item = el("div", { class: `toast ${kind}${action ? " has-action" : ""}` }, [el("span", { text })]);
@@ -290,7 +291,7 @@ function toast(text, kind = "ok", action = null) {
       item.remove();
       if (!box.children.length && box.matches?.(":popover-open")) box.hidePopover();
     }, 300);
-  }, action ? 10000 : Math.max(kind === "err" ? 4500 : 2200, Math.min(1000 + text.length * 40, 7000)));
+  }, action ? 8000 : Math.max(kind === "err" ? 4500 : 3000, Math.min(1500 + text.length * 35, 6000)));
 }
 
 // ---------- Searchable combo box ----------
