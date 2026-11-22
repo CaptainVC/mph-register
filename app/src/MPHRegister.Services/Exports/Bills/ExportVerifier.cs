@@ -1,5 +1,6 @@
 using MPHRegister.Contracts.Billing;
 using MPHRegister.Services.Imports.Bills;
+using MPHRegister.Shared.Configuration;
 using MPHRegister.Shared.Enums;
 using MPHRegister.Shared.Helpers;
 
@@ -13,7 +14,8 @@ internal static class ExportVerifier
 {
     private const int MaxReported = 8;
 
-    public static List<string> Check(BillWorkbook before, BillSheet beforeBills, byte[] saved, IReadOnlyList<(BillSlot Slot, InvoiceDoc Doc)> written, HashSet<string> changedOutside)
+    public static List<string> Check(BillWorkbook before, BillSheet beforeBills, byte[] saved, IReadOnlyList<(BillSlot Slot, InvoiceDoc Doc)> written,
+        HashSet<string> changedOutside, IReadOnlyList<NamedColor>? colors = null)
     {
         var problems = new List<string>();
         var after = BillWorkbook.Open(saved);
@@ -42,7 +44,13 @@ internal static class ExportVerifier
             }
         }
 
-        foreach (var (slot, doc) in written) problems.AddRange(ExcelView(after, slot, doc).Select(d => $"{doc.InvoiceNo} as Excel will work it out — {d}"));
+        foreach (var (slot, doc) in written)
+        {
+            problems.AddRange(ExcelView(after, slot, doc).Select(d => $"{doc.InvoiceNo} as Excel will work it out — {d}"));
+            problems.AddRange(BillExporter.PresentationDifferences(after, slot, doc, colors).Select(d => $"{doc.InvoiceNo} formatting — {d}"));
+            if (after.Cell(slot, BillSlot.TotalRow, Col.A).HasFormula && after.Cell(slot, BillSlot.TotalRow, Col.A).Text != RupeeWords.Format(doc.Total))
+                problems.Add($"{doc.InvoiceNo} amount in words does not match the invoice total.");
+        }
         problems.AddRange(OtherCells(before, after, written.Select(w => w.Slot).ToList(), changedOutside));
         problems.AddRange(OtherParts(before, after));
         return problems.Take(MaxReported * 3).ToList();
@@ -76,7 +84,7 @@ internal static class ExportVerifier
         Expect("Period", BillWorkbook.PeriodOf(book.Copies(BillSlot.PeriodRow)[slot.Index]),
             ((DateOnly?)Dates.ParseIsoOrDefault(doc.PeriodFrom), (DateOnly?)Dates.ParseIsoOrDefault(doc.PeriodTo)));
 
-        var lines = SheetBillComparer.Trimmed(doc.Lines);
+        var lines = BillLineLayout.ForWorkbook(doc.Lines);
         var qty = new Dictionary<int, decimal?>();
         long gross = 0;
         for (var i = 0; i < BillSheetReader.LineRows; i++)
@@ -132,7 +140,7 @@ internal static class ExportVerifier
         var text = FormulaText.Normalize(cell.Formula!);
         var first = slot.Ref(BillSlot.FirstLineRow, Col.E);
         var rows = above.Keys.Where(r => text == $"SUM({slot.Ref(r, Col.E)}:{slot.Ref(row - 1, Col.E)})").ToList();
-        if (refs.Count == 2 && rows.Count == 1) return above.Where(a => a.Key >= rows[0] && a.Key < row).Sum(a => a.Value ?? 0);
+        if (refs.Count is 1 or 2 && rows.Count == 1) return above.Where(a => a.Key >= rows[0] && a.Key < row).Sum(a => a.Value ?? 0);
         found.Add($"{label} THAN has a formula that cannot be checked ({cell.Formula}; first line is {first})");
         return null;
     }
@@ -165,7 +173,7 @@ internal static class ExportVerifier
             var rowInBill = ((row - 1) % BillSlot.Rows) + 1;
             var linkCell = column % BillSheetReader.BlockColumns == Col.F && rowInBill is BillSlot.NumberRow or BillSlot.DateRow or BillSlot.PeriodRow;
             if (linkCell && was.HasFormula && now.Formula == was.Formula) continue;
-            if (was.Formula != now.Formula || was.Text != now.Text)
+            if (was.Formula != now.Formula || was.Text != now.Text || before.Main.Style(reference) != after.Main.Style(reference))
             {
                 problems.Add($"Cell {reference} would change although no bill is written there.");
                 if (problems.Count >= MaxReported) break;
@@ -174,7 +182,7 @@ internal static class ExportVerifier
         return problems;
     }
 
-    /// <summary>Only the Main sheet, the shared texts and the calculation settings change; every other part is copied as it was.</summary>
+    /// <summary>Existing styles remain unchanged; only new style variants and the written cells may use them.</summary>
     private static List<string> OtherParts(BillWorkbook before, BillWorkbook after)
     {
         var problems = new List<string>();
@@ -186,6 +194,12 @@ internal static class ExportVerifier
             before.MainPart, workbook, $"{folder}_rels/{workbook[(workbook.LastIndexOf('/') + 1)..]}.rels", "[Content_Types].xml",
         };
         if (package.WorkbookRelated("sharedStrings") is { } strings) mayChange.Add(strings);
+        if (package.WorkbookRelated("styles") is { } styles)
+        {
+            mayChange.Add(styles);
+            if (!after.Package.Has(styles) || !WorkbookStyles.PreservesOriginal(package.Xml(styles), after.Package.Xml(styles)))
+                problems.Add("The workbook's existing styles would change.");
+        }
         var calcChain = package.WorkbookRelated("calcChain");
         foreach (var name in package.Names)
         {

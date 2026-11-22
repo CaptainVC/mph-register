@@ -44,6 +44,8 @@ internal sealed partial class BillWorkbook
 
     public DetailsSheet Details { get; }
 
+    public WorkbookStyles? Styles { get; private init; }
+
     /// <summary>Opens the workbook; null when it has no Main sheet.</summary>
     public static BillWorkbook? Open(byte[] bytes)
     {
@@ -54,7 +56,11 @@ internal sealed partial class BillWorkbook
         var strings = new SharedStrings(stringsPart is not null && package.Has(stringsPart) ? package.Xml(stringsPart) : null);
         var detailsPart = package.SheetPart("Details");
         var details = DetailsSheet.From(detailsPart is not null && package.Has(detailsPart) ? new SheetXml(package.Xml(detailsPart), strings) : null);
-        return new BillWorkbook(package, mainPart, new SheetXml(package.Xml(mainPart), strings), strings, details);
+        var stylesPart = package.WorkbookRelated("styles");
+        return new BillWorkbook(package, mainPart, new SheetXml(package.Xml(mainPart), strings), strings, details)
+        {
+            Styles = stylesPart is not null && package.Has(stylesPart) ? new WorkbookStyles(package, stylesPart) : null,
+        };
     }
 
     /// <summary>Why this does not look like the bill workbook (empty when every bill place has the bill layout).</summary>
@@ -62,6 +68,7 @@ internal sealed partial class BillWorkbook
     {
         var problems = new List<string>();
         if (!Details.Exists) problems.Add("The workbook has no Details sheet.");
+        if (Styles is null) problems.Add("The workbook has no cell styles.");
         foreach (var slot in BillSlot.All)
         {
             foreach (var (row, column, label) in LayoutLabels)

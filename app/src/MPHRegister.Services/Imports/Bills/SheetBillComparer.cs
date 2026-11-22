@@ -59,8 +59,8 @@ public static class SheetBillComparer
 
     private static List<string> LineDifferences(IReadOnlyList<LineDto> sheetLines, IReadOnlyList<LineDto> appLines)
     {
-        var sheet = Trimmed(sheetLines);
-        var app = Trimmed(appLines);
+        var sheet = BillLineLayout.Compact(sheetLines);
+        var app = BillLineLayout.Compact(appLines);
         var found = new List<string>();
         if (sheet.Count != app.Count) found.Add($"Lines: workbook {sheet.Count}, app {app.Count}");
         var differing = Enumerable.Range(0, Math.Min(sheet.Count, app.Count)).Where(i => Key(sheet[i]) != Key(app[i])).ToList();

@@ -10,6 +10,7 @@ namespace MPHRegister.UnitTests.TestSupport;
 internal sealed record DetailsParty(string Name, string Address = "ADDR", string State = "(HOME STATE)", string Gstin = "08TESTF9001J1ZJ", decimal? Discount = 10)
 {
     public IReadOnlyDictionary<string, decimal> Rates { get; init; } = new Dictionary<string, decimal> { ["F1"] = 100, ["F2"] = 50 };
+    public string Color { get; init; } = "black";
 }
 
 /// <summary>
@@ -67,8 +68,8 @@ internal static class BillWorkbookBuilder
                 + "<Relationship Id=\"rId5\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/calcChain\" Target=\"calcChain.xml\"/>"
                 + "<Relationship Id=\"rId6\" Type=\"http://schemas.microsoft.com/office/2006/relationships/vbaProject\" Target=\"vbaProject.bin\"/></Relationships>");
             Add(zip, "xl/styles.xml",
-                "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><fonts count=\"1\"><font/></fonts><fills count=\"1\"><fill/></fills>"
-                + "<borders count=\"1\"><border/></borders><cellStyleXfs count=\"1\"><xf/></cellStyleXfs><cellXfs count=\"2\"><xf/><xf numFmtId=\"49\" applyNumberFormat=\"1\"/></cellXfs></styleSheet>");
+                "<styleSheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><fonts count=\"1\"><font><sz val=\"11\"/><color rgb=\"FFFF0000\"/><name val=\"Calibri\"/></font></fonts><fills count=\"1\"><fill/></fills>"
+                + "<borders count=\"1\"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count=\"1\"><xf/></cellStyleXfs><cellXfs count=\"2\"><xf/><xf numFmtId=\"49\" applyNumberFormat=\"1\"/></cellXfs></styleSheet>");
             Add(zip, "xl/worksheets/sheet1.xml", Sheet(main, strings));
             Add(zip, "xl/worksheets/sheet2.xml", Sheet(details, strings));
             Add(zip, "xl/calcChain.xml", "<calcChain xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><c r=\"F13\" i=\"1\"/><c r=\"G38\"/></calcChain>");
@@ -166,7 +167,7 @@ internal static class BillWorkbookBuilder
             cells[A1.Ref(row, 3)] = new Cell(p.Gstin);
             if (p.Discount is { } d) cells[A1.Ref(row, 4)] = new Cell(d);
             cells[A1.Ref(row, 5)] = new Cell("Yes");
-            cells[A1.Ref(row, 6)] = new Cell("black");
+            cells[A1.Ref(row, 6)] = new Cell(p.Color);
             for (var f = 0; f < Finishes.Length; f++)
             {
                 if (p.Rates.TryGetValue(Finishes[f], out var rate)) cells[A1.Ref(row, 7 + f)] = new Cell(rate);

@@ -44,8 +44,18 @@ public sealed class RealBillWorkbookExportTests
         var result = BillExporter.Run(File.ReadAllBytes(October), "oct.xlsm", docs, new HashSet<long>());
         Assert.Empty(result.Preview.Problems);
         Assert.Null(result.Content);
-        var notSame = result.Preview.Bills.Where(b => b.Status != BillExportStatus.Same).Select(b => $"{b.InvoiceNo}: {b.Status} {string.Join("; ", b.Differences.Concat(b.Problems))}").ToList();
-        Assert.True(notSame.Count == 0, string.Join("\n", notSame));
+        Assert.All(result.Preview.Bills, b =>
+        {
+            Assert.Empty(b.Problems);
+            Assert.True(b.Status is BillExportStatus.Same or BillExportStatus.Different);
+            Assert.All(b.Differences, d => Assert.Contains(d, new[]
+            {
+                "Party font colour does not match the Details sheet.",
+                "The priced THAN rows need the bill's thick outline.",
+                "The final finish total belongs at the bottom of the bill table.",
+                "The saved amount in words does not match the invoice total.",
+            }));
+        });
     }
 
     [Fact]
