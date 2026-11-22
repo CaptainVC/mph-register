@@ -6,7 +6,7 @@ E2E=${0:A:h}
 PORT=${MPH_TEST_PORT:-5152}
 export MPH_PORT=$PORT
 MPH_DLL=${MPH_DLL:-"${E2E:h:h}/src/MPHRegister.Api/bin/Debug/net10.0/MPH Register.dll"}
-INWARD="${MPH_WORKBOOKS:-${E2E:h:h:h:h}/Workbooks}/INWARD REG.-OCT.-26-27.xlsm"
+INWARD="$(node $E2E/private-data.js workbooks)/INWARD REG.-OCT.-26-27.xlsm"
 SEED=$(node $E2E/private-data.js seed) || exit $(( $? == 3 ? 0 : 1 ))
 B=http://127.0.0.1:$PORT
 lsof -ti tcp:$PORT | xargs kill 2>/dev/null; sleep 0.5

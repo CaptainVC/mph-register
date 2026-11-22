@@ -3,7 +3,10 @@ import json, re
 import openpyxl
 from openpyxl.utils import get_column_letter
 
-WORKBOOKS = os.environ.get("MPH_WORKBOOKS") or str(pathlib.Path(__file__).resolve().parents[3] / "Workbooks")
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from mph_lib import find_workbooks  # noqa: E402
+
+WORKBOOKS = find_workbooks()
 PATH = sys.argv[1] if len(sys.argv) > 1 else os.path.join(WORKBOOKS, "MPH BILL--OCT.-26-27.xlsm")
 wf = openpyxl.load_workbook(PATH, data_only=False)
 wv = openpyxl.load_workbook(PATH, data_only=True)

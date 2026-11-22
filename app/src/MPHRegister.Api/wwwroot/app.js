@@ -1362,6 +1362,7 @@ function rowFilters(container, onChange, toggle) {
     if (summaryText !== nextSummary) {
       summaryText = nextSummary;
       summary.textContent = nextSummary;
+      summary.title = nextSummary;
     }
     clear.classList.toggle("off", !modes.size);
     badge.textContent = num(modes.size);

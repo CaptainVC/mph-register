@@ -65,7 +65,6 @@ async function expectErrors(name, overrides, fragment) {
   await expectErrors("unknown party", { party: "NOT A REAL PARTY" }, "not in the party list");
   await expectErrors("blank party", { party: "" }, "Choose a party");
   await expectErrors("unknown finish", { finish: "ZZZ" }, "not in the finish list");
-  await expectErrors("blank finish", { finish: "" }, "Choose a finish");
   await expectErrors("bad date", { entryDate: "2026-02-30" }, "valid date");
   await expectErrors("missing date", { entryDate: null }, "valid date");
   await expectErrors("negative THAN", { than: -1 }, "THAN must be 0 or more");
@@ -73,7 +72,20 @@ async function expectErrors(name, overrides, fragment) {
   await expectErrors("negative TP", { tp: -2 }, "TP cannot be negative");
   await expectErrors("negative TWO PART", { twoPart: -2 }, "TWO PART cannot be negative");
   await expectErrors("negative SHORT THAN", { shortThan: -1 }, "SHORT THAN cannot be negative");
-  await expectErrors("inward number 0", { inwardNo: 0 }, "Inward number");
+  await expectErrors("negative inward number", { inwardNo: -1 }, "Inward number must be 0 or more");
+
+  // A blank finish (filled in later) and INW. NO. 0 (a slip without a number) save, and show as warnings instead.
+  const entryBody = (e, extra) => ({
+    registerMonth: e.registerMonth, inwardNo: e.inwardNo, entryDate: e.entryDate, party: e.party, designNo: e.designNo,
+    lotNo: e.lotNo, repair: e.repair, than: e.than, tp: e.tp, twoPart: e.twoPart, finish: e.finish, shortThan: e.shortThan,
+    dispatches: e.dispatches.map((d) => ({ qty: d.qty, gatePass: d.gatePass, date: d.date })), ...extra,
+  });
+  r = await call("PUT", `/api/entries/${created.id}`, entryBody(created, { finish: "" }));
+  check("blank finish saves with a warning", r.status === 200 && r.body.finish === "" && r.body.warnings.includes("Finish is missing."), JSON.stringify(r.body));
+  r = await call("PUT", `/api/entries/${created.id}`, entryBody(created, { inwardNo: 0 }));
+  check("inward number 0 saves with a warning", r.status === 200 && r.body.inwardNo === 0 && r.body.warnings.includes("INW. NO. is blank in the register."), JSON.stringify(r.body));
+  r = await call("PUT", `/api/entries/${created.id}`, entryBody(created, {}));
+  check("entry restored after the warning checks", r.status === 200 && r.body.inwardNo === 1 && r.body.finish === "S2G" && r.body.warnings.length === 0, JSON.stringify(r.body));
   await expectErrors("bad register month", { registerMonth: "Oct" }, "Register month");
   await expectErrors("over-dispatch", { dispatches: [{ qty: 30, gatePass: "1", date: "2026-11-03" }] }, "more than NAG + TWO PART");
   await expectErrors("dispatch before inward date", { dispatches: [{ qty: 5, gatePass: "1", date: "2026-11-01" }] }, "before the inward date");
@@ -144,7 +156,7 @@ async function expectErrors(name, overrides, fragment) {
   r = await call("PUT", `/api/entries/${zero.id}`, zeroBody({}));
   check("all-zero slip editable without a finish", r.status === 200 && r.body.status === "allZero" && r.body.designNo.endsWith(" checked"), JSON.stringify(r.body));
   r = await call("PUT", `/api/entries/${zero.id}`, zeroBody({ dispatches: [{ qty: 1, gatePass: "1", date: zero.entryDate }] }));
-  check("with a dispatch it needs THAN and a finish again", r.status === 400 && r.body.errors.join(" ").includes("more than 0") && r.body.errors.join(" ").includes("Choose a finish"), JSON.stringify(r.body));
+  check("with a dispatch it needs THAN again (the finish may stay blank)", r.status === 400 && r.body.errors.join(" ").includes("more than 0") && !r.body.errors.join(" ").includes("finish"), JSON.stringify(r.body));
 
   // Recent list shows only entries typed in the app, newest first.
   const recent = (await call("GET", "/api/entries/recent")).body;

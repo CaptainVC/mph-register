@@ -357,9 +357,10 @@ button.filter-chip:focus-visible, button.filter-trigger:focus-visible {
 .swatch.carried { background: var(--swatch-carried); }
 .swatch.allZero { background: var(--swatch-all-zero); }
 .swatch.warning { background: var(--err); }
-.filter-actions { flex: 1 1 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.filter-actions:has(.off) { position: absolute; pointer-events: none; }
-.filter-summary { color: var(--exclude-text); font-size: 14.5px; font-weight: 700; }
+/* Clear and the summary keep their place at the end of the last row whether or not a filter is on, so ticking a chip
+   never adds a row and pushes the table down; a long summary is cut short (its full text is in the tooltip). */
+.filter-actions { flex: 1 1 240px; min-width: 240px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.filter-summary { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--exclude-text); font-size: 14.5px; font-weight: 700; }
 .filter-summary:empty { display: none; }
 .filter-menu {
   position: fixed; inset: auto; top: var(--menu-top); left: clamp(8px, var(--menu-left), calc(100vw - 272px));
