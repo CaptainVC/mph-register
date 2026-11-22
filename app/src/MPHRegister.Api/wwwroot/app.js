@@ -1948,6 +1948,12 @@ $("importFile").addEventListener("change", () => {
   if (file) $("importMonth").value = guessMonth(file.name) || $("importMonth").value;
   importPeriodInput.sync();
 });
+// Cancel drops the chosen workbook and its check result, so nothing can be imported until a file is chosen and checked again.
+$("cancelImport").addEventListener("click", () => {
+  $("importFile").value = "";
+  invalidateImportPreview();
+});
+
 $("importMonth").addEventListener("input", () => { invalidateImportPreview(); importPeriodInput.sync(); });
 
 async function sendImport(commit) {

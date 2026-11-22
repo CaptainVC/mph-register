@@ -69,9 +69,18 @@ async function shownRows(page) {
     assert.equal(await otherMonths.locator("td").textContent(), "1");
     assert.equal(await page.locator("#showImportAdded, #showImportUpdated").count(), 0, "a check offers nothing to show yet");
 
+    assert.equal(await page.locator("#runImport").isDisabled(), false, "a passed check enables Import");
+    await page.locator("#cancelImport").click();
+    assert.equal(await page.locator("#importFile").evaluate((input) => input.files.length), 0, "Cancel clears the chosen workbook");
+    assert.equal(await page.locator("#importResult").evaluate((el) => el.children.length), 0, "Cancel clears the check result");
+    assert.equal(await page.locator("#runImport").isDisabled(), true, "Cancel disables Import");
+    await page.locator("#importFile").setInputFiles({ name: FILE, mimeType: "application/octet-stream", buffer: Buffer.from("test workbook") });
+    await page.locator("#previewImport").click();
+    await page.locator("#importAddedTitle").waitFor();
+
     await page.locator("#runImport").click();
     await page.locator("#showImportUpdated").waitFor();
-    assert.deepEqual(commits, [false, true]);
+    assert.deepEqual(commits, [false, false, true]);
     assert.equal(await page.locator("#importResult h2").textContent(), "Updated ✓");
 
     await page.locator("#showImportUpdated").click();
