@@ -28,7 +28,8 @@ git config --unset-all credential.https://github.com.helper 2>/dev/null || true
 git config credential.https://github.com.helper ""
 git config --add credential.https://github.com.helper '!f() { test "$1" = get || exit 0; echo username=CaptainVC; echo "password=$(gh auth token --user CaptainVC)"; }; f'
 
-py=$(command -v python3 || command -v python) && "$py" "$(git rev-parse --show-toplevel)/scripts/privacy_check.py" --refresh
+# The project folder is not a worktree, so find the checker next to this script.
+py=$(command -v python3 || command -v python) && "$py" "$(cd "$(dirname "$0")" && pwd)/privacy_check.py" --refresh
 
 echo "Ready: pushes to main are refused, real data is refused, commits are by CaptainVC, git pushes use the CaptainVC login."
 echo 'For gh commands run first:  export GH_TOKEN="$(gh auth token --user CaptainVC)"'
