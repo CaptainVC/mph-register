@@ -1,6 +1,7 @@
 // Read-only browser checks: locale changes here do not modify server settings or real data.
 const assert = require("node:assert/strict");
 const { chromium } = require("playwright-core");
+const { dropdownOption, dropdownValue } = require("./dropdown-helpers");
 
 const BASE = process.env.MPH_BASE_URL || "http://127.0.0.1:5152";
 
@@ -45,10 +46,12 @@ const BASE = process.env.MPH_BASE_URL || "http://127.0.0.1:5152";
           <tr><td class="party-name">New Entry</td><td id="i18n-status">Saved</td></tr>
         </tbody></table>
         <div class="combo-list"><li id="i18n-combo">Save changes</li></div>
-        <select id="pf-style"><option>प्रविष्टियाँ दर</option></select>
         <div class="report"><table><tbody><tr><td id="i18n-month">Nov 2026</td></tr></tbody></table></div>
-        <select id="i18n-month-select"><option>Nov 2026 (1,200)</option></select>
         <table class="register"><tbody><tr><td id="i18n-date">21/Nov/26</td></tr></tbody></table>`;
+      // Drop-downs are the app's own controls: a data list (billing styles) and a month list keep their text.
+      fixture.querySelector(".report").before(
+        dropdownOf([["style", "प्रविष्टियाँ दर"]], "style", { id: "pf-style" }),
+        dropdownOf([["2026-11", "Nov 2026 (1,200)"]], "2026-11", { id: "i18n-month-select" }));
       document.querySelector("main").append(fixture);
     });
     await page.waitForFunction(() => document.getElementById("i18n-action").textContent === "बदलाव Save करें");
@@ -63,7 +66,10 @@ const BASE = process.env.MPH_BASE_URL || "http://127.0.0.1:5152";
     assert.equal(await page.locator("#i18n-style").textContent(),
       "G.P.N.=गेट पास · एक ही लॉट एक Line में · छोटी Entries अलग");
     assert.equal(await page.locator("#i18n-month").textContent(), "Nov 2026");
-    assert.equal(await page.locator("#i18n-month-select option").textContent(), "Nov 2026 (1,200)");
+    assert.equal(await page.locator("#i18n-month-select .dropdown-value").textContent(), "Nov 2026 (1,200)");
+    assert.equal(await (await dropdownOption(page.locator("#pf-style"), "style")).textContent(), "प्रविष्टियाँ दर",
+      "an open data list keeps its names");
+    await page.locator("#pf-style").press("Escape");
     assert.equal(await page.locator("#i18n-date").textContent(), "21/Nov/26");
     const dashboardMonths = await page.evaluate(() => {
       const months = Array.from({ length: 12 }, (_, i) => `2026-${String(i + 1).padStart(2, "0")}`);
@@ -80,11 +86,11 @@ const BASE = process.env.MPH_BASE_URL || "http://127.0.0.1:5152";
       "#i18n-party": "Save प्रविष्टियाँ दर",
       "#i18n-finish": "पंक्ति शैली Save",
       "#i18n-combo": "Save changes",
-      "#pf-style option": "प्रविष्टियाँ दर",
+      "#pf-style .dropdown-value": "प्रविष्टियाँ दर",
       "#i18n-fixture td.party-name": "New Entry",
       "#i18n-fixture .group-name": "Save दर",
       "#i18n-month": "Nov 2026",
-      "#i18n-month-select option": "Nov 2026 (1,200)",
+      "#i18n-month-select .dropdown-value": "Nov 2026 (1,200)",
       "#i18n-date": "21/Nov/26",
     };
     for (const [selector, text] of Object.entries(unchanged)) {
@@ -102,10 +108,12 @@ const BASE = process.env.MPH_BASE_URL || "http://127.0.0.1:5152";
     await page.locator('[data-view="masters"]').click();
     await page.locator("#menuToggle").click();
     await page.locator("#menuSettings").click();
-    await page.waitForSelector("#display-language");
-    assert.equal(await page.locator('#display-language option[value="hi"]').textContent(), "हिन्दी (Hinglish)");
+    const language = page.locator("#display-language");
+    await language.waitFor();
+    assert.equal(await (await dropdownOption(language, "hi")).textContent(), "हिन्दी (Hinglish)");
+    await language.press("Escape");
     await page.evaluate(() => window.applyLanguage("hi"));
-    assert.equal(await page.locator("#display-language").inputValue(), "hi");
+    assert.equal(await dropdownValue(language), "hi");
     await page.evaluate(() => window.applyLanguage("en"));
     assert.equal(await page.locator("#saveButton").textContent(), "Save entry (Enter)");
     assert.equal(await page.locator("#party").getAttribute("placeholder"), "Type to search party");
@@ -113,7 +121,7 @@ const BASE = process.env.MPH_BASE_URL || "http://127.0.0.1:5152";
     assert.equal(await page.locator("#i18n-action").getAttribute("title"), "Delete rate");
     assert.equal(await page.locator("#i18n-action").getAttribute("aria-label"), "Save");
     assert.equal(await page.locator("#i18n-status").textContent(), "Saved");
-    assert.equal(await page.locator("#display-language").inputValue(), "en");
+    assert.equal(await dropdownValue(language), "en");
     assert.equal(await page.locator("#sideMenuTitle").textContent(), "Menu");
     assert.equal(await page.locator("#menuToggle").getAttribute("title"), "Open menu");
     for (const [selector, text] of Object.entries(unchanged)) {
