@@ -81,7 +81,13 @@ public sealed class BillingService(
         if (wanted.Count == 0) errors.Add("Tick at least one entry to bill.");
         var available = reader.Read(entries.Unbilled([bill.Name], null)).Where(e => wanted.Contains(e.Id)).ToList();
         if (available.Count != wanted.Count) errors.Add("Some ticked entries are already billed or do not belong to this party. Refresh the list.");
-        if (BillPeriodValidator.Problem(request.PeriodFrom, request.PeriodTo) is null && available.Any(e => !InPeriod(e.EntryDate, request.PeriodFrom!, request.PeriodTo!)))
+        var entriesFrom = request.EntriesFrom ?? request.PeriodFrom;
+        var entriesTo = request.EntriesTo ?? request.PeriodTo;
+        if (BillPeriodValidator.Problem(entriesFrom, entriesTo) is { } windowProblem)
+        {
+            if (request.EntriesFrom is not null || request.EntriesTo is not null) errors.Add(windowProblem);
+        }
+        else if (available.Any(e => !InPeriod(e.EntryDate, entriesFrom!, entriesTo!)))
             errors.Add("Some ticked entries have an inward date outside the bill period. Refresh the list.");
         if (errors.Count > 0) throw new AppValidationException(errors);
 

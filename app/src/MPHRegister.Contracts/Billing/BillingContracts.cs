@@ -122,13 +122,17 @@ public sealed record InvoiceSummary(
     string? ExportedTo = null,
     bool ChangedSinceExport = false);
 
+/// <param name="PeriodFrom">The period printed on the bill.</param>
+/// <param name="EntriesFrom">The inward dates the ticked entries must fall in; the bill period when left out.</param>
 public sealed record BillRequest(
     string? Party,
     string? Month,
     IReadOnlyList<long>? EntryIds,
     string? BillDate,
     string? PeriodFrom,
-    string? PeriodTo);
+    string? PeriodTo,
+    string? EntriesFrom = null,
+    string? EntriesTo = null);
 
 public sealed record CountBillsRequest(string? Party, IReadOnlyList<long>? EntryIds);
 

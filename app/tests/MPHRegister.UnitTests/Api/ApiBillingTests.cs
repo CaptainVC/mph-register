@@ -128,6 +128,33 @@ public sealed class ApiBillingTests(ApiFactory factory) : IClassFixture<ApiFacto
     }
 
     [Fact]
+    public async Task A_month_bill_can_take_entries_of_a_wider_window_while_printing_the_calendar_month()
+    {
+        var app = await Ready();
+        await app.Post("/api/masters/party", Setup.Party("WINDOW PARTY")).Ok();
+        await app.Put("/api/masters/party/rate", new { party = "WINDOW PARTY", finish = "F1", rate = 10 }).Ok();
+        foreach (var (inward, date) in new[] { (901, "2026-09-25"), (902, "2026-09-26"), (903, "2026-10-25"), (904, "2026-10-26") })
+            await app.Post("/api/entries", new { registerMonth = "2026-10", inwardNo = inward, entryDate = date, party = "WINDOW PARTY", designNo = "", lotNo = "", repair = false, than = 10, tp = 0, twoPart = 0, finish = "F1", dispatches = Array.Empty<DispatchBody>() }).Ok();
+        var offered = (await app.Get($"/api/billing/candidates?party={Q("WINDOW PARTY")}&from=2026-09-26&to=2026-10-25").Ok()).GetProperty("entries").EnumerateArray()
+            .ToDictionary(e => e.GetProperty("inwardNo").GetInt32(), e => e.GetProperty("entryId").GetInt64());
+        Assert.Equal([902, 903], offered.Keys.Order());
+
+        object Request(params int[] inwards) => new
+        {
+            party = "WINDOW PARTY", month = "2026-10", entryIds = inwards.Select(i => offered[i]), billDate = "2026-10-31",
+            periodFrom = "2026-10-01", periodTo = "2026-10-31", entriesFrom = "2026-09-26", entriesTo = "2026-10-25",
+        };
+        var bill = Assert.Single((await app.Post("/api/billing/build", Request(902, 903)).Ok()).EnumerateArray());
+        Assert.Equal(("2026-10-01", "2026-10-31", 20), (bill.GetProperty("periodFrom").GetString(), bill.GetProperty("periodTo").GetString(), bill.GetProperty("than").GetInt32()));
+
+        var all = await app.Get($"/api/billing/candidates?party={Q("WINDOW PARTY")}&from=2026-09-01&to=2026-10-31").Ok();
+        var outside = all.GetProperty("entries").EnumerateArray().Single(e => e.GetProperty("inwardNo").GetInt32() == 904).GetProperty("entryId").GetInt64();
+        var refused = await app.Post("/api/billing/build", new { party = "WINDOW PARTY", month = "2026-10", entryIds = new[] { outside }, billDate = "2026-10-31", periodFrom = "2026-10-01", periodTo = "2026-10-31", entriesFrom = "2026-09-26", entriesTo = "2026-10-25" }).Refused();
+        Assert.Contains("Some ticked entries have an inward date outside the bill period. Refresh the list.", refused);
+        Assert.Contains("Bill period 'to' date is before the 'from' date.", await app.Post("/api/billing/build", new { party = "WINDOW PARTY", month = "2026-10", entryIds = new[] { outside }, billDate = "2026-10-31", periodFrom = "2026-10-01", periodTo = "2026-10-31", entriesFrom = "2026-10-25", entriesTo = "2026-09-26" }).Refused());
+    }
+
+    [Fact]
     public async Task Only_entries_with_an_inward_date_in_the_bill_period_are_offered_and_billed()
     {
         var app = await Ready();

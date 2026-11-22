@@ -107,8 +107,8 @@ const invoice = (id, month, extra = {}) => ({
     await chooseDropdown(page.locator("#billFinancialYear"), "2025");
     assert.equal(await page.locator("#billMonth").inputValue(), "2025-11");
     assert.equal(await page.locator("#billDate").inputValue(), "2025-11-30");
-    assert.equal(await page.locator("#periodFrom").inputValue(), "2025-11-01");
-    assert.equal(await page.locator("#periodTo").inputValue(), "2025-11-30");
+    assert.equal(await page.locator("#periodFrom").inputValue(), "2025-10-26", "entries run from the 26th of the month before");
+    assert.equal(await page.locator("#periodTo").inputValue(), "2025-11-25", "entries run to the 25th of the bill month");
     assert.equal(await page.locator("#billMonth").getAttribute("min"), "2025-04");
     assert.equal(await page.locator("#billMonth").getAttribute("max"), "2026-03");
     await page.locator("#billMonth").fill("2026-02");
@@ -123,7 +123,7 @@ const invoice = (id, month, extra = {}) => ({
     await page.waitForLoadState("networkidle");
     assert.equal(await page.locator("#periodFrom").inputValue(), "2025-03-01", "carryover entry periods can cross a financial year");
     assert.equal(await dropdownValue(page.locator("#billFinancialYear")), "2026");
-    const candidateRequest = page.waitForRequest((request) => request.url().includes("/api/billing/candidates?") && request.url().includes("from=2026-02-01"));
+    const candidateRequest = page.waitForRequest((request) => request.url().includes("/api/billing/candidates?") && request.url().includes("from=2026-01-26"));
     await chooseDropdown(page.locator("#billFinancialYear"), "2025");
     await candidateRequest;
     assert.equal(await page.locator("#billMonth").inputValue(), "2026-02");
