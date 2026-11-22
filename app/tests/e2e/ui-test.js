@@ -173,9 +173,12 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
     done: facts.filter((f) => f.classes.includes("done")).length,
     warning: facts.filter((f) => f.classes.includes("has-warning")).length,
     repair: facts.filter((f) => f.repair).length,
-    billed: facts.filter((f) => f.bill !== "").length,
-    blank: facts.filter((f) => f.bill === "").length,
+    billNo: facts.filter((f) => f.bill !== "").length,
+    billBlank: facts.filter((f) => f.bill === "").length,
   };
+  // The filters start collapsed; the toggle shows them.
+  await page.click("#registerFiltersToggle");
+  await page.waitForSelector("#registerFilters", { state: "visible" });
   const counts = {};
   for (const key of Object.keys(expected)) counts[key] = await chipCount(key);
   check("every filter chip counts its rows", JSON.stringify(counts) === JSON.stringify(expected), JSON.stringify({ counts, expected }));
@@ -186,12 +189,14 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   check("the old warnings checkbox is gone", !(await page.$("#onlyWarnings")));
   const bar = await page.$eval("#registerFilters", (b) => ({
     height: b.getBoundingClientRect().height,
-    groupTops: [...b.querySelectorAll(".filter-group")].map((g) => Math.round(g.getBoundingClientRect().top)),
+    // Each group keeps its chips on one line; whole groups wrap when the window is narrow.
+    splitGroups: [...b.querySelectorAll(".filter-group")].filter((g) =>
+      new Set([...g.querySelectorAll(".filter-split")].map((c) => Math.round(c.getBoundingClientRect().top))).size > 1).length,
     pressed: b.querySelectorAll('[aria-pressed="true"]').length,
     clear: getComputedStyle(b.querySelector(".filter-clear")).visibility,
     captions: [...b.querySelectorAll(".filter-caption")].map((c) => c.textContent),
   }));
-  check("filters fit on one row in 3 groups, none ticked, Clear hidden", bar.height < 90 && new Set(bar.groupTops).size === 1 && bar.pressed === 0 && bar.clear === "hidden" && bar.captions.join() === "Dispatch,Bill,Other", JSON.stringify(bar));
+  check("filters in 3 groups that wrap whole, none ticked, Clear hidden", bar.splitGroups === 0 && bar.pressed === 0 && bar.clear === "hidden" && bar.captions.join() === "Dispatch,Bill,Other", JSON.stringify(bar));
 
   await page.click(chip("pending"));
   await waitShown(counts.pending);
@@ -226,7 +231,7 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   check("Bill no. chip counts the repair rows that have a bill", (await chipCount("billNo")) === repairs.filter((f) => f.bill !== "").length);
   await page.click(chip("repair"));
   await page.click(chip("billBlank"));
-  await waitShown(expected.blank);
+  await waitShown(expected.billBlank);
   check("Blank shows rows without a bill", (await rowFacts()).every((f) => f.bill === ""));
   await page.click(chip("pending"));
   await waitShown(facts.filter((f) => f.bill === "" && f.classes.includes("pending")).length);
@@ -274,6 +279,7 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
     JSON.stringify(partyGroupSummary));
   const partyColours = await page.$$eval("#partyTable tbody tr:not(.group):not(.subgroup)", (rows) => ["pending", "partial", "over"].map((k) => [k, rows.filter((r) => r.classList.contains(k)).length]));
   const [state, stateRows] = partyColours.find(([, n]) => n > 0) || ["pending", 0];
+  if ((await page.getAttribute("#partyFiltersToggle", "aria-expanded")) !== "true") await page.click("#partyFiltersToggle");
   check("party-wise shows the same colour chips", Number((await page.textContent(`#partyFilters [data-filter="${state}"] .chip-count`)).replace(/,/g, "")) === stateRows && stateRows > 0, JSON.stringify(partyColours));
   await page.click(`#partyFilters [data-filter="${state}"]`);
   await page.waitForFunction((n) => document.getElementById("partyCount").textContent.startsWith(`${n.toLocaleString("en-IN")} of 284 entries`), stateRows);

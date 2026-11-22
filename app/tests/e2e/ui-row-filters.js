@@ -59,6 +59,8 @@ async function expectRows(page, view, ids) {
     assert.equal(await filters("register").locator(".filter-chip").count(), 13);
     const starts = () => filters("register").locator(".filter-split").evaluateAll((chips) => chips.map((chip) => chip.getBoundingClientRect().left));
     const positions = await starts();
+    const barHeight = () => filters("register").evaluate((bar) => bar.getBoundingClientRect().height);
+    const untickedHeight = await barHeight();
     const repairArrow = trigger("register", "repair");
     await repairArrow.focus();
     await page.keyboard.press("Enter");
@@ -79,6 +81,7 @@ async function expectRows(page, view, ids) {
     assert.equal(await chip("register", "repair").getAttribute("aria-label"), "Repair: Exclude");
     assert.equal(await chip("register", "repair").locator(".chip-count").textContent(), "2");
     assert.deepEqual(await starts(), positions, "exclusions should not move the chips");
+    assert.equal(await barHeight(), untickedHeight, "Clear filters and the summary should not add a row and push the table down");
 
     await chip("register", "pending").click();
     await expectRows(page, "register", [1]);

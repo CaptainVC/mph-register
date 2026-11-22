@@ -1,9 +1,9 @@
 // Real Edge: Masters + Bills screens, the way the operator uses them.
 const { chromium } = require("playwright-core");
-const { chooseDropdown } = require("./dropdown-helpers");
+const { chooseDropdown, dropdownValue } = require("./dropdown-helpers");
 const { load } = require("./private-data");
 
-const { P, GSTIN, FIRM } = load();
+const { P, GSTIN, FIRM, workbooks } = load();
 // Typed into search boxes the way the operator does: the first word, lower case.
 const firstWord = (name) => name.split(/[\s.]+/)[0].toLowerCase();
 const BASE = process.env.BASE || "http://127.0.0.1:5152";
@@ -49,8 +49,10 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   const drawerBox = await page.$eval("#partyDrawer", (d) => { const r = d.getBoundingClientRect(); return { right: r.right, top: r.top, height: r.height, width: r.width, page: document.documentElement.clientWidth, tall: innerHeight }; });
   check("party opens in its own window at the right, full height", Math.abs(drawerBox.right - drawerBox.page) <= 1 && drawerBox.top === 0 && Math.abs(drawerBox.height - drawerBox.tall) <= 1 && drawerBox.width < drawerBox.page / 2 + 100, JSON.stringify(drawerBox));
   check("edit form loads party", (await page.inputValue("#pf-name")) === P.styledParty && (await page.inputValue("#pf-discount")) !== "");
-  check("billing style loaded", (await page.inputValue("#pf-style")) === "LOT, same lot on one line (15+28), sorted by number" && (await page.textContent("#pf-style-text")).includes("same lot"), await page.inputValue("#pf-style"));
-  check("bill-as finish loaded (SGZ → SGJ)", await page.$$eval("#partyForm .map-table select", (s) => s.map((x) => x.value).join(">") === "SGZ>SGJ"));
+  const partyStyle = await dropdownValue(page.locator("#pf-style"));
+  check("billing style loaded", partyStyle === "LOT, same lot on one line (15+28), sorted by number" && (await page.textContent("#pf-style-text")).includes("same lot"), partyStyle);
+  const billAs = await page.$$eval("#partyForm .map-table [data-dropdown]", (controls) => controls.map((x) => x.value).join(">"));
+  check("bill-as finish loaded (SGZ → SGJ)", billAs === "SGZ>SGJ", billAs);
   const rateRows = await page.$$eval("#rateTable tbody tr", (rows) => rows.map((r) => r.dataset.finish));
   const sgjRate = await page.textContent('#rateTable tr[data-finish="SGJ"] td.num');
   check("rates table lists only the finishes with a rate", sgjRate === "₹87.00" && rateRows.length === 8 && !rateRows.includes("SGZ"), `${sgjRate} ${rateRows.join(",")}`);
@@ -249,6 +251,8 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   await page.locator('#toBillList button[aria-current="true"]').press("Enter");
   await page.waitForFunction(() => document.getElementById("billSelectedCount").textContent === "37 of 41 entries selected");
 
+  // On a 1366x768 laptop, once the one-time notes about the data folder are hidden like the operator does.
+  if (await page.isVisible("#noticeBar")) await page.locator("#noticeBar button", { hasText: "Hide" }).click();
   await page.setViewportSize({ width: 1366, height: 768 });
   const workspaceBox = await page.evaluate(() => {
     const rect = document.getElementById("makeBills").getBoundingClientRect();
@@ -375,6 +379,7 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   await page.waitForFunction(() => document.getElementById("registerCount").textContent.startsWith("985"));
   const billCol = await page.$$eval("#registerTable tbody tr", (rows) => rows.filter((r) => [...r.cells].some((c) => c.textContent === "26-27\\JOB\\279")).length);
   check("register shows bill number on billed entries", billCol === 24, String(billCol));
+  if ((await page.getAttribute("#registerFiltersToggle", "aria-expanded")) !== "true") await page.click("#registerFiltersToggle");
   await page.click('#registerFilters [data-filter="billNo"]');
   await page.waitForFunction(() => document.getElementById("registerCount").textContent.startsWith("24 of 985"));
   const billedRows = await page.$$eval("#registerTable tbody tr", (rows) => rows.map((r) => [...r.cells].some((c) => c.textContent === "26-27\\JOB\\279")));
@@ -391,7 +396,7 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   check("Import Excel tab has Inward register and Bills", importSubtabs === "inward,bills" && (await page.isVisible("#importFile")), importSubtabs);
   await page.click(".subtabs[data-group=import] .subtab[data-sub=bills]");
   check("bill import shown under Import Excel", (await page.isVisible("#import-bills #billImportFile")) && !(await page.isVisible("#importFile")));
-  await page.setInputFiles("#billImportFile", require("path").join(process.env.MPH_WORKBOOKS || require("path").resolve(__dirname, "../../../../Workbooks"), "MPH BILL--OCT.-26-27.xlsm"));
+  await page.setInputFiles("#billImportFile", require("path").join(workbooks, "MPH BILL--OCT.-26-27.xlsm"));
   await page.click("#billImportCheck");
   await page.waitForSelector("#billImportResult .report");
   const report = await page.textContent("#billImportResult");
@@ -399,7 +404,7 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
 
   // Import Excel → Inward register: checking a month already in the app compares the workbook with its saved entries (dry run).
   await page.click(".subtabs[data-group=import] .subtab[data-sub=inward]");
-  await page.setInputFiles("#importFile", require("path").join(process.env.MPH_WORKBOOKS || require("path").resolve(__dirname, "../../../../Workbooks"), "INWARD REG.-OCT.-26-27.xlsm"));
+  await page.setInputFiles("#importFile", require("path").join(workbooks, "INWARD REG.-OCT.-26-27.xlsm"));
   await page.click("#previewImport");
   await page.waitForSelector("#importResult .report");
   const inwardReport = await page.textContent("#importResult");
@@ -416,12 +421,17 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
 
   // A slow or failed request must never leave the previous party's entries actionable.
   await page.click(".subtabs[data-group=bills] .subtab[data-sub=make]");
-  await page.route("**/api/billing/candidates?**", (route) => route.fulfill({
+  // Parties' entries are fetched ahead of time, so the cache is dropped to make the click ask the (failing) server.
+  const unavailable = (route) => route.fulfill({
     status: 503, contentType: "application/json", body: JSON.stringify({ errors: ["Test: entries are unavailable."] }),
-  }), { times: 1 });
+  });
+  await page.route("**/api/billing/candidates?**", unavailable);
+  await page.evaluate(() => clearBillCache());
   await page.locator("#toBillList button", { hasText: P.bigParty }).click();
   await page.waitForFunction(() => document.getElementById("billMessage").textContent.includes("Test: entries are unavailable."));
-  check("failed party load clears stale entries and disables Make bills", !(await page.$("#candidateTable .cand")) && await page.isDisabled("#makeBills") && (await page.textContent("#billSelectedCount")) === "No entries loaded");
+  const failedLoad = { stale: Boolean(await page.$("#candidateTable .cand")), makeDisabled: await page.isDisabled("#makeBills"), count: await page.textContent("#billSelectedCount") };
+  check("failed party load clears stale entries and disables Make bills", !failedLoad.stale && failedLoad.makeDisabled && failedLoad.count === "No entries loaded", JSON.stringify(failedLoad));
+  await page.unroute("**/api/billing/candidates?**", unavailable);
   await page.locator("#toBillList button", { hasText: P.bigParty }).click();
   await page.waitForSelector(".bill-party-header");
   check("failed party load can be retried", !(await page.isDisabled("#makeBills")));

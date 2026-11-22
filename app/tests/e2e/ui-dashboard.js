@@ -1,6 +1,6 @@
 // Real Edge: the Dashboard tab, the way the owner uses it. Run against a throwaway copy of the data (it saves an entry).
 const { chromium } = require("playwright-core");
-const { chooseDropdown, dropdownValue } = require("./dropdown-helpers");
+const { chooseDropdown, dropdownValue, dropdownValues } = require("./dropdown-helpers");
 const BASE = process.env.BASE || "http://127.0.0.1:5152";
 let passed = 0;
 const failures = [];
@@ -30,8 +30,10 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   await openDashboard();
   const d = await dashboard();
   check("heading", (await page.textContent("#dashRoot h1")) === "Business dashboard");
-  check("year select lists the years in the data", (await page.$$eval("#dashYear option", (o) => o.length)) === d.years.length, String(d.years));
-  check("month select lists the months of the year", (await page.$$eval("#dashMonth option", (o) => o.length)) === d.months.length);
+  const yearOptions = await dropdownValues(page.locator("#dashYear"));
+  check("year select lists the years in the data", yearOptions.length === d.years.length, `${yearOptions} vs ${d.years}`);
+  const monthOptions = await dropdownValues(page.locator("#dashMonth"));
+  check("month select lists the months of the year", monthOptions.length === d.months.length, `${monthOptions} vs ${d.months}`);
   check("big figures shown", (await page.$$eval(".kpi", (k) => k.length)) >= 7);
   const kpis = await page.textContent(".kpis");
   check("billing and GST say what is measured", kpis.includes("Billed before GST") && kpis.includes("not net GST payable") && kpis.includes("not profit"));

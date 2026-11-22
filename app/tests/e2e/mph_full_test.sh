@@ -11,7 +11,7 @@ MPH_DLL=${MPH_DLL:-"$APP_ROOT/src/MPHRegister.Api/bin/Debug/net10.0/MPH Register
 export NODE_PATH=${NODE_PATH:-/tmp/mph-ui-test/node_modules}
 PY=${MPH_PY:-/tmp/mph-workbook-analysis-env/bin/python}
 DATA=/tmp/mph-app-test
-WORKBOOK="${MPH_WORKBOOKS:-${ROOT:h}/Workbooks}/INWARD REG.-OCT.-26-27.xlsm"
+WORKBOOK="$(node $E2E/private-data.js workbooks)/INWARD REG.-OCT.-26-27.xlsm"
 B=http://127.0.0.1:5152
 
 [[ -z ${MPH_BIN:-} ]] && (cd $APP_ROOT && dotnet build MPHRegister.sln -nologo -v q 2>&1 | grep -E 'error|warning|Build succeeded' | sort -u)

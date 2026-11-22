@@ -14,9 +14,9 @@ import sys
 import urllib.request
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "tools"))
-from mph_lib import read_bills, read_inward, key  # noqa: E402
+from mph_lib import find_workbooks, read_bills, read_inward, key  # noqa: E402
 
-WORKBOOKS = os.environ.get("MPH_WORKBOOKS") or os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "Workbooks"))
+WORKBOOKS = find_workbooks()
 PRIVATE = os.environ.get("MPH_PRIVATE_TEST_DATA") or os.path.join(WORKBOOKS, "private-test-data.json")
 if not os.path.exists(PRIVATE):
     print(f"SKIPPED: {PRIVATE} is not on this machine (the real-workbook suites need it).")

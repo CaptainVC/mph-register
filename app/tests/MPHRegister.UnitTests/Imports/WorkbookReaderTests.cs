@@ -11,8 +11,18 @@ namespace MPHRegister.UnitTests.Imports;
 /// </summary>
 public sealed class WorkbookReaderTests
 {
-    private static readonly string Workbooks = Environment.GetEnvironmentVariable("MPH_WORKBOOKS")
-        ?? Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "..", "..", "Workbooks"));
+    private static readonly string Workbooks = Environment.GetEnvironmentVariable("MPH_WORKBOOKS") ?? FindWorkbooks();
+
+    /// <summary>The Workbooks folder next to the worktrees, however deep the worktree's folder is (main, fix/&lt;name&gt;).</summary>
+    private static string FindWorkbooks()
+    {
+        for (var folder = new DirectoryInfo(AppContext.BaseDirectory); folder is not null; folder = folder.Parent)
+        {
+            var candidate = Path.Combine(folder.FullName, "Workbooks");
+            if (Directory.Exists(candidate)) return candidate;
+        }
+        return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "..", "..", "Workbooks"));
+    }
     private static readonly string History = Path.Combine(Workbooks, "History");
 
     private static string? PrivateParty(string alias)

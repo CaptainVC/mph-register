@@ -1,7 +1,19 @@
 """Shared read-only readers for MPH inward and bill workbooks."""
-import re, warnings
+import os, pathlib, re, warnings
 import openpyxl
 warnings.filterwarnings("ignore")
+
+
+def find_workbooks():
+    """MPH_WORKBOOKS, else the Workbooks folder next to the worktrees, however deep the worktree's folder is."""
+    if os.environ.get("MPH_WORKBOOKS"):
+        return os.environ["MPH_WORKBOOKS"]
+    here = pathlib.Path(__file__).resolve()
+    for folder in here.parents[2:]:
+        if (folder / "Workbooks").is_dir():
+            return str(folder / "Workbooks")
+    return str(here.parents[3] / "Workbooks")
+
 
 def norm(s):
     return re.sub(r"\s+", " ", str(s if s is not None else "")).strip()

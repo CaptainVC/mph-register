@@ -12,7 +12,16 @@
 const fs = require("fs");
 const path = require("path");
 
-const workbooks = process.env.MPH_WORKBOOKS || path.resolve(__dirname, "../../../../Workbooks");
+// The Workbooks folder sits next to the worktrees, however deep a worktree's folder is (main, fix/<name>, ...).
+function findWorkbooks() {
+  if (process.env.MPH_WORKBOOKS) return process.env.MPH_WORKBOOKS;
+  for (let dir = path.resolve(__dirname, "../../.."); path.dirname(dir) !== dir; dir = path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, "Workbooks"))) return path.join(dir, "Workbooks");
+  }
+  return path.resolve(__dirname, "../../../../Workbooks");
+}
+
+const workbooks = findWorkbooks();
 const file = process.env.MPH_PRIVATE_TEST_DATA || path.join(workbooks, "private-test-data.json");
 const skipped = () => `SKIPPED: ${file} is not on this machine (the real-workbook suites need it).`;
 const PATHS = { seed: "v04-real-seed.db", corrections: "history-corrections.json", sisterGroups: "history-sister-groups.json" };
@@ -37,7 +46,9 @@ function load() {
   return read();
 }
 
-if (require.main === module) {
+if (require.main === module && process.argv[2] === "workbooks") {
+  console.log(workbooks);
+} else if (require.main === module) {
   if (!fs.existsSync(file)) {
     console.error(skipped());
     process.exit(3);

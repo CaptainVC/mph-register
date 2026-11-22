@@ -9,7 +9,7 @@ CORRECTIONS=$(node $E2E/private-data.js corrections) || exit $(( $? == 3 ? 0 : 1
 GROUPS=$(node $E2E/private-data.js sisterGroups) || exit 1
 APP_ROOT=${E2E:h:h}
 ROOT=${APP_ROOT:h}
-WB=${MPH_WORKBOOKS:-${ROOT:h}/Workbooks}
+WB=$(node $E2E/private-data.js workbooks)
 HISTORY=$WB/History
 PY=${MPH_PY:-/tmp/mph-workbook-analysis-env/bin/python}
 export MPH_TEST_PORT=${MPH_TEST_PORT:-5152}
