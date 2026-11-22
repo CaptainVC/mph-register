@@ -800,8 +800,8 @@ const COLUMNS = [
   ["INW. NO.", (e) => e.inwardNo, "inward"],
   ["DATE", (e) => formatDate(e.entryDate)],
   ["PARTY", (e) => e.party, "left"],
-  ["D.N.", (e) => e.designNo],
-  ["LOT N.", (e) => e.lotNo],
+  ["D.N.", (e) => e.designNo, "", (td, e) => fillIdentifierCell(td, e.designNo)],
+  ["LOT N.", (e) => e.lotNo, "", (td, e) => fillIdentifierCell(td, e.lotNo)],
   ["REP.", (e) => (e.repair ? "Yes" : "No"), (e) => (e.repair ? "rep-yes" : "rep-no")],
   ["THAN", (e) => num(e.than), "big"],
   ["TP", (e) => (e.tp ? num(e.tp) : "")],
@@ -820,6 +820,14 @@ const COLUMNS = [
   ["BALANCE", (e) => num(e.balance)],
   ["WARNINGS", (e) => e.warnings.join(" "), "left warning-cell", (td, e) => fillWarningCell(td, e)],
 ];
+
+function fillIdentifierCell(td, value) {
+  const segments = String(value ?? "").split(/(,)/);
+  segments.forEach((segment, index) => {
+    if (segment) td.append(segment);
+    if (segment === "," && index < segments.length - 1) td.append(el("wbr"));
+  });
+}
 
 function fillWarningCell(td, entry) {
   const text = entry.warnings.join(" ");

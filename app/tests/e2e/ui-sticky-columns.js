@@ -5,8 +5,8 @@ const { chromium } = require("playwright-core");
 
 const BASE = process.env.MPH_BASE_URL || "http://127.0.0.1:5152";
 const LONG_BILL = "Billed outside app: entered in the old Excel register under bill 1234, 1235, 1236 and 1237 by the previous clerk";
-const LONG_DN = "DN-2026-11-VERY-LONG-DESIGN-CODE";
-const LONG_LOT = "LOT-2026-11-VERY-LONG-BATCH-CODE";
+const LONG_DN = "208,209,215,216,217";
+const LONG_LOT = "1370,1371,1372,1373";
 const entries = [1, 2].map((id) => ({
   id, inwardNo: id, party: id === 1 ? "A VERY LONG PARTY NAME TRADING COMPANY PRIVATE LIMITED" : "ABC", finish: "S2G", status: "pending", than: 5,
   nettThan: 5, nag: 5, registerMonth: "2026-10", entryDate: "2026-10-15", designNo: LONG_DN, lotNo: LONG_LOT, repair: false, tp: 0, twoPart: 0,
@@ -44,10 +44,40 @@ async function checkSticky(page, table) {
       whiteSpace: getComputedStyle(node).whiteSpace,
       overflowWrap: getComputedStyle(node).overflowWrap,
     }));
-    assert.ok(Math.abs(dimensions.width - 96) < 1.5, `${table} column ${index} is compact (${dimensions.width}px)`);
+    assert.ok(Math.abs(dimensions.width - 112) < 1.5, `${table} column ${index} is compact (${dimensions.width}px)`);
     assert.equal(dimensions.whiteSpace, "normal", `${table} column ${index} wraps long identifiers`);
-    assert.equal(dimensions.overflowWrap, "anywhere", `${table} column ${index} keeps long identifiers within the column`);
+    assert.equal(dimensions.overflowWrap, "normal", `${table} column ${index} keeps numbers intact`);
     assert.equal((await cell.textContent()).trim(), expected);
+    const lineTops = await cell.evaluate((node) => {
+      const tops = [];
+      const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+      let textNode = walker.nextNode();
+      while (textNode) {
+        const range = document.createRange();
+        range.selectNodeContents(textNode);
+        tops.push(...[...range.getClientRects()].map((rect) => Math.round(rect.top)));
+        textNode = walker.nextNode();
+      }
+      return [...new Set(tops)];
+    });
+    assert.ok(lineTops.length > 1, `${table} column ${index} wraps between comma-separated values`);
+    const number = index === 4 ? "215" : "1370";
+    const numberLineTops = await cell.evaluate((node, token) => {
+      const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+      let textNode = walker.nextNode();
+      while (textNode) {
+        const start = textNode.textContent.indexOf(token);
+        if (start >= 0) {
+          const range = document.createRange();
+          range.setStart(textNode, start);
+          range.setEnd(textNode, start + token.length);
+          return [...new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)))];
+        }
+        textNode = walker.nextNode();
+      }
+      return [];
+    }, number);
+    assert.equal(numberLineTops.length, 1, `${table} keeps ${number} together on one line`);
   }
 }
 
@@ -93,7 +123,7 @@ async function checkSticky(page, table) {
     await checkSticky(page, "#partyTable");
 
     assert.deepEqual(errors, []);
-    console.log("PASS: sticky columns remain pinned; D.N. and LOT N. stay 96px wide; BILL NO. preview expands on click.");
+    console.log("PASS: D.N. and LOT N. stay 112px wide without splitting numbers; sticky columns and BILL NO. behavior hold.");
   } finally {
     await browser.close();
   }
