@@ -1,6 +1,7 @@
 // Run against a fresh test data directory; this scenario creates its own parties, finishes and entries.
 // Register cells edit in place like a spreadsheet; only INW. NO. opens the whole entry in the form.
 const assert = require("node:assert/strict");
+const { setTimeout: delay } = require("node:timers/promises");
 const { chromium } = require("playwright-core");
 const { chooseDropdown, dropdownOption } = require("./dropdown-helpers");
 
@@ -44,6 +45,12 @@ async function seed() {
   return ids;
 }
 
+// The server saves before the screen redraws the row, so cell text is awaited instead of read once.
+async function expectText(locator, text, message) {
+  for (let attempt = 0; attempt < 50 && (await locator.textContent()) !== text; attempt++) await delay(100);
+  assert.equal(await locator.textContent(), text, message);
+}
+
 const COL = { inward: 0, party: 2, designNo: 3, repair: 5, than: 6, tp: 7, nag: 8, finish: 9, nett: 10, qty2: 15, gate2: 16, date2: 17 };
 
 (async () => {
@@ -65,8 +72,8 @@ const COL = { inward: 0, party: 2, designNo: 3, repair: 5, than: 6, tp: 7, nag: 
     const cell = (row, col) => rows.nth(row).locator("td").nth(col);
     const editor = (row, col) => cell(row, col).locator(".cell-input");
     const entry = (i) => call(`/api/entries/${ids[i]}`);
-    const thanTotal = () => page.locator("#registerTotals .stat").nth(1).locator(".stat-value").textContent();
-    assert.equal(await thanTotal(), "30");
+    const thanTotal = page.locator("#registerTotals .stat").nth(1).locator(".stat-value");
+    await expectText(thanTotal, "30");
 
     // A click edits just that cell, without leaving the register for the form.
     await cell(0, COL.party).click();
@@ -78,10 +85,10 @@ const COL = { inward: 0, party: 2, designNo: 3, repair: 5, than: 6, tp: 7, nag: 
     await editor(0, COL.party).press("Enter");
     await editor(1, COL.party).waitFor();
     assert.equal((await entry(0)).party, SECOND);
-    assert.equal(await cell(0, COL.party).textContent(), SECOND);
+    await expectText(cell(0, COL.party), SECOND);
     await editor(1, COL.party).press("Escape");
     assert.equal(await page.locator("#registerTable .cell-input").count(), 0);
-    assert.equal(await cell(1, COL.party).textContent(), FIRST);
+    await expectText(cell(1, COL.party), FIRST);
 
     // THAN saves on Tab, worked-out cells and the totals follow, and the next editable cell opens.
     await cell(1, COL.than).click();
@@ -89,9 +96,9 @@ const COL = { inward: 0, party: 2, designNo: 3, repair: 5, than: 6, tp: 7, nag: 
     await editor(1, COL.than).press("Tab");
     await editor(1, COL.tp).waitFor();
     assert.equal((await entry(1)).than, 15);
-    assert.equal(await cell(1, COL.nag).textContent(), "15");
-    assert.equal(await cell(1, COL.nett).textContent(), "15");
-    assert.equal(await thanTotal(), "35");
+    await expectText(cell(1, COL.nag), "15");
+    await expectText(cell(1, COL.nett), "15");
+    await expectText(thanTotal, "35");
     await editor(1, COL.tp).press("Escape");
 
     // A wrong value keeps the cell open and marked; Esc puts the saved value back.
@@ -101,7 +108,7 @@ const COL = { inward: 0, party: 2, designNo: 3, repair: 5, than: 6, tp: 7, nag: 
     await page.locator(".toast.err", { hasText: "Numbers must be whole numbers." }).waitFor();
     assert.equal(await editor(2, COL.than).evaluate((input) => input.classList.contains("invalid")), true);
     await editor(2, COL.than).press("Escape");
-    assert.equal(await cell(2, COL.than).textContent(), "10");
+    await expectText(cell(2, COL.than), "10");
     await cell(2, COL.finish).click();
     await editor(2, COL.finish).fill("NOT A FINISH");
     await editor(2, COL.finish).press("Enter");
@@ -120,7 +127,7 @@ const COL = { inward: 0, party: 2, designNo: 3, repair: 5, than: 6, tp: 7, nag: 
     await editor(2, COL.designNo).fill("NEW DN");
     await page.locator("#registerCount").click();
     await page.waitForFunction(async (id) => (await (await fetch(`/api/entries/${id}`)).json()).designNo === "NEW DN", ids[2]);
-    assert.equal(await cell(2, COL.designNo).textContent(), "NEW DN");
+    await expectText(cell(2, COL.designNo), "NEW DN");
 
     // REP. is a Yes/No pick; a repair has no NETT THAN.
     await cell(0, COL.repair).click();
@@ -138,12 +145,12 @@ const COL = { inward: 0, party: 2, designNo: 3, repair: 5, than: 6, tp: 7, nag: 
     await editor(1, COL.qty2).press("Enter");
     await editor(1, COL.gate2).waitFor();
     assert.equal((await entry(1)).dispatches.length, 1, "half a dispatch is not saved");
-    assert.equal(await cell(1, COL.qty2).textContent(), "3");
+    await expectText(cell(1, COL.qty2), "3");
     await editor(1, COL.gate2).fill("GP-NEW");
     await editor(1, COL.gate2).press("Enter");
     await page.waitForFunction(async (id) => (await (await fetch(`/api/entries/${id}`)).json()).dispatches.length === 2, ids[1]);
     assert.deepEqual((await entry(1)).dispatches[1], { qty: 3, gatePass: "GP-NEW", date: "2026-11-21", dateText: null });
-    assert.equal(await cell(1, COL.date2).textContent(), "21/Nov/26");
+    await expectText(cell(1, COL.date2), "21/Nov/26");
     await page.keyboard.press("Escape");
 
     // Leaving half a dispatch drops it.
@@ -151,7 +158,7 @@ const COL = { inward: 0, party: 2, designNo: 3, repair: 5, than: 6, tp: 7, nag: 
     await editor(0, COL.qty2).fill("2");
     await editor(0, COL.qty2).press("Enter");
     await editor(0, COL.gate2).press("Escape");
-    assert.equal(await cell(0, COL.qty2).textContent(), "");
+    await expectText(cell(0, COL.qty2), "");
     assert.equal((await entry(0)).dispatches.length, 1);
 
     // Clearing JAWAK NAG removes that dispatch after asking.
@@ -160,7 +167,7 @@ const COL = { inward: 0, party: 2, designNo: 3, repair: 5, than: 6, tp: 7, nag: 
     await editor(1, COL.qty2).press("Enter");
     await page.locator("#appDialogConfirm").click();
     await page.waitForFunction(async (id) => (await (await fetch(`/api/entries/${id}`)).json()).dispatches.length === 1, ids[1]);
-    assert.equal(await cell(1, COL.gate2).textContent(), "");
+    await expectText(cell(1, COL.gate2), "");
 
     // INW. NO. still opens the whole entry for correction.
     await cell(1, COL.inward).click();
