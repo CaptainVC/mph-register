@@ -15,10 +15,10 @@ const BASE = process.env.MPH_BASE_URL || "http://127.0.0.1:5152";
 
     const date = page.locator("#entryDate");
     const popup = page.locator(".picker:popover-open");
-    const valueOf = (box) => box.evaluate((input) => input.value);
+    const isoOf = (box) => box.evaluate((input) => input.value);
     const shown = () => date.evaluate((input) => input.dataset.picker + "|" + input.type);
     assert.equal(await shown(), "date|text", "the browser's own calendar is replaced");
-    assert.match(await valueOf(date), /^\d{4}-\d{2}-\d{2}$/, "the value is still yyyy-mm-dd");
+    assert.match(await isoOf(date), /^\d{4}-\d{2}-\d{2}$/, "the value is still yyyy-mm-dd");
     assert.match(await date.evaluate((input) => Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").get.call(input)), /^\d{2}\/\d{2}\/\d{4}$/, "the box shows dd/mm/yyyy");
 
     // Clicking opens a large calendar; a day picks the date and closes it, with the usual input and change events.
@@ -34,7 +34,7 @@ const BASE = process.env.MPH_BASE_URL || "http://127.0.0.1:5152";
     await popup.locator(".picker-day:not(.out)", { hasText: /^15$/ }).click();
     await popup.waitFor({ state: "detached" });
     assert.equal(await popup.count(), 0, "picking a day closes the calendar");
-    assert.equal(await valueOf(date), "2026-10-15");
+    assert.equal(await isoOf(date), "2026-10-15");
     assert.deepEqual(await page.evaluate(() => window.events), ["input", "change"]);
 
     // Month and year jumps, and the arrows.
@@ -47,28 +47,28 @@ const BASE = process.env.MPH_BASE_URL || "http://127.0.0.1:5152";
     await popup.locator(".picker-jump").nth(1).click();
     await popup.locator(".picker-choice", { hasText: "2027" }).click();
     await popup.locator(".picker-day:not(.out)", { hasText: /^28$/ }).click();
-    assert.equal(await valueOf(date), "2027-02-28");
+    assert.equal(await isoOf(date), "2027-02-28");
     await date.click();
     await popup.getByRole("button", { name: "Today" }).click();
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    assert.equal(await valueOf(date), today, "Today picks today");
+    assert.equal(await isoOf(date), today, "Today picks today");
 
     // Typing works in several ways, and text that is not a date goes back with a reason.
     for (const [typed, expected] of [["5/11/2026", "2026-11-05"], ["26102026", "2026-10-26"], ["7-3-2026", "2026-03-07"], ["4 Jan 2027", "2027-01-04"], ["2026-12-25", "2026-12-25"]]) {
       await date.fill(typed);
-      assert.equal(await valueOf(date), expected, typed);
+      assert.equal(await isoOf(date), expected, typed);
       await date.press("Tab");
-      assert.equal(await valueOf(date), expected, `${typed} survives leaving the box`);
+      assert.equal(await isoOf(date), expected, `${typed} survives leaving the box`);
       assert.equal(await date.evaluate((input) => Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").get.call(input)), `${expected.slice(8)}/${expected.slice(5, 7)}/${expected.slice(0, 4)}`, `${typed} is tidied to dd/mm/yyyy`);
     }
     await date.fill("26/10/20");
-    assert.equal(await valueOf(date), "", "a half-typed year is not a date yet");
+    assert.equal(await isoOf(date), "", "a half-typed year is not a date yet");
     await date.fill("31/02/2026");
-    assert.equal(await valueOf(date), "", "there is no 31 February");
+    assert.equal(await isoOf(date), "", "there is no 31 February");
     assert.ok(await date.evaluate((input) => !input.checkValidity()), "the browser explains it on save");
     await date.press("Tab");
-    assert.equal(await valueOf(date), "2026-12-25", "text that is not a date goes back to the last date");
+    assert.equal(await isoOf(date), "2026-12-25", "text that is not a date goes back to the last date");
     await page.waitForSelector("#toasts .toast");
 
     // Keyboard: Down opens, arrows move the highlight, Enter picks it, Escape closes.
@@ -80,19 +80,19 @@ const BASE = process.env.MPH_BASE_URL || "http://127.0.0.1:5152";
     await date.press("ArrowRight");
     await date.press("PageDown");
     await date.press("Enter");
-    assert.equal(await valueOf(date), "2026-12-03", "a week down, a day right and a month on from 26 October");
+    assert.equal(await isoOf(date), "2026-12-03", "a week down, a day right and a month on from 26 October");
     await date.press("ArrowDown");
     await popup.waitFor();
     await date.press("Escape");
     assert.equal(await popup.count(), 0);
-    assert.equal(await valueOf(date), "2026-12-03");
+    assert.equal(await isoOf(date), "2026-12-03");
 
     // A month box shows 3 × 4 months and a year; typing accepts names and numbers.
     await page.click(".tab[data-view=bills]");
     const month = page.locator("#billMonth");
     assert.equal(await month.evaluate((input) => input.dataset.picker), "month");
     await month.evaluate((input) => { input.min = "2026-04"; input.max = "2027-03"; input.value = "2026-11"; });
-    assert.equal(await valueOf(month), "2026-11");
+    assert.equal(await isoOf(month), "2026-11");
     await month.click();
     await popup.waitFor();
     assert.equal(await popup.locator(".picker-choice").count(), 12);
@@ -102,10 +102,10 @@ const BASE = process.env.MPH_BASE_URL || "http://127.0.0.1:5152";
     await popup.locator(".picker-nav").last().click();
     assert.equal(await popup.locator(".picker-choice:disabled").count(), 9, "April to December 2027 are after the financial year");
     await popup.locator(".picker-choice", { hasText: "Jan" }).click();
-    assert.equal(await valueOf(month), "2027-01", "January is in the next calendar year");
+    assert.equal(await isoOf(month), "2027-01", "January is in the next calendar year");
     for (const [typed, expected] of [["March 2027", "2027-03"], ["11/2026", "2026-11"], ["feb 2027", "2027-02"], ["2026-12", "2026-12"]]) {
       await month.fill(typed);
-      assert.equal(await valueOf(month), expected, typed);
+      assert.equal(await isoOf(month), expected, typed);
     }
     await month.press("Tab");
 

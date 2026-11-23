@@ -24,27 +24,39 @@ function pickerDate(year, month, day) {
 
 // Typed text to "yyyy-mm-dd", or "" when it is not a real date. A year needs all four digits, so a half-typed
 // 26/10/20 is not taken for the year 2020.
+const PICKER_DATE_FORMS = [
+  [/^(\d{4})-(\d{1,2})-(\d{1,2})$/, (m) => pickerDate(+m[1], +m[2], +m[3])],
+  [/^(\d{1,2})[/\-.\s]+(\d{1,2})[/\-.\s]+(\d{4})$/, (m) => pickerDate(+m[3], +m[2], +m[1])],
+  [/^(\d{2})(\d{2})(\d{4})$/, (m) => pickerDate(+m[3], +m[2], +m[1])],
+  [/^(\d{1,2})[\s/\-.,]*([A-Za-z]{3,9})[\s/\-.,]*(\d{4})$/, (m) => pickerDate(+m[3], pickerMonthFromWord(m[2]), +m[1])],
+];
+
+// Typed text to "yyyy-mm", or "" when it is not a real month.
+const PICKER_MONTH_FORMS = [
+  [/^(\d{4})-(\d{1,2})$/, (m) => [+m[1], +m[2]]],
+  [/^(\d{1,2})[/\-.\s]+(\d{4})$/, (m) => [+m[2], +m[1]]],
+  [/^(\d{2})(\d{4})$/, (m) => [+m[2], +m[1]]],
+  [/^([A-Za-z]{3,9})[\s/\-.,]*(\d{4})$/, (m) => [+m[2], pickerMonthFromWord(m[1])]],
+];
+
 function parsePickerDate(text) {
   const s = text.trim();
-  let m;
-  if ((m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s))) return pickerDate(+m[1], +m[2], +m[3]);
-  if ((m = /^(\d{1,2})[\/\-.\s]+(\d{1,2})[\/\-.\s]+(\d{4})$/.exec(s))) return pickerDate(+m[3], +m[2], +m[1]);
-  if ((m = /^(\d{2})(\d{2})(\d{4})$/.exec(s))) return pickerDate(+m[3], +m[2], +m[1]);
-  if ((m = /^(\d{1,2})[\s\/\-.,]*([A-Za-z]{3,9})[\s\/\-.,]*(\d{4})$/.exec(s))) return pickerDate(+m[3], pickerMonthFromWord(m[2]), +m[1]);
+  for (const [form, read] of PICKER_DATE_FORMS) {
+    const m = form.exec(s);
+    if (m) return read(m);
+  }
   return "";
 }
 
-// Typed text to "yyyy-mm", or "" when it is not a real month.
 function parsePickerMonth(text) {
   const s = text.trim();
-  let year;
-  let month;
-  let m;
-  if ((m = /^(\d{4})-(\d{1,2})$/.exec(s))) [year, month] = [+m[1], +m[2]];
-  else if ((m = /^(\d{1,2})[\/\-.\s]+(\d{4})$/.exec(s)) || (m = /^(\d{2})(\d{4})$/.exec(s))) [year, month] = [+m[2], +m[1]];
-  else if ((m = /^([A-Za-z]{3,9})[\s\/\-.,]*(\d{4})$/.exec(s))) [year, month] = [+m[2], pickerMonthFromWord(m[1])];
-  else return "";
-  return month >= 1 && month <= 12 && year >= 1000 ? `${pickerPad(year, 4)}-${pickerPad(month)}` : "";
+  for (const [form, read] of PICKER_MONTH_FORMS) {
+    const m = form.exec(s);
+    if (!m) continue;
+    const [year, month] = read(m);
+    return month >= 1 && month <= 12 && year >= 1000 ? `${pickerPad(year, 4)}-${pickerPad(month)}` : "";
+  }
+  return "";
 }
 
 const showPickerDate = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "");
