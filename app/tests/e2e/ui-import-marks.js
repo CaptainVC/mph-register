@@ -68,6 +68,9 @@ async function shownRows(page) {
     const otherMonths = page.locator("#importResult tr", { hasText: "Entries of other months changed" });
     assert.equal(await otherMonths.locator("td").textContent(), "1");
     assert.equal(await page.locator("#showImportAdded, #showImportUpdated").count(), 0, "a check offers nothing to show yet");
+    const nestedScrolls = await page.locator("#importResult").evaluate((root) => [...root.querySelectorAll("*")]
+      .filter((el) => /auto|scroll/.test(getComputedStyle(el).overflowY)).map((el) => el.tagName));
+    assert.deepEqual(nestedScrolls, [], "the report lists grow the page; only the screen scrolls");
 
     assert.equal(await page.locator("#runImport").isDisabled(), false, "a passed check enables Import");
     await page.locator("#cancelImport").click();
