@@ -1,16 +1,18 @@
 # Updates and going back: how they work
 
-*Written 22 Nov 2026. Covers MPH Register 0.6.0 (pull requests #22 and #29). The original screenshots show real
+*Written 22 Nov 2026, updated 23 Nov 2026 (a merged version raise now publishes the release by itself). Covers MPH
+Register 0.6.0 and later (pull requests #22 and #29). The original screenshots show real
 screens and are omitted from this text-only copy; the version numbers and data folder are illustrative.*
 
 ---
 
 ## 1. The short answer
 
-**You publish a new version from your Mac with one tag. His app offers it, and one click installs it.**
+**You raise the version number in a pull request; merging it publishes the new version. His app offers it, and one
+click installs it.**
 
-- You push a tag such as `v0.6.1`. GitHub builds the Windows app on a Windows machine, runs every test and publishes it
-  as a release.
+- When a merged pull request raises `<Version>` (for example from 0.6.0 to 0.6.1), GitHub tags that commit, builds the
+  Windows app on a Windows machine, runs every test and publishes it as a release. No tag or command is needed.
 - When his app opens, it sees the new version and shows a yellow bar: **New version 0.6.1 is ready**.
 - He clicks **Update now**. The app downloads the new version, closes, and opens again by itself as 0.6.1.
 - If the new version has a problem, **Menu → Go back to version 0.6.0** puts the old one back.
@@ -21,49 +23,49 @@ screens and are omitted from this text-only copy; the version numbers and data f
 | What he types | Nothing; two clicks |
 | His data | Stays on his laptop. Nothing is uploaded; only the app file is downloaded |
 | Tokens or passwords on his laptop | None (the repository is public) |
-| Time | About a minute: the download (about 110 MB) plus a few seconds to reopen |
+| Time | About a minute: the download (about 135 MB) plus a few seconds to reopen |
 
 ---
 
-## 2. One time only: putting 0.6.0 on his laptop
+## 2. Putting the app on a laptop for the first time
 
-The exe on his laptop now is the older **0.5.0**. It has no update button, so this one step is done by hand. Every update
-after it is the button.
+His laptop already has it: 0.7.0 was copied over the phone hotspot on 23 Nov 2026, and every version after that comes
+through the update button. For a new or reset laptop:
 
-1. Publish the first release from your Mac (see section 3):
-   `git tag v0.6.0 origin/main && git push origin v0.6.0`
-2. On his laptop, open the repository's **Releases** page
-   (`https://github.com/CaptainVC/mph-register/releases`) and download `MPH-Register-win-x64.exe`.
-3. Close MPH Register. Rename the download to **`MPH Register.exe`** and put it in `C:\MPH Register\`, replacing the old
-   one. Leave the `MPH Register Data` folder next to it as it is.
-4. Open it from the desktop shortcut. Because it came from a browser, Windows shows "Windows protected your PC" once
-   more: **More info → Run anyway**. Updates the app downloads itself normally do not ask this again.
-5. Open **Menu**. Under **App version** it should say **Version 0.6.0**.
+1. On that laptop, open the repository's **Releases** page (`https://github.com/CaptainVC/mph-register/releases`) and
+   download `MPH-Register-win-x64.exe` from the latest release.
+2. Make the folder `C:\MPH Register\` and put the download in it, renamed to **`MPH Register.exe`**. Next to it, make a
+   folder **`MPH Register Data`**: empty to start fresh, or with a copy of `mph-data.db` and `mph-config.json`. Avoid
+   the Desktop and Documents, which Windows often copies to OneDrive.
+3. Open it. Because it came from a browser, Windows shows "Windows protected your PC" once: **More info → Run anyway**.
+   Updates the app downloads itself normally do not ask this again.
+4. Make a desktop shortcut, and check **Menu → App version**.
 
 ---
 
 ## 3. Sending him an update (what you do)
 
-1. Make the change on a branch, open a PR and merge it, as usual.
-2. Raise the version in [Directory.Build.props](../app/Directory.Build.props), for example
-   `<Version>0.6.1</Version>`, in a PR, and merge it. The new number must be **higher**; the app only offers higher numbers.
-   Use the last number for fixes (0.6.1, 0.6.2) and the middle one for bigger changes (0.7.0).
-3. Tag the merged commit and push the tag:
-
-   ```sh
-   git fetch origin
-   git tag v0.6.1 origin/main
-   git push origin v0.6.1
-   ```
-
-4. GitHub runs the **Release** workflow ([release.yml](../.github/workflows/release.yml)), which takes a few minutes:
-   - It refuses if the tag does not match `<Version>` (for example the tag is `v0.6.1` but the file still says 0.6.0),
-     or if the tagged commit is not on `main`.
+1. Make the change on a branch, open a PR and merge it, as usual. A merge that leaves the version as it is publishes
+   nothing: it waits for the next version and is listed in that version's notes.
+2. When it should reach him, raise the version in [Directory.Build.props](../app/Directory.Build.props), for example
+   `<Version>0.6.1</Version>`, in the same PR or in a small PR of its own, and merge it. The new number must be
+   **higher** than the latest release; the app only offers higher numbers. Use the last number for fixes (0.6.1, 0.6.2)
+   and the middle one for bigger changes (0.7.0).
+3. That merge starts the **Release** workflow ([release.yml](../.github/workflows/release.yml)) by itself. It takes about
+   7 minutes:
+   - First a quick check ([release-plan.sh](../scripts/release-plan.sh)). If this version is already published, it stops
+     quietly. If it is lower than the latest release, it fails with a red ✗ that says so, and nothing is published.
    - It builds the app and runs all the tests on Windows. If a test fails, nothing is published and nothing reaches him.
-   - It publishes the release **MPH Register 0.6.1** with the file `MPH-Register-win-x64.exe`.
-   - The release notes are the titles of the commits since the last release (up to 25, without the PR numbers).
-     He sees them under **What's new**, so plain-language PR titles matter.
-5. That is all. His app sees it the next time he opens MPH Register. **Menu → Check for updates** asks straight away.
+   - It tags the commit `v0.6.1` and publishes the release **MPH Register 0.6.1** with the file
+     `MPH-Register-win-x64.exe`.
+   - The release notes are the titles of the commits since the last release (up to 25, without the PR numbers and
+     without the "Raise the version…" commits). He sees them under **What's new**, so plain-language PR titles matter.
+4. Watch it under **Actions → Release** on GitHub (or `gh run watch`). His app sees the new version the next time he
+   opens MPH Register; **Menu → Check for updates** asks straight away.
+
+**By hand, if ever needed.** **Actions → Release → Run workflow** (on `main`) publishes main's version if it is new.
+Pushing a tag also still works: `git tag v0.6.1 origin/main && git push origin v0.6.1`. The tag must match
+`<Version>` and be on `main`.
 
 **A bad release can be taken back.** `gh release delete v0.6.1 --yes` (plus `git push origin :v0.6.1` to remove the tag)
 stops it being offered. If he has already installed it, he can go back (section 5), or you publish a fixed 0.6.2.
@@ -187,8 +189,8 @@ If he went back over a data format change, the work done between the update and 
 
 - **One step back.** He can go back only to the version he updated from, and only until the next update replaces the
   restore point.
-- **Not back to 0.5.0.** The first 0.6.0 is put on his laptop by hand (section 2), so there is no in-app update to undo.
-  Going back works from the first in-app update (0.6.0 → 0.6.1) onwards.
+- **Not back past the first copy.** 0.7.0 was put on his laptop by hand (section 2), so there is no in-app update
+  before it to undo. Going back works from the first in-app update (0.7.0 → 0.7.1) onwards.
 - **Windows app only.** Nothing is installed on the Mac or from a build folder.
 - **The first download from a browser** shows the Windows "protected your PC" warning once.
 - **Release notes are public**, like the repository: they are the commit titles, which are already public on GitHub.
@@ -205,7 +207,7 @@ If he went back over a data format change, the work done between the update and 
 | Handing over between the processes on Windows | [SelfUpdate.cs](../app/src/backend/MPHRegister.Api/Hosting/SelfUpdate.cs), [Program.cs](../app/src/backend/MPHRegister.Api/Program.cs) |
 | The API (`/api/updates`, `/install`, `/rollback`) | [UpdatesController.cs](../app/src/backend/MPHRegister.Api/Controllers/UpdatesController.cs) |
 | The bar, menu and dialogs | [updates.js](../app/src/frontend/js/updates/updates.js), Hinglish in [texts-main.js](../app/src/frontend/js/i18n/texts-main.js) (search for "New versions") |
-| Publishing a release | [release.yml](../.github/workflows/release.yml) |
+| Publishing a release when a merge raises the version | [release.yml](../.github/workflows/release.yml), the check in [release-plan.sh](../scripts/release-plan.sh) |
 
 **Tests**
 

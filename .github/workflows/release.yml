@@ -1,30 +1,60 @@
 name: Release
 
-# Publishes a new version for the installed Windows apps, which offer it as an update (the app's menu and update bar):
-# raise <Version> in app/Directory.Build.props through a pull request, then tag that commit on main, for example
-#   git tag v0.6.0 origin/main && git push origin v0.6.0
+# Publishes a new version for the installed Windows apps, which offer it as an update (the app's menu and update bar).
+# Raise <Version> in app/Directory.Build.props in a pull request: once it is merged, this tags that commit on main
+# (for example v0.7.2) and publishes it. Merges that leave the version as it is publish nothing (scripts/release-plan.sh).
+# By hand: Actions → Release → Run workflow (publishes main's version if it is new), or push a tag such as v0.7.2.
 on:
   push:
+    branches: [main]
+    paths: [app/Directory.Build.props]
     tags: ["v*.*.*"]
+  workflow_dispatch:
 
-permissions:
-  contents: write
+permissions: {}
 
 concurrency:
   group: release
   cancel-in-progress: false
 
 jobs:
+  plan:
+    name: Is there a new version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      publish: ${{ steps.plan.outputs.publish }}
+      tag: ${{ steps.plan.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Version in app/Directory.Build.props, compared with the releases
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+        run: sh scripts/release-plan.sh >> "$GITHUB_OUTPUT"
+
   windows-app:
     name: Build, test and publish the Windows app
+    needs: plan
+    if: needs.plan.outputs.publish == 'true'
     runs-on: windows-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
     defaults:
       run:
         shell: bash
     env:
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
+      TAG: ${{ needs.plan.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -33,15 +63,6 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           global-json-file: app/global.json
-
-      - name: Tag matches the app version and is on main
-        run: |
-          version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' app/Directory.Build.props)
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match <Version>$version</Version> in app/Directory.Build.props."
-            exit 1
-          fi
-          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "::error::Tag a commit that is on main."; exit 1; }
 
       - name: Build and test (warnings are errors)
         working-directory: app
@@ -53,14 +74,18 @@ jobs:
             -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=true -p:DebugType=None -o publish
           cp "publish/MPH Register.exe" MPH-Register-win-x64.exe
 
-      # The commit titles since the last release (already checked for real data in their pull requests), without PR numbers.
+      # The commit titles since the last release (already checked for real data in their pull requests), without PR
+      # numbers or the version raises themselves.
       - name: Release notes
         run: |
-          previous=$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2> /dev/null || true)
-          git log --no-merges --format='- %s' "${previous:+$previous..}$GITHUB_REF_NAME" | sed -E 's/ \(#[0-9]+\)$//' | head -n 25 > notes.md
+          previous=$(git describe --tags --abbrev=0 --match 'v*.*.*' "$GITHUB_SHA^" 2> /dev/null || true)
+          git log --no-merges --format='- %s' "${previous:+$previous..}$GITHUB_SHA" | sed -E 's/ \(#[0-9]+\)$//' \
+            | awk '!/^- Raise the version/ && n < 25 { print; n++ }' > notes.md
+          [ -s notes.md ] || echo "- Small fixes" > notes.md
           cat notes.md
 
+      # Creates the tag on this commit when it is not there yet (a merge to main or Run workflow).
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" MPH-Register-win-x64.exe --verify-tag --title "MPH Register ${GITHUB_REF_NAME#v}" --notes-file notes.md
+        run: gh release create "$TAG" MPH-Register-win-x64.exe --target "$GITHUB_SHA" --latest --title "MPH Register ${TAG#v}" --notes-file notes.md
