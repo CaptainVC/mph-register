@@ -193,7 +193,7 @@ async function entry(id) {
     await page.locator("#sendFullBar:not(.hidden)").waitFor();
     assert.match(await page.locator("#sendFullSummary").textContent(), /^2 entries ticked · LAPTOP ALPHA, LAPTOP BETA · 20 NAG still to send$/);
     assert.equal(await page.locator("#sendFullSave").textContent(), "Mark all 2 sent in full");
-    assert.equal(await page.locator("#sendFullDate").inputValue(), "2026-11-21", "the date starts as today");
+    assert.equal(await page.locator("#sendFullDate").evaluate((box) => box.value), "2026-11-21", "the date starts as today");
     await page.locator("#sendFullSave").click();
     await page.locator(".toast.err", { hasText: "Type the gate pass number first." }).waitFor();
     assert.equal((await entry(ids.get(9629))).dispatches.length, 0, "nothing is saved without a gate pass");

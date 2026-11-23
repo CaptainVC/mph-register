@@ -29,6 +29,7 @@
   --input-border: #b9c4d0;
   --input-disabled: #f1f4f7;
   --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%2366727f' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --calendar-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='%2366727f' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='5' width='17' height='15.5' rx='2.5'/%3E%3Cpath d='M3.5 10h17M8 3v4M16 3v4'/%3E%3C/svg%3E");
   --focus: rgb(11 99 197 / .28);
   --th-bg: #eef2f7;
   --hover: #f2f7fd;
@@ -120,6 +121,7 @@
   --input-border: #4a5563;
   --input-disabled: #262c33;
   --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%238995a3' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --calendar-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='%238995a3' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='5' width='17' height='15.5' rx='2.5'/%3E%3Cpath d='M3.5 10h17M8 3v4M16 3v4'/%3E%3C/svg%3E");
   --focus: rgb(76 143 232 / .35);
   --th-bg: #2a313a;
   --hover: #29323d;
@@ -463,6 +465,45 @@ button[data-dropdown], input[data-suggestions] {
   padding-right: var(--select-pad, 36px);
   background-image: var(--select-arrow); background-repeat: no-repeat;
   background-position: right var(--select-arrow-gap, 12px) center; background-size: 16px 16px;
+}
+/* Date and month boxes (datepicker.js): a calendar mark on the right, and a large calendar that opens under the box. */
+input[data-picker] {
+  padding-right: 44px; background-image: var(--calendar-icon); background-repeat: no-repeat;
+  background-position: right 12px center; background-size: 22px 22px; cursor: pointer;
+}
+input[data-picker]:disabled { cursor: not-allowed; }
+.picker {
+  position: fixed; inset: auto; margin: 0; padding: 14px; width: 352px; max-width: calc(100vw - 16px); overflow: auto;
+  overscroll-behavior: contain; background: var(--panel); color: var(--text); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: var(--shadow-lg); font-size: 18px; font-weight: 400; text-align: center;
+}
+.picker button {
+  font: inherit; font-size: inherit; height: auto; width: auto; padding: 0; border: 0; border-radius: 10px;
+  background: transparent; color: var(--text); cursor: pointer;
+}
+.picker button:disabled { color: var(--muted); opacity: .4; cursor: not-allowed; }
+.picker button:not(:disabled):hover { background: var(--hover); }
+.picker-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 10px; }
+.picker-title { flex: 1; display: flex; justify-content: center; gap: 4px; font-weight: 700; color: var(--heading); }
+.picker-head .picker-nav { width: 48px; height: 48px; font-size: 40px; font-weight: 700; line-height: 1; padding-bottom: 5px; color: var(--accent); }
+.picker-head .picker-jump { height: 44px; padding: 0 10px; font-weight: 700; color: var(--heading); }
+.picker-head .picker-jump:not(:disabled):hover { background: var(--accent-soft); }
+.picker-grid { display: grid; gap: 4px; }
+.picker-grid.days { grid-template-columns: repeat(7, 1fr); }
+.picker-grid.choices { grid-template-columns: repeat(3, 1fr); gap: 8px; margin-block: 4px; }
+.picker-weekday { padding: 4px 0 6px; font-size: 14.5px; font-weight: 700; color: var(--muted); }
+.picker .picker-day { height: 44px; font-size: 18px; font-variant-numeric: tabular-nums; }
+.picker .picker-choice { height: 58px; font-size: 18px; }
+.picker .picker-day.out { color: var(--muted); }
+.picker :is(.picker-day, .picker-choice).today { box-shadow: inset 0 0 0 2px var(--accent); }
+.picker .selected:not(:disabled), .picker .selected:not(:disabled):hover { background: var(--accent); color: var(--on-accent); font-weight: 700; }
+.picker .cursor { outline: 3px solid var(--focus); outline-offset: 1px; }
+.picker-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+.picker-foot .picker-link { min-height: 44px; padding: 0 16px; font-weight: 700; color: var(--accent); }
+.picker-foot .picker-link:only-child { margin-inline-start: auto; }
+@media (forced-colors: active) {
+  input[data-picker] { forced-color-adjust: none; background-color: Field; border-color: ButtonText; color: FieldText; }
+  .picker .selected { outline: 2px solid Highlight; }
 }
 .dropdown-value { display: block; overflow: hidden; text-overflow: ellipsis; }
 @media (forced-colors: active) {
@@ -1788,8 +1829,8 @@ body:has(#view-aawak.active #aawak-totals.active) { grid-template-columns: minma
   .bill-date-fields .field { flex: 0 0 auto; flex-direction: row; align-items: center; gap: 6px; }
   .bill-date-fields label { font-size: 13.5px; white-space: nowrap; }
   .bill-date-fields input, .bill-date-fields [data-dropdown] { height: 34px; font-size: 15px; }
-  .bill-date-fields input[type=date] { width: 168px; }
-  .bill-date-fields input[type=month] { width: 185px; }
+  .bill-date-fields input[data-picker=date] { width: 176px; }
+  .bill-date-fields input[data-picker=month] { width: 204px; }
   .bill-date-fields [data-dropdown] { width: 136px; }
   .bill-layout { grid-template-columns: 250px minmax(0, 1fr); gap: 8px; }
   .party-pick { padding: 8px; gap: 6px; }

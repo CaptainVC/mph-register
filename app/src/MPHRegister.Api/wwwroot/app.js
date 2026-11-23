@@ -94,6 +94,7 @@ function el(tag, props = {}, children = []) {
     else node.setAttribute(key, value);
   }
   for (const child of children) node.append(child);
+  if (tag === "input" && (props.type === "date" || props.type === "month")) enhanceDateInput(node);
   return node;
 }
 
