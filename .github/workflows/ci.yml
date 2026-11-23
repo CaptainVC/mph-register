@@ -108,6 +108,7 @@ jobs:
           node tests/e2e/ui-excel-export.js
           node tests/e2e/ui-return-to-origin.js
           node tests/e2e/ui-import-marks.js
+          node tests/e2e/ui-import-history.js
           node tests/e2e/ui-toast-click-through.js
           node tests/e2e/ui-updates.js
           node tests/e2e/ui-rollback.js

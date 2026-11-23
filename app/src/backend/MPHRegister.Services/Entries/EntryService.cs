@@ -6,6 +6,7 @@ using MPHRegister.Data.Database;
 using MPHRegister.Data.Entities;
 using MPHRegister.Data.Repositories.Interfaces;
 using MPHRegister.Services.Arrivals;
+using MPHRegister.Services.Imports.Inward;
 using MPHRegister.Services.Interfaces;
 using MPHRegister.Services.Validators;
 using MPHRegister.Shared.Configuration;
@@ -23,6 +24,7 @@ public sealed class EntryService(
     IConfigStore config,
     IEntryReader reader,
     IEntryLinker entryLinks,
+    IImportLogRepository imports,
     IValidator<EntryInput> validator,
     ArrivalLinker linker,
     TimeProvider clock) : IEntryService
@@ -40,6 +42,15 @@ public sealed class EntryService(
         Dates.IsValidMonth(month) && !string.IsNullOrWhiteSpace(party) ? entryLinks.Preview(month!, party.Trim(), designNo) : [];
 
     public EntryDto Get(long id) => Find(id) ?? throw new NotFoundException("Entry not found.");
+
+    public ImportHistoryDto ImportHistory(long id)
+    {
+        if (entries.Get(id) is null) throw new NotFoundException("Entry not found.");
+        var events = imports.ImportHistory(id)
+            .Select(m => new ImportEventDto(m.Action, m.FileName, m.ImportedAt, m.RegisterMonth, m.SourceRow, m.Changes, ImportDetailsBuilder.FromJson(m.Details)))
+            .ToList();
+        return new ImportHistoryDto(id, events);
+    }
 
     public EntryDto Create(EntryInput input)
     {

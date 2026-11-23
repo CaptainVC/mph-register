@@ -57,7 +57,8 @@ public sealed record EntryDto(
     ImportMarkDto? LastImport = null,
     IReadOnlyList<EntryArrivalDto>? Aawak = null,
     string AawakState = "",
-    IReadOnlyList<EntryLinkDto>? Links = null);
+    IReadOnlyList<EntryLinkDto>? Links = null,
+    string? ImportUpdatedAt = null);
 
 /// <summary>An Aawak row the entry came on.</summary>
 public sealed record EntryArrivalDto(long Id, string AawakMonth, string Number, string ArrivalDate, string Transporter, int Nag);

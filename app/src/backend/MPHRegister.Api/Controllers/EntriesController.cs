@@ -21,6 +21,9 @@ public sealed class EntriesController(IEntryService entries) : ApiControllerBase
     [HttpGet("{id:long}")]
     public ActionResult<EntryDto> Get(long id) => entries.Get(id);
 
+    [HttpGet("{id:long}/import-history")]
+    public ActionResult<ImportHistoryDto> ImportHistory(long id) => entries.ImportHistory(id);
+
     [HttpPost]
     public ActionResult<EntryDto> Create([FromBody] EntryInput input) => entries.Create(input);
 

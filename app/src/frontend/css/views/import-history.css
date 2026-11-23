@@ -1,0 +1,25 @@
+/* ---------- Import history: the Δ next to an updated entry's INW. NO. and its side window ---------- */
+table.register td.inward .import-tag {
+  margin-left: 4px; padding: 0 5px; min-width: 0; height: auto; border: 0; border-radius: 9px; background: var(--warn-soft); color: var(--warn);
+  font: inherit; font-size: 12px; font-weight: 700; line-height: 1.5; text-decoration: none; vertical-align: middle; cursor: pointer; box-shadow: inset 0 0 0 1px var(--warn);
+}
+table.register td.inward .import-tag:hover { background: var(--warn); color: var(--panel); }
+.ih-event { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-2); }
+.ih-event.updated { border-left-color: var(--warn); }
+.ih-event.added { border-left-color: var(--ok); }
+.ih-head { display: flex; align-items: center; gap: 10px; }
+.ih-badge { border-radius: 6px; padding: 1px 8px; font-size: 12px; font-weight: 700; letter-spacing: .03em; }
+.ih-badge.updated { background: var(--warn-soft); color: var(--warn); box-shadow: inset 0 0 0 1px var(--warn); }
+.ih-badge.added { background: var(--ok-soft); color: var(--ok); box-shadow: inset 0 0 0 1px var(--ok); }
+.ih-when { font-weight: 700; }
+.ih-event p { margin: 0; }
+.ih-block h3 { margin: 6px 0 2px; font-size: 13px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.ih-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.ih-table th:first-child, .ih-table td:first-child { width: 22%; }
+.ih-table th { text-align: left; font-size: 12px; text-transform: uppercase; color: var(--muted); padding: 4px 8px 4px 0; border-bottom: 1px solid var(--line); }
+.ih-table td { text-align: left; padding: 6px 8px 6px 0; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+.ih-was { color: var(--err); text-decoration: line-through; }
+.ih-now { color: var(--ok); font-weight: 700; }
+.ih-now.edited { color: var(--muted); text-decoration: line-through; font-weight: 400; }
+.ih-edited { color: var(--warn); font-size: 13px; }
+.ih-keep { font-size: 13px; }

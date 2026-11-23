@@ -28,7 +28,7 @@ const ROW_FILTERS = [
   ] },
   { caption: "Last import", help: "What the latest import of each month's inward workbook did: include New or Updated to see those entries", filters: [
     { key: "importAdded", label: "New", tip: "Added as a new row by the latest import of its month's workbook", test: (e) => e.lastImport?.action === "added" },
-    { key: "importUpdated", label: "Updated", tip: "Changed by the latest import of a month's workbook (a later month's carryover rows can change an earlier entry). Point at the row to see what changed", test: (e) => e.lastImport?.action === "updated" },
+    { key: "importUpdated", label: "Updated", tip: "Changed by the latest import of a month's workbook (a later month's carryover rows can change an earlier entry). Click the Δ next to its INW. NO. to see what changed", test: (e) => e.lastImport?.action === "updated" },
   ] },
 ];
 

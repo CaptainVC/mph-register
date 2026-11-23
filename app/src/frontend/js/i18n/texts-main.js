@@ -275,8 +275,8 @@ Object.assign(window.mphI18n.exact, {
   "New": "नई",
   "Updated": "Update हुई",
   "Added as a new row by the latest import of its month's workbook": "अपने माह की Workbook के पिछले Import में नई Row के रूप में जुड़ी",
-  "Changed by the latest import of a month's workbook (a later month's carryover rows can change an earlier entry). Point at the row to see what changed":
-    "किसी माह की Workbook के पिछले Import से बदली (बाद के माह की कैरीओवर Rows पहले की Entry बदल सकती हैं)। क्या बदला यह देखने के लिए Row पर Cursor ले जाएँ",
+  "Changed by the latest import of a month's workbook (a later month's carryover rows can change an earlier entry). Click the Δ next to its INW. NO. to see what changed":
+    "किसी माह की Workbook के पिछले Import से बदली (बाद के माह की कैरीओवर Rows पहले की Entry बदल सकती हैं)। क्या बदला यह देखने के लिए INW. NO. के पास Δ पर Click करें",
   "Any": "कोई भी",
   "Include": "शामिल करें",
   "Exclude": "छिपाएँ",

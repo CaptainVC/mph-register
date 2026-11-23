@@ -12,6 +12,9 @@ public interface IEntryService
 
     EntryDto Get(long id);
 
+    /// <summary>The import that added the entry and the latest that updated it, with what the update changed.</summary>
+    ImportHistoryDto ImportHistory(long id);
+
     EntryDto Create(EntryInput input);
 
     EntryDto Update(long id, EntryInput input);

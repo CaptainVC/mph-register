@@ -416,4 +416,56 @@ public sealed class ApiImportTests(ApiFactory factory) : IClassFixture<ApiFactor
         Assert.Equal(1, adopted.GetProperty("otherMonthUpdates").GetInt32());
         Assert.Equal(("updated", "moved here from the 2025-09 register", "2025-08"), Mark(Inward(await Month(app, "2025-08"), 80)));
     }
+
+    private static async Task<List<JsonElement>> Events(HttpClient app, long entryId) =>
+        (await app.Get($"/api/entries/{entryId}/import-history").Ok()).GetProperty("events").EnumerateArray().ToList();
+
+    private static List<string> Fields(JsonElement details, string list) =>
+        details.GetProperty(list).EnumerateArray().Select(f => $"{f.GetProperty("field").GetString()} {f.GetProperty("was").GetString()} → {f.GetProperty("now").GetString()}").ToList();
+
+    [Fact]
+    public async Task An_entry_keeps_the_import_that_added_it_and_only_the_latest_that_updated_it()
+    {
+        var app = await Ready();
+        SheetRow row1 = new(1, "2027-10-01", "IMP PARTY", "D1", "L1");
+        SheetRow row2 = new(2, "2027-10-01", "IMP PARTY", "D2");
+        await Import(app, Workbook("oct27-1", [row1, row2]), "2027-10", commit: true);
+        var saved = await Month(app, "2027-10");
+        var (id1, id2) = (Inward(saved, 1).GetProperty("id").GetInt64(), Inward(saved, 2).GetProperty("id").GetInt64());
+        Assert.All(saved, e => Assert.NotEqual(JsonValueKind.String, e.GetProperty("importUpdatedAt").ValueKind));
+        var added = Assert.Single(await Events(app, id1));
+        Assert.Equal(("added", "oct27-1.xlsx", JsonValueKind.Null), (added.GetProperty("action").GetString(), added.GetProperty("fileName").GetString(), added.GetProperty("details").ValueKind));
+
+        // The second import changes entry 1: THAN and a dispatch, so NAG, NETT THAN and BALANCE follow.
+        await Import(app, Workbook("oct27-2", [(row1 with { Than = 15 }).Sent((15, "G1", "2027-10-02")), row2]), "2027-10", commit: true);
+        saved = await Month(app, "2027-10");
+        Assert.Equal(JsonValueKind.String, Inward(saved, 1).GetProperty("importUpdatedAt").ValueKind);
+        Assert.NotEqual(JsonValueKind.String, Inward(saved, 2).GetProperty("importUpdatedAt").ValueKind);
+        var events = await Events(app, id1);
+        Assert.Equal(["updated", "added"], events.Select(e => e.GetProperty("action").GetString()));
+        Assert.Equal(["oct27-2.xlsx", "oct27-1.xlsx"], events.Select(e => e.GetProperty("fileName").GetString()));
+        var details = events[0].GetProperty("details");
+        Assert.Equal(["THAN 10 → 15"], Fields(details, "fields"));
+        Assert.Equal(["NAG 10 → 15", "NETT THAN 10 → 15", "BALANCE 10 → 0"], Fields(details, "effects"));
+        var dispatch = Assert.Single(details.GetProperty("dispatches").EnumerateArray());
+        Assert.Equal((1, JsonValueKind.Null, 15, "G1"), (dispatch.GetProperty("number").GetInt32(), dispatch.GetProperty("was").ValueKind, dispatch.GetProperty("now").GetProperty("qty").GetInt32(), dispatch.GetProperty("now").GetProperty("gatePass").GetString()));
+        Assert.Single(await Events(app, id2));
+
+        // The third import changes entry 1 again: the second update is replaced, the adding import stays.
+        var third = (row1 with { Than = 20 }).Sent((20, "G1", "2027-10-02"));
+        await Import(app, Workbook("oct27-3", [third, row2]), "2027-10", commit: true);
+        events = await Events(app, id1);
+        Assert.Equal(["oct27-3.xlsx", "oct27-1.xlsx"], events.Select(e => e.GetProperty("fileName").GetString()));
+        Assert.Equal(["THAN 15 → 20"], Fields(events[0].GetProperty("details"), "fields"));
+        await using (var connection = TestDb.Open(factory.DataDirectory))
+            Assert.Equal(2, await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM import_batch_entries WHERE entry_id = @id1;", new { id1 }));
+
+        // An import that leaves the entry alone, or finds nothing to change, leaves its history as it is.
+        Assert.True((await Import(app, Workbook("oct27-4", [third, row2], salt: "again"), "2027-10", commit: true)).GetProperty("upToDate").GetBoolean());
+        await Import(app, Workbook("oct27-5", [third, row2 with { Lot = "L2" }]), "2027-10", commit: true);
+        Assert.Equal(["oct27-3.xlsx", "oct27-1.xlsx"], (await Events(app, id1)).Select(e => e.GetProperty("fileName").GetString()));
+        Assert.Equal(["oct27-5.xlsx", "oct27-1.xlsx"], (await Events(app, id2)).Select(e => e.GetProperty("fileName").GetString()));
+        Assert.Equal(["LOT N.  → L2"], Fields((await Events(app, id2))[0].GetProperty("details"), "fields"));
+        await app.Get("/api/entries/999999/import-history").Refused(System.Net.HttpStatusCode.NotFound);
+    }
 }
