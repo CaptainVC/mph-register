@@ -395,8 +395,9 @@ async function fillAawakMonths(month) {
 function shownArrivals() {
   const status = $("aawakStatus").value;
   const tokens = normalize($("aawakSearch").value).split(" ").filter(Boolean);
+  const months = $("aawakMonth").values;
   return aawakState.rows.filter((a) => {
-    if (!aawakPeriod.matches(a.aawakMonth)) return false;
+    if (!aawakPeriod.matches(a.aawakMonth) || (months.length && !months.includes(a.aawakMonth))) return false;
     if (status === "warnings" && !a.warnings.length) return false;
     if (status.startsWith("imported-") && a.lastImport?.action !== status.slice(9)) return false;
     if (status && ARRIVAL_STATUS[status] && a.status !== status) return false;
@@ -407,10 +408,11 @@ function shownArrivals() {
 }
 
 async function renderAawakRegister({ reuse = false } = {}) {
-  const month = $("aawakMonth").value;
-  const key = month || "all";
+  const months = $("aawakMonth").values;
+  const key = months.join(",") || "all";
   if (!reuse || aawakState.rowsKey !== key) {
-    aawakState.rows = await api(month ? `/api/arrivals?month=${encodeURIComponent(month)}` : "/api/arrivals");
+    // One month is asked for by name; several are read together and cut down in shownArrivals.
+    aawakState.rows = await api(months.length === 1 ? `/api/arrivals?month=${encodeURIComponent(months[0])}` : "/api/arrivals");
     aawakState.rowsKey = key;
   }
   const rows = shownArrivals();
@@ -439,9 +441,11 @@ async function refreshAawakRegister() {
 }
 
 $("aawakRelink").addEventListener("click", async () => {
-  const month = $("aawakMonth").value;
+  const months = $("aawakMonth").values;
   try {
-    const result = await api(`/api/arrivals/relink${month ? `?month=${encodeURIComponent(month)}` : ""}`, { method: "POST" });
+    const relink = (month) => api(`/api/arrivals/relink${month ? `?month=${encodeURIComponent(month)}` : ""}`, { method: "POST" });
+    const results = await Promise.all(months.length ? months.map(relink) : [relink("")]);
+    const result = Object.fromEntries(["arrivals", "linked", "nagDiffers", "partlyLinked", "notLinked"].map((field) => [field, results.reduce((sum, r) => sum + r[field], 0)]));
     toast(`Linked again ✓ ${num(result.arrivals)} rows: ${num(result.linked)} linked, ${num(result.nagDiffers)} NAG differs, ${num(result.partlyLinked + result.notLinked)} with slips not found`);
     aawakState.rowsKey = null;
     await renderAawakRegister();

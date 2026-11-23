@@ -979,9 +979,9 @@ async function revealInvoice(invoiceNo) {
 }
 
 function shownInvoices() {
-  const month = $("savedMonth").value;
+  const months = $("savedMonth").values;
   const tokens = normalize($("savedSearch").value).split(" ").filter(Boolean);
-  return billsState.invoices.filter((i) => savedPeriodFilter.matches(i.billMonth) && (!month || i.billMonth === month) && tokens.every((t) => normalize([i.invoiceNo, i.partyName, i.finishes, i.status].join(" ")).includes(t)));
+  return billsState.invoices.filter((i) => savedPeriodFilter.matches(i.billMonth) && (!months.length || months.includes(i.billMonth)) && tokens.every((t) => normalize([i.invoiceNo, i.partyName, i.finishes, i.status].join(" ")).includes(t)));
 }
 
 function renderInvoices() {
