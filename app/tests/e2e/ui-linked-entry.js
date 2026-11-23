@@ -44,7 +44,7 @@ async function toggleMonth(page, label) {
   await page.locator("#registerViewMonth").click();
   await page.locator('li[role="option"]', { hasText: label }).first().click();
   await page.keyboard.press("Escape");
-  await page.mouse.click(1000, 60);
+  await page.waitForFunction(() => !document.querySelector("#registerViewMonth + .combo-list:popover-open"));
 }
 
 (async () => {
@@ -64,7 +64,7 @@ async function toggleMonth(page, label) {
 
     // The column is in Main (and All), right after BILL NO.; the D.N. stays plain text.
     const headers = await page.locator("#registerTable thead th").evaluateAll((cells) => cells.filter((c) => c.offsetParent).map((c) => c.textContent.trim()));
-    assert.equal(headers[headers.indexOf("BILL NO.") + 1], "LINKED ENTRY", headers.join());
+    assert.equal(headers[headers.indexOf("BILL NO.") + 1], "LINKED ENTRY", headers.join() || `no visible register headers, page: ${page.url()}, view: ${await page.evaluate(() => document.querySelector(".tab[aria-selected=true]")?.textContent)}`);
     const row = (inw) => page.locator("#registerTable tbody tr[data-entry-id]", { has: page.locator(`td:first-child:text-is("${inw}")`) });
     const linkCell = (inw) => row(inw).locator("td.link-cell");
     assert.equal(await row(3).locator("td:nth-child(4)").textContent(), "INW NO 547", "the D.N. is not changed");
