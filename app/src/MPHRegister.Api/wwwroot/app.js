@@ -1756,7 +1756,7 @@ function rowFilterMenu(id, label, trigger, onPick) {
   return { menu, select };
 }
 
-function rowFilters(container, onChange, toggle) {
+function rowFilters(container, onChange, toggle, definitions = ROW_FILTERS) {
   const badge = toggle.querySelector(".filter-toggle-count");
   toggle.addEventListener("click", () => {
     const open = container.classList.toggle("hidden") === false;
@@ -1768,7 +1768,7 @@ function rowFilters(container, onChange, toggle) {
     if (mode === "any") modes.delete(key);
     else modes.set(key, mode);
   };
-  const groups = ROW_FILTERS.map(({ caption, help, filters }) => el("div", { class: "filter-group" }, [
+  const groups = definitions.map(({ caption, help, filters }) => el("div", { class: "filter-group" }, [
     el("span", { class: "filter-caption", text: caption, title: help }),
     el("div", { class: "filter-chips" }, filters.map((filter) => {
       const id = `${container.id}-${filter.key}`;
@@ -1843,6 +1843,7 @@ function rowFilters(container, onChange, toggle) {
     badge.classList.toggle("hidden", !modes.size);
     return modes.size ? entries.filter((e) => passesIncludes(e) && !excluded.some((filter) => filter.test(e))) : entries;
   };
+  apply.clear = () => modes.clear();
   // Shows only the rows matching these filters (with the filter bar open, so it is clear why).
   apply.only = (keys) => {
     modes.clear();

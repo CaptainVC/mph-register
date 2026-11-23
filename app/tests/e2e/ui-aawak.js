@@ -81,6 +81,24 @@ async function seed() {
     assert.ok(slipsColumn > 0);
     assert.equal(await rows.nth(0).locator(".aawak-status").textContent(), "Linked");
     assert.equal(await rows.nth(1).locator("td").nth(slipsColumn).textContent(), "No inward found");
+    // Row filters: the same chips as the inward register.
+    const filters = page.locator("#aawakFilters");
+    assert.equal(await filters.isVisible(), false, "Aawak filters start collapsed");
+    await page.locator("#aawakFiltersToggle").click();
+    assert.equal(await filters.locator(".filter-chip").count(), 11);
+    await filters.locator('[data-filter="notLinked"]').click();
+    await page.waitForFunction(() => document.querySelectorAll("#aawakTable tbody tr").length === 1);
+    assert.equal(await rows.nth(0).locator("td").nth(slipsColumn).textContent(), "No inward found");
+    assert.equal(await page.locator("#aawakFiltersToggle .filter-toggle-count").textContent(), "1");
+    await filters.getByRole("button", { name: "Clear filters" }).click();
+    await page.waitForFunction(() => document.querySelectorAll("#aawakTable tbody tr").length === 2);
+    await filters.locator('[aria-controls="aawakFilters-notLinked-menu"]').click();
+    await page.locator("#aawakFilters-notLinked-menu").getByRole("menuitemradio", { name: /^Exclude/ }).click();
+    await page.waitForFunction(() => document.querySelectorAll("#aawakTable tbody tr").length === 1);
+    assert.equal(await rows.nth(0).locator(".aawak-status").textContent(), "Linked");
+    await filters.getByRole("button", { name: "Clear filters" }).click();
+    await page.waitForFunction(() => document.querySelectorAll("#aawakTable tbody tr").length === 2);
+    await page.locator("#aawakFiltersToggle").click();
     await rows.nth(0).locator("td").nth(slipsColumn).locator("a", { hasText: "501" }).click();
     await page.locator("#view-entry.active").waitFor();
     assert.match(await page.locator("#formTitle").textContent(), /Correcting INW\. NO\. 501/);

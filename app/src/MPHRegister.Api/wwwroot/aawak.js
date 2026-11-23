@@ -379,9 +379,23 @@ function replaceArrival(saved) {
 
 const aawakPeriod = financialYearMonthFilter($("aawakFinancialYear"), $("aawakMonth"), () => renderAawakRegister());
 $("aawakMonth").addEventListener("change", () => renderAawakRegister().catch(showFatal));
-setDropdownOptions($("aawakStatus"), [["", "All rows"], ...Object.entries(ARRIVAL_STATUS).map(([key, [label]]) => [key, label]),
-  ["imported-added", "New in the last import"], ["imported-updated", "Updated by the last import"], ["warnings", "With warnings"]], "");
-$("aawakStatus").addEventListener("change", () => renderAawakRegister({ reuse: true }).catch(showFatal));
+// Same chips as the inward register (rowFilters in app.js): include or exclude, ORed within a group and ANDed between groups.
+const ARRIVAL_FILTERS = [
+  { caption: "Status", help: "Include any statuses to show, or exclude statuses to hide", filters: Object.entries(ARRIVAL_STATUS).map(([key, [label, tip]]) => (
+    { key, label, swatch: true, tip, test: (a) => a.status === key })) },
+  { caption: "Other", help: "Each included condition must match; any excluded condition hides the row", filters: [
+    { key: "warning", label: "Has warning", group: "warning", swatch: true, tip: "Point at the row to read the warning", test: (a) => a.warnings.length > 0 },
+    { key: "note", label: "Has note", group: "note", tip: "The NOTE column is not empty", test: (a) => a.note.trim() !== "" },
+    { key: "sister", label: "Sister firm", group: "sister", tip: "The party belongs to a sister-firm group", test: (a) => a.group && a.group.toLowerCase() !== a.party.toLowerCase() },
+    { key: "manual", label: "Linked by hand", group: "manual", tip: "At least one slip was linked by hand rather than found by INW NO", test: (a) => a.slips.some((s) => s.manual) },
+    { key: "typed", label: "Typed in app", group: "typed", tip: "Typed in the app, not read from an Aawak workbook", test: (a) => !a.imported },
+  ] },
+  { caption: "Last import", help: "What the latest import of the Aawak workbook did: include New or Updated to see those rows", filters: [
+    { key: "importAdded", label: "New", tip: "Added as a new row by the latest import of its month's workbook", test: (a) => a.lastImport?.action === "added" },
+    { key: "importUpdated", label: "Updated", tip: "Changed by the latest import of its month's workbook. Point at the row to see what changed", test: (a) => a.lastImport?.action === "updated" },
+  ] },
+];
+const aawakRowFilter = rowFilters($("aawakFilters"), () => renderAawakRegister({ reuse: true }).catch(showFatal), $("aawakFiltersToggle"), ARRIVAL_FILTERS);
 $("aawakSearch").addEventListener("input", () => renderAawakRegister({ reuse: true }).catch(showFatal));
 
 async function fillAawakMonths(month) {
@@ -393,18 +407,15 @@ async function fillAawakMonths(month) {
 }
 
 function shownArrivals() {
-  const status = $("aawakStatus").value;
   const tokens = normalize($("aawakSearch").value).split(" ").filter(Boolean);
   const months = $("aawakMonth").values;
-  return aawakState.rows.filter((a) => {
+  const searched = aawakState.rows.filter((a) => {
     if (!aawakPeriod.matches(a.aawakMonth) || (months.length && !months.includes(a.aawakMonth))) return false;
-    if (status === "warnings" && !a.warnings.length) return false;
-    if (status.startsWith("imported-") && a.lastImport?.action !== status.slice(9)) return false;
-    if (status && ARRIVAL_STATUS[status] && a.status !== status) return false;
     if (!tokens.length) return true;
     const text = normalize([a.number, a.party, a.group, a.transporter, a.inwardText, a.note, ...a.refs, formatDate(a.arrivalDate)].join(" "));
     return tokens.every((t) => text.includes(t));
   });
+  return aawakRowFilter(searched);
 }
 
 async function renderAawakRegister({ reuse = false } = {}) {
@@ -468,7 +479,7 @@ async function openArrival(id) {
     showAawakSubview("register");
     await switchView("aawak");
     $("aawakSearch").value = "";
-    $("aawakStatus").value = "";
+    aawakRowFilter.clear();
     await fillAawakMonths(arrival.aawakMonth);
     aawakState.rowsKey = null;
     await renderAawakRegister();
@@ -976,7 +987,7 @@ function renderAawakReport(report) {
     issueList("Errors", report.errors, "err"), issueList("Changes from the workbook", report.changes), issueList("Kept as in the app", report.kept),
     issueList("No longer in the workbook", report.notInWorkbook), issueList("Warnings", report.warnings, "warn"),
     report.imported ? el("button", { type: "button", class: "secondary", id: "aawakShowImported", text: "Show in Aawak register", onclick: async () => {
-      $("aawakStatus").value = "";
+      aawakRowFilter.clear();
       showAawakSubview("register");
       returnTrips.push({ kind: "import", view: "import", scroll: [] });
       await switchView("aawak");

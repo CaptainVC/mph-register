@@ -195,11 +195,12 @@
             <div class="field search-field"><label for="aawakSearch">Search</label>
               <div class="search-box"><input id="aawakSearch" type="search" placeholder="Party, lorry wala, INW NO, note…"></div>
             </div>
-            <div class="field month-field"><label for="aawakStatus">Show</label><button type="button" id="aawakStatus" data-dropdown></button></div>
+            <button type="button" id="aawakFiltersToggle" class="secondary panel-btn filter-toggle" aria-expanded="false" aria-controls="aawakFilters" title="Show or hide the row filters"><span>Filters</span><span class="filter-toggle-count hidden"></span></button>
             <button type="button" id="aawakRelink" class="secondary panel-btn" title="Look again for the inward slips of every Aawak row of this month">Link again</button>
             <button type="button" id="openDeletedArrivals" class="secondary panel-btn" title="Aawak rows deleted in the app; restore one from here">Deleted rows</button>
             <div class="panel-count-wrap"><span id="aawakCount" class="count-pill"></span></div>
           </div>
+          <div class="filter-bar hidden" id="aawakFilters" role="group" aria-label="Row filters: click to include, or open options to exclude"></div>
           <div id="aawakTotals" class="totals-strip" aria-label="Summary totals"></div>
         </div>
         <div class="table-wrap fill"><table class="register aawak-table" id="aawakTable"></table></div>
