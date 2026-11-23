@@ -424,6 +424,13 @@ public sealed class StartupTests : IDisposable
             c.Execute(
                 """
                 DROP TABLE import_batch_entries;
+                DROP TABLE entry_no_arrival;
+                DROP TABLE arrival_import_marks;
+                DROP TABLE deleted_arrivals;
+                DROP TABLE arrival_entries;
+                DROP TABLE arrival_refs;
+                DROP TABLE arrivals;
+                DROP TABLE arrival_import_batches;
                 PRAGMA user_version = 8;
                 INSERT INTO import_batches(id, file_name, sha256, register_month, imported_at, entry_count, dispatch_count) VALUES
                     (1, 'oct-1.xlsm', 'A', '2026-10', '2026-10-05 10:00:00', 3, 0),

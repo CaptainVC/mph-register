@@ -7,9 +7,11 @@ public interface IMasterUsageRepository
 {
     IReadOnlyList<NameCount> PartyEntryCounts();
 
+    IReadOnlyList<NameCount> PartyArrivalCounts();
+
     IReadOnlyList<NameCount> FinishEntryCounts();
 
-    /// <summary>Moves entries and bills from one party name to another.</summary>
+    /// <summary>Moves entries, bills and AAWAK rows from one party name to another.</summary>
     void RenameParty(string from, string to);
 
     void RenameFinish(string from, string to);

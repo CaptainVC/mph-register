@@ -13,6 +13,7 @@ public sealed class ConfigIndex
     private readonly Dictionary<string, FinishGroupConfig> groups;
     private readonly Dictionary<string, BillingStyle> styles;
     private readonly Dictionary<string, NamedColor> colors;
+    private readonly Dictionary<string, TransporterConfig> transporters;
 
     private ConfigIndex(AppConfig config)
     {
@@ -22,6 +23,11 @@ public sealed class ConfigIndex
         groups = ToMap(config.FinishGroups, g => g.Name);
         styles = ToMap(config.BillingStyles, s => s.Name);
         colors = ToMap(config.Colors, c => c.Name);
+        transporters = ToMap(config.Transporters, t => t.Name);
+        foreach (var transporter in config.Transporters)
+        {
+            foreach (var spelling in transporter.OtherSpellings) transporters.TryAdd(spelling.NormalizeName(), transporter);
+        }
     }
 
     public AppConfig Config { get; }
@@ -43,6 +49,25 @@ public sealed class ConfigIndex
     public BillingStyle? Style(string? name) => Find(styles, name);
 
     public NamedColor? Color(string? name) => Find(colors, name);
+
+    /// <summary>The lorry wala with this name or other spelling.</summary>
+    public TransporterConfig? Transporter(string? name) => Find(transporters, name);
+
+    /// <summary>The party's sister-firm group, or the party itself when it has none (how AAWAK totals group parties).</summary>
+    public string GroupOf(string party)
+    {
+        var found = Party(party);
+        return found is { SisterGroup.Length: > 0 } ? found.SisterGroup : found?.Name ?? party;
+    }
+
+    /// <summary>Two parties are the same firm or sister firms.</summary>
+    public bool SameFamily(string a, string b)
+    {
+        if (string.Equals(a.NormalizeName(), b.NormalizeName(), StringComparison.OrdinalIgnoreCase)) return true;
+        var pa = Party(a);
+        var pb = Party(b);
+        return pa is { SisterGroup.Length: > 0 } && pb is not null && string.Equals(pa.SisterGroup, pb.SisterGroup, StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>The party's billing style, or the first style when its style is missing.</summary>
     public BillingStyle StyleOf(PartyConfig party)

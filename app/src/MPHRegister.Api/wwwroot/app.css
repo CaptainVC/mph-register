@@ -1513,3 +1513,34 @@ label.dash-pick:hover { background: var(--hover); }
 #excelResult td .check { margin-left: 10px; }
 #excelNotes, #excelProblems { margin: 0; padding-left: 22px; }
 #excelForm .excel-bills { max-height: 300px; overflow: auto; }
+
+/* ---------- AAWAK (gate arrivals) ---------- */
+a.aawak-link, a.inward-link { color: var(--accent); font-weight: 600; text-decoration: underline; }
+a.aawak-link:hover, a.inward-link:hover { background: var(--accent-soft); }
+.aawak-none { color: var(--warn); font-weight: 600; }
+.slip-deleted { color: var(--muted); text-decoration: line-through; }
+table.register td.aawak-cell, table.register td.slips-cell { white-space: normal; min-width: 90px; }
+table.aawak-table td.open-cell { cursor: pointer; color: var(--accent); font-weight: 700; }
+table.aawak-table td.editable { cursor: text; }
+table.aawak-table tr.arrival-row:not(.status-linked) td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+.aawak-status { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.aawak-status.status-linked { background: var(--ok-soft); color: var(--ok); }
+.aawak-status.status-nagDiffers { background: var(--err-soft); color: var(--err); }
+.aawak-status.status-partlyLinked, .aawak-status.status-notLinked { background: var(--warn-soft); color: var(--warn); }
+.aawak-slips { margin: 14px 0 4px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; min-height: 22px; }
+.aawak-slips h3 { margin: 0 0 6px; font-size: 15px; }
+.aawak-slips p { margin: 4px 0; }
+.slip-list { margin: 0; padding-left: 18px; }
+.slip-list li { margin: 2px 0; }
+.slip-list li.slip-missing { color: var(--warn); }
+.slip-check { font-weight: 700; }
+.slip-check.ok { color: var(--ok); }
+.slip-check.warn { color: var(--err); }
+.entry-aawak { margin-top: 8px; font-size: 14px; }
+.entry-aawak:empty { display: none; }
+.entry-aawak .label { font-weight: 700; }
+.totals-pair { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+table.totals-table { width: auto; min-width: 280px; }
+table.totals-table tfoot th { text-align: right; }
+table.totals-table tfoot th:first-child { text-align: left; }
+.check-card h2 { display: flex; gap: 10px; align-items: center; }

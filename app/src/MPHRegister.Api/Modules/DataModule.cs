@@ -25,6 +25,7 @@ public static class DataModule
         services.AddScoped<IImportLogRepository, ImportLogRepository>();
         services.AddScoped<IDashboardRepository, DashboardRepository>();
         services.AddScoped<IBillExportRepository, BillExportRepository>();
+        services.AddScoped<IArrivalRepository, ArrivalRepository>();
         return services;
     }
 }

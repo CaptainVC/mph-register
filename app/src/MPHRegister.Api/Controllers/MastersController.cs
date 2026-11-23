@@ -54,6 +54,19 @@ public sealed class MastersController(IMasterService masters, IBillingService bi
     [HttpPost("style/preview")]
     public ActionResult<IReadOnlyList<LineDto>> PreviewStyle([FromBody] StyleInput input) => Ok(billing.PreviewStyle(input));
 
+    [HttpGet("transporters")]
+    public ActionResult<IReadOnlyList<TransporterDto>> Transporters() => Ok(masters.Transporters());
+
+    [HttpPost("transporter")]
+    public ActionResult<TransporterDto> SaveTransporter([FromBody] TransporterInput input) => masters.SaveTransporter(input);
+
+    [HttpDelete("transporter")]
+    public IActionResult DeleteTransporter([FromQuery] string? name)
+    {
+        masters.DeleteTransporter(name);
+        return NoContent();
+    }
+
     [HttpPost("color")]
     public ActionResult<ColorDto> SaveColor([FromBody] ColorInput input) => masters.SaveColor(input);
 

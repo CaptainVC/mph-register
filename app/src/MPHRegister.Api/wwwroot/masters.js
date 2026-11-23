@@ -60,6 +60,7 @@ async function showMasters() {
   renderFinishMasters();
   renderGroupMasters();
   renderColors();
+  if (typeof renderLorryMasters === "function") await renderLorryMasters();
 }
 
 function input(id, value, props = {}) {
@@ -925,6 +926,7 @@ async function renderFirmForm(fy) {
   const showBills = featureToggle("feature-bills", "Bills", "Bills tab (make and saved bills)", settings.display.showBills !== false);
   const showColors = featureToggle("feature-colors", "Colours", "Masters → Colours subsection", settings.display.showColors !== false);
   const dashboardToggle = featureToggle("feature-dashboard", "Dashboard", "Dashboard tab (income, unbilled work, GST and parties)", settings.display.showDashboard !== false);
+  const aawakToggle = featureToggle("feature-aawak", "AAWAK", "AAWAK tab (goods arriving at the gate)", settings.display.showAawak !== false);
 
   const save = el("button", { type: "submit", id: "firm-save", text: "Save settings" });
   const cards = [
@@ -942,7 +944,7 @@ async function renderFirmForm(fy) {
     settingsCard("set-signature", "Signature", [signatureBlock(settings)], "Kept in the config file"),
     settingsCard("set-screens", "Appearance", [fieldsGrid([field("Theme (also in the right-side menu)", theme), field("Language (also in the right-side menu)", language)])]),
     settingsCard("set-features", "Features", [
-      el("div", { class: "feature-list" }, [showBillingStyles.node, showImport.node, showPartywise.node, showBills.node, showColors.node, dashboardToggle.node]),
+      el("div", { class: "feature-list" }, [showBillingStyles.node, showImport.node, showPartywise.node, showBills.node, showColors.node, dashboardToggle.node, aawakToggle.node]),
     ], "Show or hide screens and sections in the UI"),
     configFileBlock(settings),
   ];
@@ -970,6 +972,7 @@ async function renderFirmForm(fy) {
         showBills: showBills.input.checked,
         showColors: showColors.input.checked,
         showDashboard: dashboardToggle.input.checked,
+        showAawak: aawakToggle.input.checked,
       },
       fy: fyInput.value, nextSerial: Number(next.value),
     };

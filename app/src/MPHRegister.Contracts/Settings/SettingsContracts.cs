@@ -83,7 +83,8 @@ public sealed record InfoDto(
     bool ShowPartywise = true,
     bool ShowBills = true,
     bool ShowColors = true,
-    bool ShowDashboard = true);
+    bool ShowDashboard = true,
+    bool ShowAawak = true);
 
 /// <summary>What the print page needs besides the bills: current firm snapshot, print settings and the colours to paint.</summary>
 public sealed record PrintContextDto(

@@ -6,3 +6,12 @@ public sealed record NameCount
 
     public int Count { get; init; }
 }
+
+public sealed record TransporterUsage
+{
+    public string Name { get; init; } = string.Empty;
+
+    public int Arrivals { get; init; }
+
+    public string? LastArrival { get; init; }
+}

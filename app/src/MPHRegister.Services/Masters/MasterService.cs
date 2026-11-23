@@ -25,7 +25,9 @@ public sealed class MasterService(
     IValidator<FinishInput> finishValidator,
     IValidator<GroupInput> groupValidator,
     IValidator<StyleInput> styleValidator,
-    IValidator<ColorInput> colorValidator) : IMasterService
+    IValidator<ColorInput> colorValidator,
+    IValidator<TransporterInput> transporterValidator,
+    IArrivalRepository arrivals) : IMasterService
 {
     private const int NamesInMessage = 8;
 
@@ -33,8 +35,9 @@ public sealed class MasterService(
     {
         var current = config.Current;
         return new MastersDto(
-            current.Parties.OrderByDescending(p => p.Active).ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase).Select(p => new MasterItem(p.Name, p.Active)).ToList(),
-            current.Finishes.OrderByDescending(f => f.Active).ThenBy(f => f.Name, StringComparer.OrdinalIgnoreCase).Select(f => new MasterItem(f.Name, f.Active)).ToList());
+            current.Parties.OrderByDescending(p => p.Active).ThenBy(p => p.Name, StringComparer.OrdinalIgnoreCase).Select(p => new MasterItem(p.Name, p.Active, p.SisterGroup)).ToList(),
+            current.Finishes.OrderByDescending(f => f.Active).ThenBy(f => f.Name, StringComparer.OrdinalIgnoreCase).Select(f => new MasterItem(f.Name, f.Active)).ToList(),
+            current.Transporters.OrderByDescending(t => t.Active).ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase).Select(t => new MasterItem(t.Name, t.Active)).ToList());
     }
 
     public FullMastersDto GetFull() => new(reader.Parties(), reader.Finishes(), reader.Groups(), reader.Styles(), reader.Colors());
@@ -337,6 +340,66 @@ public sealed class MasterService(
             .ToList();
         if (users.Count > 0) throw new AppValidationException($"\"{color.Name}\" is used by {Names(users)}. Give them another colour first.");
         Change(c => c with { Colors = c.Colors.Where(x => !Same(x.Name, color.Name)).ToList() });
+    }
+
+    public IReadOnlyList<TransporterDto> Transporters()
+    {
+        var used = arrivals.TransporterUsage().ToDictionary(u => u.Name, StringComparer.OrdinalIgnoreCase);
+        return config.Current.Transporters
+            .OrderByDescending(t => t.Active).ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(t => new TransporterDto(t.Name, t.Active, t.OtherSpellings, t.OwnVehicle, used.GetValueOrDefault(t.Name)?.Arrivals ?? 0, used.GetValueOrDefault(t.Name)?.LastArrival))
+            .ToList();
+    }
+
+    public TransporterDto SaveTransporter(TransporterInput input)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        var errors = transporterValidator.ErrorsFor(input);
+        var index = ConfigIndex.For(config.Current);
+        var name = input.Name.NormalizeName();
+        var original = input.OriginalName.NormalizeName();
+        var existing = original.Length == 0 ? null : config.Current.Transporters.FirstOrDefault(t => Same(t.Name, original));
+        if (original.Length > 0 && existing is null) errors.Add($"Lorry wala \"{original}\" no longer exists. Refresh the page.");
+        var target = name.Length > 0 ? config.Current.Transporters.FirstOrDefault(t => Same(t.Name, name)) : null;
+        var merge = existing is not null && target is not null && !ReferenceEquals(existing, target);
+        if (target is not null && !ReferenceEquals(target, existing) && !(merge && input.Merge))
+            errors.Add(existing is null
+                ? $"A lorry wala named \"{target.Name}\" already exists."
+                : $"A lorry wala named \"{target.Name}\" already exists. Tick \"Merge\" to move {existing.Name}'s AAWAK rows to {target.Name}.");
+        var spellings = (input.OtherSpellings ?? []).Select(x => x.NormalizeName()).Where(x => x.Length > 0 && !Same(x, name)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        foreach (var spelling in spellings)
+        {
+            var owner = index.Transporter(spelling);
+            if (owner is not null && !ReferenceEquals(owner, existing) && !ReferenceEquals(owner, target))
+                errors.Add($"\"{spelling}\" is already {(Same(owner.Name, spelling) ? "a lorry wala" : $"another spelling of {owner.Name}")}.");
+        }
+        if (errors.Count > 0) throw new AppValidationException(errors);
+
+        if (merge)
+        {
+            var joined = target!.OtherSpellings.Concat(spellings).Append(existing!.Name).Concat(existing.OtherSpellings)
+                .Where(x => !Same(x, target.Name)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            var merged = target with { OtherSpellings = joined, Active = target.Active || existing.Active };
+            Change(c => c with { Transporters = c.Transporters.Where(t => !Same(t.Name, existing.Name)).Select(t => Same(t.Name, target.Name) ? merged : t).ToList() },
+                () => arrivals.RenameTransporter(existing.Name, target.Name));
+            return Transporters().First(t => Same(t.Name, target.Name));
+        }
+
+        var saved = (existing ?? new TransporterConfig()) with { Name = name, Active = input.Active, OtherSpellings = spellings, OwnVehicle = input.OwnVehicle };
+        var renamedFrom = existing is not null && !string.Equals(existing.Name, name, StringComparison.Ordinal) ? existing.Name : null;
+        Change(
+            c => c with { Transporters = existing is null ? [.. c.Transporters, saved] : c.Transporters.Select(t => Same(t.Name, existing.Name) ? saved : t).ToList() },
+            renamedFrom is null ? null : () => arrivals.RenameTransporter(renamedFrom, name));
+        return Transporters().First(t => Same(t.Name, name));
+    }
+
+    public void DeleteTransporter(string? name)
+    {
+        var current = config.Current;
+        var transporter = current.Transporters.FirstOrDefault(t => Same(t.Name, name)) ?? throw new NotFoundException($"Lorry wala \"{name.NormalizeName()}\" is not in the list.");
+        var used = arrivals.TransporterUsage().FirstOrDefault(u => Same(u.Name, transporter.Name))?.Arrivals ?? 0;
+        if (used > 0) throw new AppValidationException($"\"{transporter.Name}\" is on {used} AAWAK row{(used == 1 ? string.Empty : "s")}. Mark it inactive instead, or rename it to another lorry wala to merge the two.");
+        Change(c => c with { Transporters = c.Transporters.Where(t => !Same(t.Name, transporter.Name)).ToList() });
     }
 
     internal static string? RateProblem(string finish, decimal rate)

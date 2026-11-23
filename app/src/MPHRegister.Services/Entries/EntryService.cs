@@ -5,6 +5,7 @@ using MPHRegister.Data.Config;
 using MPHRegister.Data.Database;
 using MPHRegister.Data.Entities;
 using MPHRegister.Data.Repositories.Interfaces;
+using MPHRegister.Services.Arrivals;
 using MPHRegister.Services.Interfaces;
 using MPHRegister.Services.Validators;
 using MPHRegister.Shared.Configuration;
@@ -22,6 +23,7 @@ public sealed class EntryService(
     IConfigStore config,
     IEntryReader reader,
     IValidator<EntryInput> validator,
+    ArrivalLinker linker,
     TimeProvider clock) : IEntryService
 {
     public IReadOnlyList<EntryDto> List(string? month) => reader.Read(entries.List(Dates.IsValidMonth(month) ? month : null));
@@ -40,19 +42,32 @@ public sealed class EntryService(
         var id = entries.Insert(ToEntity(0, input, party, finish, now));
         entries.ReplaceDispatches(id, Dispatches(input));
         unit.Commit();
+        LinkArrivals(id, [input.InwardNo!.Value], [input.EntryDate!]);
         return Get(id);
     }
 
     public EntryDto Update(long id, EntryInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
-        if (entries.Get(id) is null) throw new NotFoundException("Entry not found.");
+        var before = entries.Get(id) ?? throw new NotFoundException("Entry not found.");
         var (party, finish) = Validate(input, id);
-        using var unit = session.Begin();
-        entries.Update(ToEntity(id, input, party, finish, Dates.Timestamp(clock.GetLocalNow())));
-        entries.ReplaceDispatches(id, Dispatches(input));
-        unit.Commit();
+        using (var unit = session.Begin())
+        {
+            entries.Update(ToEntity(id, input, party, finish, Dates.Timestamp(clock.GetLocalNow())));
+            entries.ReplaceDispatches(id, Dispatches(input));
+            unit.Commit();
+        }
+        LinkArrivals(id, [before.InwardNo, input.InwardNo!.Value], [before.EntryDate, input.EntryDate!]);
         return Get(id);
+    }
+
+    /// <summary>AAWAK rows that name the entry's slip number around its date (typed before the slip) link to it now.</summary>
+    private void LinkArrivals(long id, int[] numbers, string[] dates)
+    {
+        using var unit = session.Begin();
+        var ordered = dates.Order(StringComparer.Ordinal).ToList();
+        linker.LinkAround([id], numbers, ordered[0], ordered[^1]);
+        unit.Commit();
     }
 
     public DeleteEntryResult Delete(long id)
@@ -95,6 +110,8 @@ public sealed class EntryService(
             entries.RestoreDeleted(id);
             unit.Commit();
         }
+        var restored = entries.Get(id)!;
+        LinkArrivals(id, [restored.InwardNo], [restored.EntryDate]);
         return Get(id);
     }
 

@@ -3,9 +3,10 @@ using MPHRegister.Shared.Enums;
 
 namespace MPHRegister.Contracts.Masters;
 
-public sealed record MasterItem(string Name, bool Active);
+/// <param name="Group">For parties: the sister-firm group (empty for a party on its own).</param>
+public sealed record MasterItem(string Name, bool Active, string Group = "");
 
-public sealed record MastersDto(IReadOnlyList<MasterItem> Parties, IReadOnlyList<MasterItem> Finishes);
+public sealed record MastersDto(IReadOnlyList<MasterItem> Parties, IReadOnlyList<MasterItem> Finishes, IReadOnlyList<MasterItem>? Transporters = null);
 
 /// <param name="BillingStyle">The style name the party chose.</param>
 /// <param name="Style">That style's settings (the first style when the name is not found).</param>
@@ -98,3 +99,10 @@ public sealed record FullMastersDto(
     IReadOnlyList<GroupDto> Groups,
     IReadOnlyList<StyleDto> Styles,
     IReadOnlyList<ColorDto> Colors);
+
+/// <summary>A lorry wala of the AAWAK register, with how often it was used.</summary>
+public sealed record TransporterDto(string Name, bool Active, IReadOnlyList<string> OtherSpellings, bool OwnVehicle, int Arrivals, string? LastArrival);
+
+/// <param name="OriginalName">The lorry wala being edited or renamed; null to add one.</param>
+/// <param name="Merge">Renaming to another lorry wala's name merges the two (its AAWAK rows and spellings move over).</param>
+public sealed record TransporterInput(string? OriginalName, string? Name, bool Active, IReadOnlyList<string>? OtherSpellings, bool OwnVehicle, bool Merge = false);
