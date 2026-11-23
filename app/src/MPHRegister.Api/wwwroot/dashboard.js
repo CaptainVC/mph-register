@@ -455,8 +455,6 @@ function buildModel(f) {
     partyIdx,
     billsFrom: firstOf(f.bills, () => true),
     inwardFrom: firstOf(f.inward, (row) => row[2] > 0),
-    unbilled: byParty(f.unbilled),
-    stock: byParty(f.stock),
     quiet: byParty(f.quiet),
     groups,
     order,
@@ -560,10 +558,30 @@ const monthIndexOf = (month) => dashState.model.monthIdx.get(month);
 const billsIn = (view, month) => billOf(view.byMonth.get(monthIndexOf(month)));
 const inwardIn = (view, month) => inwardOf(view.inwardByMonth.get(monthIndexOf(month)));
 
-// ---------- Today's billing queue, stock and inward (not tied to the period) ----------
-function unbilledFor(partySet) {
-  const rows = dashState.model.f.unbilled.filter((u) => !partySet || partySet.has(u.party));
-  const add = (a, b) => ({ entries: a.entries + b.entries, than: a.than + b.than, value: a.value + b.value });
+// ---------- Work still open today (as of today, for the cloth that came in during the period), stock and this month's inward ----------
+const addWork = (a, b) => ({ entries: a.entries + b.entries, than: a.than + b.than, value: a.value + b.value });
+
+/** One party's open work from two inward months, added up. */
+function joinUnbilled(a, b) {
+  return {
+    ...Object.fromEntries(WORK_KEYS.map((key) => [key, addWork(a[key], b[key])])),
+    party: a.party,
+    month: a.month,
+    ageing: a.ageing.map((bucket, i) => addWork(bucket, b.ageing[i])),
+    oldest: [a.oldest, b.oldest].filter(Boolean).sort()[0] ?? null,
+    daysWaiting: Math.max(a.daysWaiting, b.daysWaiting),
+  };
+}
+
+/** Open work for the parties in view that came in during the months in view, one row per party. */
+function unbilledFor(partySet, monthSet) {
+  const byParty = new Map();
+  for (const u of dashState.model.f.unbilled) {
+    if ((partySet && !partySet.has(u.party)) || (monthSet && !monthSet.has(u.month))) continue;
+    byParty.set(u.party, byParty.has(u.party) ? joinUnbilled(byParty.get(u.party), u) : u);
+  }
+  const rows = [...byParty.values()];
+  const add = addWork;
   const total = Object.fromEntries(WORK_KEYS.map((key) => [key, rows.reduce((sum, u) => add(sum, u[key]), ZERO_WORK)]));
   total.ageing = AGE_KEYS.map((key, i) => ({ key, ...rows.reduce((sum, u) => add(sum, u.ageing[i]), ZERO_WORK) }));
   total.rows = rows;
@@ -572,8 +590,8 @@ function unbilledFor(partySet) {
   return total;
 }
 
-function stockFor(partySet) {
-  const rows = dashState.model.f.stock.filter((row) => !partySet || partySet.has(row.party));
+function stockFor(partySet, monthSet) {
+  const rows = dashState.model.f.stock.filter((row) => (!partySet || partySet.has(row.party)) && (!monthSet || monthSet.has(row.month)));
   const add = (a, b) => ({
     entries: a.entries + b.entries, pieces: a.pieces + b.pieces, undispatchedThan: a.undispatchedThan + b.undispatchedThan, partialEntries: a.partialEntries + b.partialEntries,
   });
@@ -589,8 +607,9 @@ function thisMonthFor(partySet) {
   return { ...now, month: t.month, upTo: t.upTo, sameDaysThan: same };
 }
 
-function quietFor(partySet) {
-  return dashState.model.f.quiet.filter((q) => !partySet || partySet.has(q.party));
+/** Slowdowns are judged on the last 30 days, so they only belong to a period that includes the month still running. */
+function quietFor(view) {
+  return view.includesCurrent ? dashState.model.f.quiet.filter((q) => !view.partySet || view.partySet.has(q.party)) : [];
 }
 
 /** Each party in view with its billing in the period and the comparison, cloth received and work waiting. */
@@ -601,15 +620,16 @@ function partyRows(view) {
   const before = view.compareOn ? rollup(m.f.bills, { months: view.compareSet, parties: view.partySet, by: (row) => row[0] }) : new Map();
   const measured = view.partial ? rollup(m.f.bills, { months: view.measuredSet, parties: view.partySet, by: (row) => row[0] }) : now;
   const inward = rollup(m.f.inward, { months: view.monthSet, parties: view.partySet, by: (row) => row[0] });
+  const open = new Map(unbilledFor(view.partySet, view.monthSet).rows.map((u) => [u.party, u]));
   const ids = new Set([...now.keys(), ...before.keys(), ...inward.keys(), ...(view.partySet ?? [])]);
-  for (const u of m.f.unbilled) if (u.ready.entries && (!view.partySet || view.partySet.has(u.party))) ids.add(u.party);
+  for (const [i, u] of open) if (u.ready.entries) ids.add(i);
   const all = view.allBilled.taxable;
   view.cache.partyRows = [...ids].map((i) => {
     const b = billOf(now.get(i));
     const p = billOf(before.get(i));
     const counted = billOf(measured.get(i)).taxable;
     const w = inwardOf(inward.get(i));
-    const u = m.unbilled.get(i);
+    const u = open.get(i);
     const party = m.f.parties[i];
     return {
       i, name: party.name, group: party.group, ...b, prior: p.taxable, priorThan: p.than, counted, delta: counted - p.taxable,
@@ -659,7 +679,7 @@ function sectionList() {
     ["overview", "📊", L("Overview", "सारांश"), L("The main figures at a glance", "मुख्य आँकड़े एक नज़र में")],
     ["parties", "👥", L("Parties", "पार्टियाँ"), L("Every party's billing, ranked", "हर पार्टी की बिलिंग, क्रम से")],
     ["compare", "⚖", L("Compare", "तुलना"), L("Parties side by side, month by month", "पार्टियाँ आमने-सामने, Month-वार")],
-    ["unbilled", "🧾", L("To be billed", "बिल बनाना बाक़ी"), L("Work with no bill yet, as of today", "आज तक जिस काम का बिल नहीं बना")],
+    ["unbilled", "🧾", L("To be billed", "बिल बनाना बाक़ी"), L("Work with no bill yet, from cloth received in the period", "इस अवधि में आए जिस माल का आज तक बिल नहीं बना")],
     ["cloth", "📦", L("Cloth & stock", "माल और स्टॉक"), L("Cloth received, sent back and in the factory", "आया माल, भेजा माल और फ़ैक्ट्री में माल")],
     ["gst", "🏛", L("GST", "GST"), L("GST charged on your bills", "आपके बिलों पर लगा GST")],
   ];
@@ -701,7 +721,7 @@ function renderDashboard() {
 
 // The dashboard's own tabs; they stay at the top while the figures scroll.
 function tabsBlock(view) {
-  const u = unbilledFor(view.partySet);
+  const u = unbilledFor(view.partySet, view.monthSet);
   return el("nav", { class: "dash-tabs", id: "dashTabs", "aria-label": L("Dashboard sections", "Dashboard के भाग") }, sectionList().map(([key, icon, title, note]) => {
     const active = dashState.sel.section === key;
     const props = { type: "button", class: `dash-tab${active ? " active" : ""}`, "data-section": key, title: note, onclick: () => goSection(key) };
@@ -952,7 +972,7 @@ function headCard(view) {
   const [, icon, title, note] = sectionList().find(([key]) => key === dashState.sel.section);
   const live = dashState.sel.section === "unbilled";
   const tags = [
-    el("span", { class: "dash-tag", title: L("Period", "समय") }, [el("span", { "aria-hidden": "true", text: "📅" }), el("span", { text: live ? L("Today", "आज तक") : periodWords(view.months) })]),
+    el("span", { class: "dash-tag", title: L("Period", "समय") }, [el("span", { "aria-hidden": "true", text: "📅" }), el("span", { text: periodWords(view.months) })]),
     el("span", { class: "dash-tag", title: L("Parties", "पार्टियाँ") }, [el("span", { "aria-hidden": "true", text: "👥" }), el("span", { text: partyListText(view) })]),
     (view.billChangeOk || view.inwardChangeOk) && !live ? el("span", { class: "dash-tag cmp", title: L("Compared with", "तुलना") }, [el("span", { "aria-hidden": "true", text: "⚖" }), el("span", { text: L(`vs ${view.compareText}`, `${view.compareText} से तुलना`) })]) : "",
   ];
@@ -1192,8 +1212,8 @@ function kpiRows(view) {
   const b = view.billed;
   const p = view.priorBilled;
   const w = view.inward;
-  const u = unbilledFor(view.partySet);
-  const stock = stockFor(view.partySet).total;
+  const u = unbilledFor(view.partySet, view.monthSet);
+  const stock = stockFor(view.partySet, view.monthSet).total;
   const t = thisMonthFor(view.partySet);
   const spark = sparkMonths(view);
   const vs = view.compareText;
@@ -1223,7 +1243,7 @@ function kpiRows(view) {
     kpi({ id: "kpi-unbilled", label: L("Waiting to be billed · estimate", "बिल बनाना बाक़ी · अनुमान"), value: rs(u.ready.value), title: rsFull(u.ready.value), tone: u.ready.entries ? "warn" : "",
       lines: [L(`${entriesText(u.ready.entries)} · ${num(u.ready.than)} THAN`, `${entriesText(u.ready.entries)} · ${num(u.ready.than)} थान`),
         u.daysWaiting ? L(`Longest wait: ${daysText(u.daysWaiting)}`, `सबसे लंबा इंतज़ार: ${daysText(u.daysWaiting)}`) : "",
-        L("As of today, whatever the period", "आज तक का, अवधि कोई भी हो")],
+        L("Came in during the period, unbilled as of today", "इस अवधि में आया, आज तक बिल बाक़ी")],
       action: [L("See the list", "List देखें"), () => goSection("unbilled")] }),
     kpi({ id: "kpi-cloth", label: L("Cloth received", "आया माल"), value: w.entries ? thanText(w.than) : "—",
       tone: changeTone(clothChange, { flat: 5 }) === "bad" ? "warn" : "",
@@ -1235,7 +1255,7 @@ function kpiRows(view) {
     kpi({ id: "kpi-stock", label: L("In the factory now", "अभी फ़ैक्ट्री में"), value: L(`${num(stock.pieces)} pieces`, `${num(stock.pieces)} नग`),
       lines: [L(`${entriesText(stock.entries)} not fully sent back`, `${entriesText(stock.entries)} पूरी नहीं गईं`),
         L(`${num(stock.undispatchedThan)} THAN on slips with no dispatch`, `बिना जावक वाली पर्चियों में ${num(stock.undispatchedThan)} थान`),
-        L("Dispatch balance in the register · as of today", "रजिस्टर में बाक़ी जावक · आज तक")],
+        L("Dispatch balance of the period's cloth · as of today", "इस अवधि के माल की बाक़ी जावक · आज तक")],
       action: [L("See stock", "स्टॉक देखें"), () => goSection("cloth")] }),
   ];
   const perChange = view.billChangeOk && perMeasured !== null && perBefore !== null ? change(perMeasured, perBefore) : null;
@@ -1246,7 +1266,7 @@ function kpiRows(view) {
       lines: [L("On saved invoices, not net GST payable", "सेव बिलों पर, शुद्ध देय GST नहीं"),
         b.gst ? [b.cgst ? `CGST ${rs(b.cgst)}` : "", b.sgst ? `SGST ${rs(b.sgst)}` : "", b.igst ? `IGST ${rs(b.igst)}` : ""].filter(Boolean).join(" · ") : ""],
       action: [L("GST by month", "Month-वार GST"), () => goSection("gst")] }),
-    kpi({ id: "kpi-discount", label: L("Discount given", "दिया गया Discount"), value: rs(b.discount), title: rsFull(b.discount),
+    kpi({ id: "kpi-discount", label: L("Discount given", "दिया गया Discount"), value: b.bills ? rs(b.discount) : "—", title: b.bills ? rsFull(b.discount) : "",
       lines: [b.gross ? L(`${pct((b.discount / b.gross) * 100)} of job charges (${rs(b.gross)})`, `Job Charge (${rs(b.gross)}) का ${pct((b.discount / b.gross) * 100)}`) : ""] }),
   ];
   return [
@@ -1322,7 +1342,7 @@ function finishesCard(view, { top = 0 } = {}) {
 function buildInsights(view) {
   const list = [];
   const m = dashState.model;
-  const u = unbilledFor(view.partySet);
+  const u = unbilledFor(view.partySet, view.monthSet);
   const b = view.billed;
   const p = view.priorBilled;
   const period = periodWords(view.months);
@@ -1387,7 +1407,7 @@ function buildInsights(view) {
         `${top.name} का हिस्सा बिल राशि का ${pct(top.share)} है; सबसे बड़ी ${five.length} पार्टियों का कुल हिस्सा ${pct(fiveShare)} है।`),
       action: go("parties", L("See parties", "पार्टियाँ देखें")) });
   }
-  const quiet = quietFor(view.partySet);
+  const quiet = quietFor(view);
   if (quiet.length) {
     const names = quiet.slice(0, 3).map((q) => L(`${partyName(q.party)} (usually ${num(q.usualThan)}, now ${num(q.recentThan)} THAN)`, `${partyName(q.party)} (आम तौर पर ${num(q.usualThan)}, अब ${num(q.recentThan)} थान)`)).join(", ");
     list.push({ tone: "warn", icon: "📞", title: quiet.length === 1 && view.partySet ? L("Sending less cloth", "कम माल आ रहा है") : L("Parties sending less cloth", "कम माल भेज रही पार्टियाँ"),
@@ -1410,7 +1430,7 @@ function buildInsights(view) {
         `बिना बिल लिंक की ${entriesText(u.noRate.entries)} (${num(u.noRate.than)} थान) में फ़िनिश या Rate नहीं है। अनुमान के लिए पुराने बिल लिए जाते हैं। फ़िनिश भरें या Masters में Rate जोड़ें।`) });
   }
   const t = thisMonthFor(view.partySet);
-  if (t.upTo) {
+  if (view.includesCurrent && t.upTo) {
     const c = change(t.than, t.sameDaysThan);
     const tone = changeTone(c, { flat: 5 });
     list.push({ tone: tone === "bad" ? "warn" : tone, icon: "📦", title: L(`Cloth received in ${monthOnly(t.month)}: ${thanText(t.than)}`, `${monthOnly(t.month)} में आया माल: ${thanText(t.than)}`),
@@ -1712,10 +1732,10 @@ function compareSection(view) {
   ];
 }
 
-// ---------- To be billed (as of today) ----------
+// ---------- To be billed (cloth that came in during the period, as of today) ----------
 function unbilledSection(view) {
   const m = dashState.model;
-  const u = unbilledFor(view.partySet);
+  const u = unbilledFor(view.partySet, view.monthSet);
   const total = u.ageing.reduce((sum, b) => sum + b.value, 0);
   const ageBar = el("div", { class: "age-bar", role: "img", "aria-label": L("Work without a bill, by days waiting", "बिना बिल का काम, इंतज़ार के दिनों के अनुसार") },
     u.ageing.filter((b) => b.value > 0).map((b) => el("span", { class: `age-seg age-${b.key.replace("+", "plus")}`, style: `flex-grow: ${b.value}`, title: `${AGE_TEXT[b.key][dashHindi() ? 1 : 0]}: ${rsFull(b.value)}` })));
@@ -1753,8 +1773,8 @@ function unbilledSection(view) {
   ]);
   return [
     card("dash-unbilled", L("Billing queue to reconcile", "बिलिंग सूची मिलाएँ"),
-      L("As of today, whatever the period. No bill link is not proof that work was never billed. Check saved bills, Excel and dispatch details before invoicing.",
-        "आज तक का, अवधि कोई भी हो। बिल लिंक न होना यह साबित नहीं करता कि बिल नहीं बना। बिल बनाने से पहले सेव बिल, Excel और जावक जाँचें।"), [
+      L("Cloth that came in during the period, as of today. No bill link is not proof that work was never billed. Check saved bills, Excel and dispatch details before invoicing.",
+        "इस अवधि में आया माल, आज तक। बिल लिंक न होना यह साबित नहीं करता कि बिल नहीं बना। बिल बनाने से पहले सेव बिल, Excel और जावक जाँचें।"), [
         all.length ? el("div", { class: "unbilled-top" }, [
           el("div", { class: "unbilled-big" }, [el("span", { class: "kpi-label", text: L("Estimated before GST", "GST से पहले अनुमान") }), el("b", { class: "kpi-value", title: rsFull(u.ready.value), text: rs(u.ready.value) }),
             el("span", { class: "muted", text: L(`${entriesText(u.ready.entries)} · ${num(u.ready.than)} THAN. Age from the last valid dispatch, or from inward if none:`, `${entriesText(u.ready.entries)} · ${num(u.ready.than)} थान। आख़िरी सही जावक से समय, नहीं तो आवक से:`) })]),
@@ -1788,7 +1808,7 @@ function reviewFlags(u) {
 function clothSection(view) {
   const w = view.inward;
   const t = thisMonthFor(view.partySet);
-  const stock = stockFor(view.partySet).total;
+  const stock = stockFor(view.partySet, view.monthSet).total;
   const ok = view.inwardChangeOk;
   const mw = view.measuredInward;
   const sameDays = change(t.than, t.sameDaysThan);
@@ -1797,11 +1817,11 @@ function clothSection(view) {
       L(`${entriesText(w.entries)} · ${num(w.pieces)} pieces`, `${entriesText(w.entries)} · ${num(w.pieces)} नग`), w.value ? L(`Work worth about ${rs(w.value)} at today's rates`, `आज के Rate पर लगभग ${rs(w.value)} का काम`) : ""] }),
     kpi({ id: "kpi-cloth-sent", label: L("Sent back", "वापस भेजा"), value: L(`${num(w.sent)} pieces`, `${num(w.sent)} नग`), lines: [trendLine(ok ? change(mw.sent, view.priorInward.sent) : null, view.compareText, { flat: 5 }),
       L("Dispatches dated in the period", "इस अवधि की तारीख़ वाली जावक")] }),
-    kpi({ id: "kpi-cloth-month", label: L(`This month so far · ${monthOnly(t.month)}`, `यह Month अब तक · ${monthOnly(t.month)}`), value: t.upTo ? thanText(t.than) : "—",
+    ...(view.includesCurrent ? [kpi({ id: "kpi-cloth-month", label: L(`This month so far · ${monthOnly(t.month)}`, `यह Month अब तक · ${monthOnly(t.month)}`), value: t.upTo ? thanText(t.than) : "—",
       tone: changeTone(sameDays, { flat: 5 }) === "bad" ? "warn" : "",
       lines: [t.upTo ? L(`Recorded through ${niceDate(t.upTo)} · ${entriesText(t.entries)}`, `${niceDate(t.upTo)} तक दर्ज · ${entriesText(t.entries)}`) : L("No inward entries recorded this month", "इस महीने कोई आवक दर्ज नहीं"),
         trendLine(sameDays, L("same recorded days last month", "पिछले महीने के इन्हीं दर्ज दिनों"), { flat: 5 }),
-        t.upTo && sameDays === null ? L("No comparable prior-month data", "पिछले महीने का तुलनीय डेटा नहीं") : ""] }),
+        t.upTo && sameDays === null ? L("No comparable prior-month data", "पिछले महीने का तुलनीय डेटा नहीं") : ""] })] : []),
     kpi({ id: "kpi-cloth-stock", label: L("In the factory now", "अभी फ़ैक्ट्री में"), value: L(`${num(stock.pieces)} pieces`, `${num(stock.pieces)} नग`),
       lines: [L(`${entriesText(stock.entries)} · as of today`, `${entriesText(stock.entries)} · आज तक`), L(`${num(stock.undispatchedThan)} THAN on slips with no dispatch`, `बिना जावक वाली पर्चियों में ${num(stock.undispatchedThan)} थान`)] }),
   ];
@@ -1845,7 +1865,7 @@ function clothTableCard(view) {
 }
 
 function stockCard(view) {
-  const stock = stockFor(view.partySet);
+  const stock = stockFor(view.partySet, view.monthSet);
   const rows = [
     [L("Unbilled (standard)", "बिना बिल (सामान्य)"), stock.unbilled],
     [L("Unbilled (can bill before dispatch)", "बिना बिल (पहले बिल की अनुमति)"), stock.beforeDispatch],
@@ -1857,14 +1877,14 @@ function stockCard(view) {
     el("td", { class: "left", text: label }),
     ...[balance.entries, balance.pieces, balance.undispatchedThan, balance.partialEntries].map((value) => td(num(value))),
   ]);
-  return card("dash-stock", L("Recorded dispatch balance", "रजिस्टर में बाक़ी जावक"), L("As of today. Pieces left = THAN + TP + TWO PART − dispatched, per slip. This is not a physical stock count.", "आज तक। बाक़ी नग = हर पर्ची में थान + TP + TWO PART − जावक। यह असली स्टॉक की गिनती नहीं है।"), [
+  return card("dash-stock", L("Recorded dispatch balance", "रजिस्टर में बाक़ी जावक"), L("Cloth that came in during the period, as of today. Pieces left = THAN + TP + TWO PART − dispatched, per slip. This is not a physical stock count.", "इस अवधि में आया माल, आज तक। बाक़ी नग = हर पर्ची में थान + TP + TWO PART − जावक। यह असली स्टॉक की गिनती नहीं है।"), [
     dashTable([th(L("Status", "स्थिति"), "left"), th(L("Entries", "Entries")), th(L("Pieces left", "बाक़ी नग")), th(L("THAN on slips with no dispatch", "बिना जावक पर्चियों के थान")), th(L("Partly dispatched slips", "आंशिक जावक की पर्चियाँ"))],
       rows.map(([label, balance]) => row(label, balance)), { foot: [row(L("Total recorded balance", "कुल दर्ज बाक़ी"), stock.total)] }),
   ]);
 }
 
 function quietCard(view) {
-  const quiet = quietFor(view.partySet);
+  const quiet = quietFor(view);
   const end = niceDate(dashState.model.f.coverage.lastInward);
   return card("dash-quiet", view.parties.length === 1 ? L("Recent inward pace", "हाल की आवक की रफ़्तार") : L("Parties sending less cloth", "कम माल भेज रही पार्टियाँ"),
     end ? L(`30 days ending ${end} versus the earlier recorded pace`, `${end} तक के 30 दिनों की पुरानी दर्ज रफ़्तार से तुलना`) : "", [
@@ -1874,7 +1894,8 @@ function quietCard(view) {
           td(num(q.usualThan)),
           td(num(q.recentThan), "num low"),
           td(L(`${niceDate(q.lastInward)} (${num(q.daysSinceLast)} days ago)`, `${niceDate(q.lastInward)} (${num(q.daysSinceLast)} दिन पहले)`), "num wrap-ok"),
-        ]))) : emptyNote(L("No slowdown flagged in the available inward data.", "दर्ज आवक में कोई कमी चिन्हित नहीं।")),
+        ]))) : emptyNote(view.includesCurrent ? L("No slowdown flagged in the available inward data.", "दर्ज आवक में कोई कमी चिन्हित नहीं।")
+          : L("Slowdowns are checked for periods that include the current month.", "कमी की जाँच उन अवधियों की होती है जिनमें मौजूदा Month शामिल है।")),
     ]);
 }
 
@@ -1951,9 +1972,9 @@ function renderPartyPanel() {
   const b = billOf(total(m.f.bills, view.monthSet));
   const p = billOf(view.compareOn ? total(m.f.bills, view.compareSet) : null);
   const w = inwardOf(total(m.f.inward, view.monthSet));
-  const u = unbilledFor(only);
-  const stock = stockFor(only).total;
-  const quiet = m.quiet.get(i);
+  const u = unbilledFor(only, view.monthSet);
+  const stock = stockFor(only, view.monthSet).total;
+  const quiet = quietFor(view).find((q) => q.party === i);
   const byMonth = rollup(m.f.bills, { parties: only, by: (row) => row[1] });
   const inByMonth = rollup(m.f.inward, { parties: only, by: (row) => row[1] });
   const months = chartMonths(view);

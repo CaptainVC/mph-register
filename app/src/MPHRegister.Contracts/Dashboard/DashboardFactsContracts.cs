@@ -12,11 +12,11 @@ namespace MPHRegister.Contracts.Dashboard;
 /// [party, month, bills, than, gross, discount, taxable, cgst, sgst, igst, total]. THAN is the priced quantity.</param>
 /// <param name="FinishLines">Priced lines of those bills per party, month and finish: [party, month, finish, than, amount]
 /// (amount before discount).</param>
-/// <param name="Inward">Register entries dated up to today per party and inward month, with the pieces sent back per dispatch
+/// <param name="Inward">Register entries dated up to today (from the first register month on) per party and inward month, with the pieces sent back per dispatch
 /// month: [party, month, entries, than, pieces, repairEntries, repairThan, value, sentPieces]. Pieces = THAN + TP + TWO PART;
 /// value is the work at today's rates less discount (repairs excluded), an estimate.</param>
-/// <param name="Unbilled">Work with no bill link, as of today, per bill-to party (only parties with such work).</param>
-/// <param name="Stock">Positive dispatch balances, as of today, per register party (only parties with a balance).</param>
+/// <param name="Unbilled">Work with no bill link, as of today, per bill-to party and inward month (only those with such work).</param>
+/// <param name="Stock">Positive dispatch balances, as of today, per register party and inward month (only those with a balance).</param>
 /// <param name="Quiet">Parties that sent much less cloth in the 30 days up to the last inward date than usual.</param>
 public sealed record DashboardFactsDto(
     string Today,
@@ -43,6 +43,7 @@ public sealed record FactsParty(string Name, string Group, bool Active, bool NoB
 /// One bill-to party's work with no recorded bill link, valued at its rate less discount (or its usual income per THAN when the
 /// finish or rate is missing). Ready work is dispatched, or may be billed before dispatch; the rest is still in the factory.
 /// </summary>
+/// <param name="Month">Inward month of the work, an index into <see cref="DashboardFactsDto.Months"/>.</param>
 /// <param name="NoRate">Open work (ready or not) without a finish or a rate for it.</param>
 /// <param name="Old">Ready work waiting more than <see cref="DashboardFactsDto.OldAfterDays"/> days.</param>
 /// <param name="Oldest">Earliest inward date of the ready work.</param>
@@ -51,6 +52,7 @@ public sealed record FactsParty(string Name, string Group, bool Active, bool NoB
 /// <param name="EarlierInward">Ready work that came in on or before the latest saved bill of all parties (the last billing run).</param>
 public sealed record FactsUnbilled(
     int Party,
+    int Month,
     WorkEstimate Ready,
     WorkEstimate Factory,
     WorkEstimate NoRate,
@@ -63,7 +65,8 @@ public sealed record FactsUnbilled(
     WorkEstimate DispatchIssue,
     WorkEstimate BeforeDispatch);
 
-public sealed record FactsStock(int Party, StockBalance Total, StockBalance Unbilled, StockBalance BeforeDispatch, StockBalance Billed, StockBalance Repairs, StockBalance NoBill);
+/// <param name="Month">Inward month of the entries, an index into <see cref="DashboardFactsDto.Months"/>.</param>
+public sealed record FactsStock(int Party, int Month, StockBalance Total, StockBalance Unbilled, StockBalance BeforeDispatch, StockBalance Billed, StockBalance Repairs, StockBalance NoBill);
 
 /// <param name="UsualThan">THAN it sent in an average 30 days over the 90 days before the last 30.</param>
 public sealed record FactsQuiet(int Party, int UsualThan, int RecentThan, string LastInward, int DaysSinceLast);

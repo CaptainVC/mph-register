@@ -338,7 +338,10 @@ public sealed class ApiDashboardTests(DashboardApiFactory factory) : IClassFixtu
         Assert.Equal([d.Review.EarlierInward, d.Review.MissingRate, d.Review.DispatchIssue, d.Review.BeforeDispatch],
             [Sum(f.Unbilled.Select(q => q.EarlierInward)), Sum(f.Unbilled.Select(q => q.MissingRate)), Sum(f.Unbilled.Select(q => q.DispatchIssue)), Sum(f.Unbilled.Select(q => q.BeforeDispatch))]);
         Assert.Equal(d.UnbilledParties.Select(p => (p.Party, p.Entries, p.Than, p.Value, p.Oldest, p.DaysWaiting, p.FactoryThan, p.FactoryValue)),
-            f.Unbilled.Select(q => (Name(q.Party), q.Ready.Entries, q.Ready.Than, q.Ready.Value, q.Oldest ?? string.Empty, q.DaysWaiting, q.Factory.Than, q.Factory.Value)));
+            f.Unbilled.GroupBy(q => Name(q.Party)).Select(g => (Party: g.Key, Ready: Sum(g.Select(q => q.Ready)), Oldest: g.Select(q => q.Oldest).Where(o => o is not null).Min() ?? string.Empty,
+                    DaysWaiting: g.Max(q => q.DaysWaiting), Factory: Sum(g.Select(q => q.Factory))))
+                .OrderByDescending(p => p.Ready.Value).ThenByDescending(p => p.Ready.Than).ThenByDescending(p => p.Factory.Value).ThenBy(p => p.Party, StringComparer.OrdinalIgnoreCase)
+                .Select(p => (p.Party, p.Ready.Entries, p.Ready.Than, p.Ready.Value, p.Oldest, p.DaysWaiting, p.Factory.Than, p.Factory.Value)));
         // Earlier inward is measured against the last billing run of all parties, so DASH QUIET's September cloth counts too.
         Assert.Equal(new WorkEstimate(1, 90, 810), f.Unbilled.Single(q => Name(q.Party) == "DASH QUIET").EarlierInward);
 
@@ -389,5 +392,32 @@ public sealed class ApiDashboardTests(DashboardApiFactory factory) : IClassFixtu
         Assert.Equal(("2026-11", "2026-11-12", true), (f.ThisMonth.Month, f.ThisMonth.UpTo, f.ThisMonth.Comparable));
         Assert.Equal([new FactsPartyCount(P("STOCK"), 2, 18)], f.ThisMonth.SameDaysLastMonth);
         Assert.Equal(d.ThisMonth.LastMonthSameDaysThan, f.ThisMonth.SameDaysLastMonth.Sum(c => c.Than));
+    }
+
+    [Fact]
+    public async Task Facts_do_not_count_work_carried_in_from_before_the_register_as_cloth_received_that_month()
+    {
+        using var isolated = new DashboardApiFactory();
+        var app = isolated.App();
+        await Setup.Basics(app);
+        await app.Post("/api/masters/party", Setup.Party("OPENING", discount: 0)).Ok();
+        await app.Put("/api/masters/party/rate", new { party = "OPENING", finish = "F1", rate = 100 }).Ok();
+        static object Carried(int inward, string date, string sent) => new
+        {
+            registerMonth = "2026-04", inwardNo = inward, entryDate = date, party = "OPENING", designNo = "", lotNo = "", repair = false, than = 10, tp = 0, twoPart = 0,
+            finish = "F1", carriedOver = true, dispatches = new[] { new DispatchBody(4, "GP", sent) },
+        };
+        await Add(app, Carried(1, "2026-03-20", "2026-03-25"));
+        await Add(app, Entry(2, "OPENING", "F1", 5, "2026-04-02", "2026-04-03"));
+        var (f, _) = await Facts(app);
+        int M(string month) => f.Months.ToList().IndexOf(month);
+
+        // March holds only what was carried in: nothing was received or sent back in March, and the work left counts in April.
+        Assert.DoesNotContain(f.Inward, r => r[1] == M("2026-03"));
+        Assert.Equal([[0, M("2026-04"), 1, 5, 5, 0, 0, 500, 5]], f.Inward);
+        Assert.Equal([M("2026-04")], f.Unbilled.Select(q => (long)q.Month).Distinct());
+        Assert.Equal(new WorkEstimate(2, 15, 1500), Sum(f.Unbilled.Select(q => q.Ready)));
+        Assert.Equal([M("2026-04")], f.Stock.Select(s => (long)s.Month));
+        Assert.Equal(6, Sum(f.Stock.Select(s => s.Total)).Pieces);
     }
 }
