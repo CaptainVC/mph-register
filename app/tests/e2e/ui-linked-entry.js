@@ -61,6 +61,8 @@ async function toggleMonth(page, label) {
     await page.locator('[data-view="register"]').click();
     await page.locator(".colset button", { hasText: "Main" }).first().click();
     await toggleMonth(page, "Jul 2026");
+    // The month's rows are read and drawn after the list closes.
+    await page.locator("#registerTable thead th").first().waitFor();
 
     // The column is in Main (and All), right after BILL NO.; the D.N. stays plain text.
     const headers = await page.locator("#registerTable thead th").evaluateAll((cells) => cells.filter((c) => c.offsetParent).map((c) => c.textContent.trim()));
