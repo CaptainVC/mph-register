@@ -427,7 +427,17 @@ function dispatchRow(data = {}) {
   if (data.dateText) date.title = `Original text: ${data.dateText}`;
   qty.addEventListener("input", updateDispatchSummary);
   // Enter walks JAWAK NAG → GATE PASS NO → DATE, then saves like the last entry box does.
-  qty.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); gate.focus(); gate.select(); } });
+  qty.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    // An empty JAWAK NAG takes what is left to send (shown greyed in the box).
+    if (!qty.value && Number(qty.dataset.offer) > 0) {
+      qty.value = qty.dataset.offer;
+      updateDispatchSummary();
+    }
+    gate.focus();
+    gate.select();
+  });
   gate.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); date.focus(); } });
   date.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); $("entryForm").requestSubmit(); } });
   const remove = el("button", { type: "button", class: "link", text: "Remove", title: "Remove this dispatch row", onclick: () => {
@@ -466,6 +476,10 @@ function readDispatches() {
   })).filter((d) => d.qty !== null || d.gatePass !== "");
 }
 
+function sendAllTip(qty) {
+  return `Press Enter to send all ${num(qty)}`;
+}
+
 function updateDispatchSummary() {
   const dispatched = readDispatches().reduce((sum, d) => sum + (Number.isInteger(d.qty) ? d.qty : 0), 0);
   const available = nagOfForm() + (intOrNull($("twoPart").value) || 0);
@@ -473,6 +487,12 @@ function updateDispatchSummary() {
   $("dispatchTotal").textContent = num(available);
   $("dispatchSent").textContent = num(dispatched);
   $("dispatchBalance").textContent = num(balance);
+  for (const box of $("dispatchRows").querySelectorAll(".d-qty")) {
+    const offer = !box.value && balance > 0 ? balance : 0;
+    box.dataset.offer = String(offer);
+    box.placeholder = offer ? num(offer) : "";
+    box.title = offer ? sendAllTip(offer) : "";
+  }
   const stat = $("dispatchBalanceStat");
   stat.classList.toggle("pending", balance > 0 && dispatched > 0);
   stat.classList.toggle("done", balance === 0 && available > 0);
@@ -884,6 +904,52 @@ function fillAawakCell(td, entry) {
   });
 }
 
+// ---------- Columns: Main / JAWAK / All (like Excel) ----------
+// Main and JAWAK each fit a laptop screen without sideways scrolling; All is every column, as in the Excel register.
+const DISPATCH_TITLES = [0, 1, 2].flatMap((i) => [`JAWAK NAG ${i + 1}`, `GATE PASS NO ${i + 1}`, `DATE ${i + 1}`]);
+const COLUMN_SETS = {
+  main: ["INW. NO.", "DATE", "PARTY", "D.N.", "LOT N.", "REP.", "THAN", "TP", "NAG", "FINISH", "NETT THAN", "BILL NO.", "BALANCE", "WARNINGS"],
+  jawak: ["INW. NO.", "DATE", "PARTY", "LOT N.", "NAG", "NETT THAN", "TWO PART", ...DISPATCH_TITLES, "MORE JAWAK", "SHORT THAN", "BALANCE"],
+};
+// The laptop layout in app.css starts at the same height. A short window starts on Main, a tall one on All.
+const SHORT_WINDOW = matchMedia("(max-height: 820px)");
+// Register entries ticked in JAWAK to be marked sent in full on one gate pass (by entry id).
+const sendPicks = new Set();
+const COLUMN_CELLS = ":is(thead th, tr[data-entry-id] > td)";
+
+function columnSetStyles() {
+  const hidden = (set) => COLUMNS.flatMap(([title], i) => (COLUMN_SETS[set].includes(title) ? [] : [`:nth-child(${i + 1})`])).join(", ");
+  const balance = COLUMNS.findIndex(([title]) => title === "BALANCE") + 1;
+  return [
+    ...Object.keys(COLUMN_SETS).map((set) => `table.cols-${set} ${COLUMN_CELLS}:is(${hidden(set)}) { display: none; }`),
+    // In All, BALANCE stays at the right edge while the wide table is scrolled; the row's own colour still shows.
+    `table.cols-all ${COLUMN_CELLS}:nth-child(${balance}) { position: sticky; right: 0; box-shadow: -2px 0 0 var(--line); }`,
+    `:where(table.cols-all) tr[data-entry-id] > td:nth-child(${balance}) { z-index: 1; background: var(--panel); }`,
+    `table.cols-all thead th:nth-child(${balance}) { z-index: 3; }`,
+    `@media (max-height: 820px) { #recentTable ${COLUMN_CELLS}:is(${hidden("main")}) { display: none; } }`,
+  ].join("\n");
+}
+document.head.append(el("style", { id: "columnSets", text: columnSetStyles() }));
+
+function columnSetOf(table) {
+  let saved = null;
+  try { saved = localStorage.getItem(`mph-columns-${table.id}`); } catch { /* private mode */ }
+  if (saved === "all" || COLUMN_SETS[saved]) return saved;
+  return SHORT_WINDOW.matches ? "main" : "all";
+}
+
+function showColumnSet(table, set) {
+  for (const name of ["all", ...Object.keys(COLUMN_SETS)]) table.classList.toggle(`cols-${name}`, name === set);
+  document.querySelectorAll(`.colset[data-table="${table.id}"] button`).forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.set === set));
+  });
+  if (table.id === "registerTable") updateSendFullBar();
+}
+
+function cellShown(td) {
+  return getComputedStyle(td).display !== "none";
+}
+
 function fillIdentifierCell(td, value) {
   const segments = String(value ?? "").split(/(,)/);
   segments.forEach((segment, index) => {
@@ -1031,16 +1097,119 @@ function fillEntryCell(td, entry, index) {
   const spec = CELL_SPECS[index];
   td.className = typeof cls === "function" ? cls(entry) : cls || "";
   td.removeAttribute("title");
-  td.replaceChildren();
+  // The tick box survives a redraw of its row: a click on it first ends a cell edit in the same row, which redraws the
+  // row, and a new box would miss that click.
+  const pick = index === 0 && canSendFull(entry) ? td.querySelector(":scope > .send-pick") || sendPickBox() : null;
+  for (const node of [...td.childNodes]) if (node !== pick) node.remove();
   const draft = spec?.dispatch !== undefined ? dispatchDraft(entry, spec.dispatch) : null;
   if (draft) {
     td.textContent = draftCellText(draft, spec.part);
     td.classList.add("cell-draft");
     td.title = DRAFT_TIP;
   } else if (render) render(td, entry);
-  else td.textContent = String(value(entry));
+  else td.append(String(value(entry)));
   if (cellEditable(entry, index)) td.classList.add("editable");
+  if (pick) {
+    pick.checked = sendPicks.has(entry.id);
+    pick.setAttribute("aria-label", `Tick INW. NO. ${entry.inwardNo} to send it in full`);
+    if (td.firstChild !== pick) td.prepend(pick);
+  }
 }
+
+// ---------- JAWAK: several entries sent in full on one gate pass ----------
+// In the Register's JAWAK columns each entry with something left to send has a tick box; the bar under the table then
+// adds one dispatch of what is left to every ticked entry, with the gate pass and date typed once.
+function canSendFull(entry) {
+  return entry.balance > 0 && entry.status !== "allZero";
+}
+
+function sendPickBox() {
+  const box = el("input", { type: "checkbox", class: "send-pick" });
+  box.addEventListener("click", (event) => event.stopPropagation());
+  box.addEventListener("change", () => {
+    const id = Number(box.closest("tr").dataset.entryId);
+    if (box.checked) sendPicks.add(id); else sendPicks.delete(id);
+    updateSendFullBar();
+  });
+  return box;
+}
+
+function pickedForSending() {
+  return registerShown.filter((entry) => sendPicks.has(entry.id) && canSendFull(entry));
+}
+
+function updateSendFullBar() {
+  const bar = $("sendFullBar");
+  const picked = $("registerTable").classList.contains("cols-jawak") ? pickedForSending() : [];
+  bar.classList.toggle("hidden", picked.length === 0);
+  if (!picked.length) return;
+  const parties = [...new Set(picked.map((entry) => entry.party))];
+  const left = picked.reduce((sum, entry) => sum + entry.balance, 0);
+  $("sendFullSummary").replaceChildren(
+    el("b", { text: picked.length === 1 ? "1 entry ticked" : `${num(picked.length)} entries ticked` }),
+    ` · ${parties.length > 2 ? `${num(parties.length)} parties` : parties.join(", ")} · `,
+    el("b", { text: `${num(left)} NAG` }),
+    " still to send",
+  );
+  $("sendFullSave").textContent = picked.length === 1 ? "Mark it sent in full" : `Mark all ${num(picked.length)} sent in full`;
+  if (!$("sendFullDate").value) $("sendFullDate").value = todayIso();
+}
+
+function clearSendPicks() {
+  sendPicks.clear();
+  document.querySelectorAll(".send-pick").forEach((box) => { box.checked = false; });
+  updateSendFullBar();
+}
+
+$("sendFullClear").addEventListener("click", clearSendPicks);
+$("sendFullGatePass").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") { event.preventDefault(); $("sendFullDate").focus(); }
+});
+$("sendFullDate").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") { event.preventDefault(); $("sendFullSave").click(); }
+});
+$("sendFullSave").addEventListener("click", async () => {
+  const picked = pickedForSending();
+  const gatePass = $("sendFullGatePass").value.trim();
+  const date = $("sendFullDate").value || todayIso();
+  if (!picked.length) return;
+  if (!gatePass) {
+    toast("Type the gate pass number first.", "err");
+    $("sendFullGatePass").classList.add("invalid");
+    $("sendFullGatePass").focus();
+    return;
+  }
+  $("sendFullGatePass").classList.remove("invalid");
+  const button = $("sendFullSave");
+  button.disabled = true;
+  const sent = [];
+  const failed = [];
+  for (const entry of picked) {
+    const tr = $("registerTable").querySelector(`tr[data-entry-id="${entry.id}"]`);
+    if (!tr) continue;
+    try {
+      // What is left is worked out again just before saving, on top of any save still running for this row.
+      await queueEntrySave(tr, (payload) => {
+        const left = rowEntry.get(tr).balance;
+        if (left > 0) payload.dispatches.push({ qty: left, gatePass, date });
+      });
+      sendPicks.delete(entry.id);
+      sent.push(entry);
+    } catch (error) {
+      failed.push(`INW. NO. ${entry.inwardNo}: ${error.errors ? error.errors.join(" ") : error.message}`);
+    }
+  }
+  button.disabled = false;
+  if (sent.length) {
+    const numbers = sent.map((entry) => entry.inwardNo).join(", ");
+    toast(`Saved ✓ ${sent.length === 1 ? "1 entry" : `${num(sent.length)} entries`} sent in full: INW. NO. ${numbers} · gate pass ${gatePass} · ${formatDate(date)}`);
+    const billed = sent.filter((entry) => entry.billedIn).map((entry) => entry.inwardNo);
+    if (billed.length) toast(`Already billed: INW. NO. ${billed.join(", ")}. Changing an entry does not change its bill.`, "warn");
+    $("sendFullGatePass").value = "";
+  }
+  for (const message of failed) toast(`Not saved for ${message}`, "err");
+  updateSendFullBar();
+});
 
 function entryRow(entry) {
   const tr = el("tr", {}, COLUMNS.map(() => el("td")));
@@ -1086,7 +1255,13 @@ function openCellEditor(td) {
   td.classList.add("cell-editing");
   td.replaceChildren(input);
   input.style.minWidth = `${width}px`;
-  const editor = { td, tr, spec, input, original, busy: false, closed: false };
+  const editor = { td, tr, spec, input, original, busy: false, closed: false, offer: null };
+  // An empty new JAWAK NAG offers what is left to send: Enter or Tab takes it, typing replaces it.
+  if (isNewSlot && spec.part === "qty" && !initial && entry.balance > 0) {
+    editor.offer = entry.balance;
+    input.placeholder = num(entry.balance);
+    input.title = sendAllTip(entry.balance);
+  }
   activeCellEditor = editor;
   if (spec.kind === "list") {
     attachSuggestions(input, (text) => masterSuggestions(spec.items, text, original), {
@@ -1176,7 +1351,7 @@ function moveCellEditor(editor, move) {
     target = rows[rows.indexOf(tr) + move.rows]?.cells[td.cellIndex] || null;
   } else {
     for (let i = td.cellIndex + move.cols; i > 0 && i < tr.cells.length; i += move.cols) {
-      if (cellEditable(rowEntry.get(tr), i)) { target = tr.cells[i]; break; }
+      if (cellEditable(rowEntry.get(tr), i) && cellShown(tr.cells[i])) { target = tr.cells[i]; break; }
     }
   }
   if (target && openCellEditor(target)) target.scrollIntoView({ block: "nearest", inline: "nearest" });
@@ -1252,7 +1427,8 @@ async function commitCellEditor(editor, move, fromBlur = false) {
   editor.busy = true;
   const { tr, td, spec, input } = editor;
   const entry = rowEntry.get(tr);
-  const text = spec.kind === "list" ? canonicalName(spec, input.value) : input.value.trim();
+  let text = spec.kind === "list" ? canonicalName(spec, input.value) : input.value.trim();
+  if (!text && editor.offer && !fromBlur) text = String(editor.offer);
   const fail = (message) => {
     toast(message, "err");
     if (fromBlur || activeCellEditor !== editor || !input.isConnected) {
@@ -1681,6 +1857,23 @@ const registerRowFilter = rowFilters($("registerFilters"), () => renderRegister(
 let registerRenderVersion = 0;
 // The rows on screen, so a cell saved in place can update the totals without redrawing the table.
 let registerShown = [];
+// The Columns switch on Register and Party-wise (COLUMN_SETS).
+document.querySelectorAll(".colset").forEach((group) => {
+  const table = $(group.dataset.table);
+  showColumnSet(table, columnSetOf(table));
+  group.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-set]");
+    if (!button) return;
+    try { localStorage.setItem(`mph-columns-${table.id}`, button.dataset.set); } catch { /* private mode */ }
+    showColumnSet(table, button.dataset.set);
+  });
+});
+// Until a choice is made, the columns follow the window: maximising or shrinking it switches between Main and All.
+SHORT_WINDOW.addEventListener("change", () => document.querySelectorAll(".colset").forEach((group) => {
+  const table = $(group.dataset.table);
+  showColumnSet(table, columnSetOf(table));
+}));
+
 const SEARCH_SUGGESTION_LIMIT = 5;
 const SEARCH_SUGGESTION_FIELDS = [
   ["PARTY", (e) => [e.party]],
@@ -1734,7 +1927,21 @@ async function renderRegister() {
   countEl.textContent = `${num(shown.length)} of ${num(entries.length)} entries`;
   countEl.classList.toggle("filtered", shown.length !== entries.length);
   renderTotals($("registerTotals"), shown);
+  updateSendFullBar();
+  // Opening the Register, or another month or year, starts at the newest entries (the bottom), where the work is.
+  if (registerJumpToNewest || periodKey !== registerLastPeriod) scrollRegister("newest");
+  registerJumpToNewest = false;
+  registerLastPeriod = periodKey;
 }
+
+let registerJumpToNewest = false;
+let registerLastPeriod = null;
+function scrollRegister(where) {
+  const wrap = $("registerTable").parentElement;
+  wrap.scrollTop = where === "newest" ? wrap.scrollHeight : 0;
+}
+$("registerTop").addEventListener("click", () => scrollRegister("top"));
+$("registerNewest").addEventListener("click", () => scrollRegister("newest"));
 
 ["registerSearch", "registerViewMonth"].forEach((id) => $(id).addEventListener("input", renderRegister));
 $("registerSearch").addEventListener("input", () => { registerSearchPick = null; });
@@ -2198,7 +2405,10 @@ function switchView(name) {
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${name}`));
   $("menuSettings")?.classList.toggle("active", name === "settings");
   let loading = null;
-  if (name === "register") loading = fillMonthSelect($("registerViewMonth"), true).then(renderRegister);
+  if (name === "register") {
+    registerJumpToNewest = true;
+    loading = fillMonthSelect($("registerViewMonth"), true).then(renderRegister);
+  }
   if (name === "partywise") loading = fillMonthSelect($("partyViewMonth"), true).then(renderPartywise);
   if (name === "bills" && typeof showBills === "function") loading = showBills();
   if (name === "masters" && typeof showMasters === "function") loading = showMasters();

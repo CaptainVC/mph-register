@@ -253,7 +253,7 @@ p { margin: 0; }
 }
 .panel-top .field > label { font-size: 14.5px; font-weight: 700; color: var(--heading); }
 .panel-top .month-field { flex: 0 0 215px; }
-.panel-top .search-field { flex: 1 1 320px; max-width: 580px; }
+.panel-top .search-field { flex: 1 1 220px; max-width: 580px; }
 .panel-top [data-dropdown], .panel-top input { height: 44px; font-size: 16.5px; }
 .panel-btn { height: 44px; font-size: 16px; padding: 0 18px; }
 .search-box { position: relative; display: flex; align-items: center; }
@@ -576,10 +576,12 @@ table.register td.left { text-align: left; }
   left: calc(var(--col-inw) + var(--col-date)); width: var(--col-party); min-width: var(--col-party); max-width: var(--col-party);
   box-shadow: 2px 0 0 var(--line);
 }
-:where(#registerTable, #partyTable) :is(thead th, tr[data-entry-id] > td):is(:nth-child(4), :nth-child(5)) {
+/* D.N. and LOT N. keep the same width in "Recently saved here", so a long lot list wraps at its commas on two lines
+   instead of standing one number per line. */
+:where(#registerTable, #partyTable, #recentTable) :is(thead th, tr[data-entry-id] > td):is(:nth-child(4), :nth-child(5)) {
   box-sizing: border-box; width: 112px; min-width: 112px; max-width: 112px;
 }
-:where(#registerTable, #partyTable) tr[data-entry-id] > td:is(:nth-child(4), :nth-child(5)) {
+:where(#registerTable, #partyTable, #recentTable) tr[data-entry-id] > td:is(:nth-child(4), :nth-child(5)) {
   white-space: normal; overflow-wrap: normal;
 }
 :where(#registerTable, #partyTable) tr[data-entry-id] > td:nth-child(-n+3) { z-index: 1; background: var(--panel); }
@@ -849,8 +851,10 @@ table.mini caption { caption-side: bottom; text-align: center; padding: 20px 12p
   background: none; color: var(--muted); border: 0; border-bottom: 2px solid transparent; border-radius: 0; height: 44px; padding: 0 16px;
   font-size: 16.5px; font-weight: 700; margin-bottom: -1px;
 }
-.subtab:hover { background: none; color: var(--heading); }
-.subtab.active { border-bottom-color: var(--accent); color: var(--accent); }
+/* button.subtab outranks the general button:hover, which would paint a hovered sub-tab solid blue (and the active
+   one's blue text with it). */
+button.subtab:hover { background: none; border-color: transparent; color: var(--heading); }
+button.subtab.active, button.subtab.active:hover { border-bottom-color: var(--accent); color: var(--accent); }
 /* The entry list scrolls independently; review and save actions always stay in reach. */
 body:has(#view-bills.active) { grid-template-columns: minmax(0, 1fr); }
 .bill-date-card {
@@ -1554,3 +1558,209 @@ table.totals-table { width: auto; min-width: 280px; }
 table.totals-table tfoot th { text-align: right; }
 table.totals-table tfoot th:first-child { text-align: left; }
 .check-card h2 { display: flex; gap: 10px; align-items: center; }
+
+/* ---------- Columns switch, going to the top or the newest entries, sending several entries in full ---------- */
+/* Which columns a set hides comes from COLUMN_SETS in app.js. */
+.colset { display: inline-flex; flex: none; border: 1px solid var(--input-border); border-radius: 8px; overflow: hidden; background: var(--panel); }
+.colset button {
+  height: 42px; padding: 0 12px; border: 0; border-radius: 0; background: var(--panel); color: var(--text); font-size: 15px; font-weight: 600;
+}
+.colset button + button { border-left: 1px solid var(--line); }
+.colset button:hover:not([data-dropdown]) { background: var(--hover); color: var(--heading); border-color: var(--line); }
+.colset button[aria-pressed="true"], .colset button[aria-pressed="true"]:hover:not([data-dropdown]) { background: var(--accent); color: var(--on-accent); }
+/* Party-wise: inside a party the name is already on the dark bar above the rows, so Main and JAWAK leave PARTY out. */
+#partyTable:is(.cols-main, .cols-jawak) :is(thead th, tr[data-entry-id] > td):nth-child(3) { display: none; }
+#partyTable:is(.cols-main, .cols-jawak) :is(thead th, tr[data-entry-id] > td):nth-child(2) { box-shadow: 2px 0 0 var(--line); }
+
+/* Top / Newest sit at the right end of the Register's totals, just above the table, without covering any rows. */
+.totals-row { display: flex; align-items: stretch; }
+.totals-row > .totals-strip { flex: 1 1 auto; min-width: 0; }
+.table-jump { flex: none; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 4px 10px; border-left: 1px solid var(--line-soft); }
+.table-jump button { height: 26px; padding: 0 10px; font-size: 14px; }
+
+.send-pick { display: none; width: 18px; height: 18px; margin: 0 6px 0 0; vertical-align: -3px; accent-color: var(--accent); cursor: pointer; }
+#registerTable.cols-jawak .send-pick { display: inline-block; }
+#registerTable.cols-jawak { --col-inw: 92px; }
+#registerTable.cols-jawak tr:has(.send-pick:checked) > td { background: var(--accent-soft); }
+#registerTable.cols-jawak tr:has(.send-pick:checked) > td:first-child { box-shadow: inset 4px 0 0 var(--accent); }
+.send-bar {
+  flex: none; display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; padding: 8px 14px;
+  background: var(--panel); border: 2px solid var(--accent); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.send-summary { flex: 1 1 260px; font-size: 16px; }
+.send-summary b { color: var(--heading); }
+.send-bar .field { flex-direction: row; align-items: center; gap: 6px; }
+.send-bar .field > label { white-space: nowrap; }
+#sendFullGatePass { width: 130px; }
+#sendFullDate { width: 170px; }
+
+/* ---------- Laptop layout ----------
+   A short window (a 14"/15" laptop, about 640-700 points under the title bar and taskbar) keeps the text and the boxes
+   that are typed into the same size, and gives the space around them to the rows instead. Taller windows are unchanged. */
+@media (max-height: 820px) {
+  /* Shell: thinner top bar and status bar (the status bar stays: messages appear over it), smaller margins. */
+  .top { height: 46px; padding: 0 12px; gap: 10px; }
+  .brand { font-size: 17.5px; }
+  .tab { height: 34px; padding: 0 12px; font-size: 16px; }
+  .menu-toggle { height: 32px; padding: 0 12px; font-size: 15px; }
+  main { padding: 8px 12px 6px; }
+  .status-bar { font-size: 12.5px; padding: 2px 12px; }
+  .view.fit.active, .subview.fit.active { gap: 6px; }
+  .notice-bar { padding: 6px 12px; font-size: 14.5px; }
+
+  /* Register and Party-wise: one row of controls, labels beside their boxes; the year needs no label. */
+  .panel-top { gap: 8px; padding: 6px 8px; align-items: center; flex-wrap: nowrap; }
+  .panel-top .field { flex-direction: row; align-items: center; gap: 6px; }
+  .panel-top .field > label { font-size: 14px; white-space: nowrap; }
+  .panel-top .field > label[for$="FinancialYear"] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .panel-top .month-field { flex: 0 0 auto; }
+  .panel-top .month-field [data-dropdown] { width: 150px; }
+  .panel-top .field:has(> [id$="FinancialYear"]) [data-dropdown] { width: 124px; }
+  .panel-top .search-field { flex: 1 1 150px; max-width: 420px; }
+  .panel-top [data-dropdown], .panel-top input { height: 36px; font-size: 16px; }
+  .panel-btn { height: 36px; font-size: 15px; padding: 0 12px; }
+  .colset button { height: 34px; padding: 0 10px; font-size: 14.5px; }
+  .count-pill { height: 32px; padding: 0 12px; font-size: 14.5px; }
+  .panel-count-wrap { min-height: 36px; }
+
+  /* Totals: one thin line, same figures and colours. */
+  .totals-strip { flex-wrap: nowrap; }
+  .totals-strip .stat { flex: 1 1 0; flex-direction: row; align-items: baseline; justify-content: center; gap: 5px; padding: 4px; min-height: 0; }
+  .totals-strip .stat-label { font-size: 12px; letter-spacing: 0; }
+  .totals-strip .stat-value { font-size: 16px; }
+
+  /* Tables: the same 16px text with less padding; a heading may take two lines, so a column is only as wide as its numbers. */
+  table.register th { padding: 4px 5px; font-size: 13px; line-height: 1.15; white-space: normal; letter-spacing: .1px; }
+  table.register td { padding: 3px 6px; }
+  #registerTable, #partyTable, #recentTable { --col-inw: 62px; --col-date: 94px; --col-party: 196px; }
+  #registerTable.cols-main, #recentTable { --col-party: 232px; }
+  #registerTable.cols-jawak { --col-inw: 84px; --col-date: 88px; --col-party: 196px; }
+  #registerTable.cols-jawak :is(thead th, tr[data-entry-id] > td):nth-child(5) { width: 80px; min-width: 80px; max-width: 80px; }
+  #registerTable.cols-jawak td { padding-inline: 5px; }
+  /* In JAWAK a long party name keeps to one line, so every row stays one line tall. */
+  #registerTable.cols-jawak tr[data-entry-id] > td:nth-child(3) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  :where(#registerTable, #partyTable, #recentTable) :is(thead th, tr[data-entry-id] > td):is(:nth-child(4), :nth-child(5)) { width: 96px; min-width: 96px; max-width: 96px; }
+  :where(#registerTable.cols-main, #partyTable.cols-main, #recentTable) :is(thead th, tr[data-entry-id] > td):is(:nth-child(4), :nth-child(5)) { width: 106px; min-width: 106px; max-width: 106px; }
+  /* A long finish name wraps at its spaces rather than widening the table past the screen. */
+  :where(#registerTable, #partyTable, #recentTable) tr[data-entry-id] > td:nth-child(10) { white-space: normal; }
+  table.register td.bill-cell, table.register td.warning-cell { width: 140px; min-width: 140px; max-width: 140px; }
+  table.register td.bill-cell .bill-text, table.register td.warning-cell .warning-text { -webkit-line-clamp: 1; line-clamp: 1; }
+  table.register tr.group td .group-bar, table.register tr.subgroup td .group-bar { padding-block: 2px; min-height: 0; }
+  .group-stat { padding: 1px 8px; }
+  tr.group .group-stat-value { font-size: 15.5px; }
+  .table-jump { flex-direction: row; gap: 3px; padding: 2px 4px; }
+  .table-jump button { height: 24px; font-size: 13px; padding: 0 6px; }
+  .table-wrap.fill { min-height: 160px; }
+  .send-bar { padding: 5px 12px; }
+  .send-bar input { height: 36px; }
+  .send-bar button { height: 38px; }
+
+  /* New entry: the same large boxes, dispatch on one line, Save beside it, and the last saved entries under the form. */
+  #view-entry.active { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; }
+  .entry-card { padding: 10px 14px 12px; }
+  .entry-card > * + * { margin-top: 8px; }
+  .entry-card h1 { font-size: 19px; }
+  .entry-help { display: none; }
+  .entry-grid { gap: 6px 12px; }
+  .entry-grid .field { gap: 2px; }
+  .entry-grid .field > .label, .entry-grid .field > label:first-child { font-size: 14px; }
+  .entry-grid input, .entry-grid [data-dropdown], .entry-grid output { height: 42px; font-size: 19px; }
+  #entryForm { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; }
+  #entryForm > * { grid-column: 1 / -1; }
+  #entryForm > #dispatchSection { grid-column: 1; }
+  #entryForm > .entry-actions {
+    grid-column: 2; align-self: stretch; margin-top: 8px; flex-direction: column; flex-wrap: nowrap; justify-content: flex-end; align-items: stretch; gap: 6px;
+  }
+  #saveButton { height: 64px; min-width: 190px; font-size: 18px; }
+  .entry-actions .message { font-size: 15px; max-width: 190px; }
+  .dispatch { padding: 6px 12px 8px; gap: 4px; }
+  .dispatch-head { align-items: center; }
+  .dispatch-head h2 { font-size: 17px; }
+  .dispatch-help { display: none; }
+  .dispatch-summary { gap: 6px; }
+  .d-stat { flex-direction: row; gap: 8px; min-width: 0; padding: 2px 10px; }
+  .d-stat-label { font-size: 12px; }
+  .d-stat b { font-size: 17px; }
+  .dispatch-body { align-items: flex-end; gap: 12px; flex-wrap: nowrap; }
+  .dispatch-list { flex-direction: row; align-items: flex-end; gap: 10px; }
+  .dispatch-table th { padding-bottom: 0; font-size: 13px; }
+  .dispatch-table td { padding-block: 2px; }
+  .dispatch-table input { width: 150px; height: 38px; font-size: 17px; }
+  #addDispatch { height: 38px; padding: 0 10px; font-size: 14.5px; margin-bottom: 2px; }
+  .dispatch .short-than { width: 120px; }
+  .dispatch .short-than > label { font-size: 13px; }
+  .dispatch .short-than input { height: 38px; font-size: 17px; }
+  .recent-card { padding: 8px 12px; margin-top: 8px; }
+  .recent-card > * + * { margin-top: 6px; }
+  .recent-card h2 { font-size: 17px; }
+  .recent-hint { font-size: 13.5px; padding: 2px 10px; }
+  #view-entry .recent-card { flex: 1 1 0; min-height: 150px; display: flex; flex-direction: column; }
+  #view-entry .recent-card .table-wrap { flex: 1 1 0; max-height: none; min-height: 0; }
+
+  /* Bills: the sub-tab already says "Make bills", so the dates keep only their boxes, on one line. */
+  .subtab { height: 34px; font-size: 15.5px; }
+  .bill-date-card { padding-block: 4px; padding-inline: 12px; align-items: center; justify-content: flex-start; }
+  .bill-intro { display: none; }
+  .bill-date-fields { display: flex; flex: 1 1 auto; flex-wrap: nowrap; justify-content: space-between; gap: 8px; }
+  .bill-date-fields .field { flex: 0 0 auto; flex-direction: row; align-items: center; gap: 6px; }
+  .bill-date-fields label { font-size: 13.5px; white-space: nowrap; }
+  .bill-date-fields input, .bill-date-fields [data-dropdown] { height: 34px; font-size: 15px; }
+  .bill-date-fields input[type=date] { width: 168px; }
+  .bill-date-fields input[type=month] { width: 185px; }
+  .bill-date-fields [data-dropdown] { width: 136px; }
+  .bill-layout { grid-template-columns: 250px minmax(0, 1fr); gap: 8px; }
+  .party-pick { padding: 8px; gap: 6px; }
+  .party-pick-head h2 { font-size: 16.5px; }
+  .party-pick #billParty { height: 36px; font-size: 16px; }
+  .party-pick-hint { display: none; }
+  .pick-list li + li { margin-top: 4px; }
+  button.party-choice { grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; padding: 5px 10px; min-height: 0; }
+  button.party-choice[aria-current="true"] { padding: 4px 9px; }
+  .party-choice .pick-name { grid-column: 1; font-size: 14.5px; }
+  .party-choice .pick-amount { grid-column: 2; grid-row: 1; font-size: 14.5px; text-align: right; }
+  .party-choice .pick-count { grid-column: 1 / -1; font-size: 12.5px; }
+  .party-choice .pick-selected { display: none; }
+  .candidate-tools { padding-block: 4px; padding-inline: 12px; }
+  .candidate-tools h3 { font-size: 16px; }
+  .candidate-selection-tools button { height: 32px; }
+  #candidateTable th { padding: 5px 6px; }
+  #candidateTable td { height: 34px; padding: 2px 6px; font-size: 16px; }
+  .bill-action-dock { padding-block: 6px; padding-inline: 14px; }
+  .bill-action-dock button { height: 40px; }
+  #billSelectionSummary strong { font-size: 18px; }
+
+  /* Saved bills: one row of controls; Cancel selected and Undo appear once a bill is ticked. */
+  #bills-saved > .toolbar { flex-wrap: nowrap; gap: 8px; align-items: center; }
+  #bills-saved > .toolbar .field { flex-direction: row; align-items: center; gap: 6px; min-width: 0; }
+  #bills-saved > .toolbar .field label { font-size: 14px; white-space: nowrap; }
+  #bills-saved > .toolbar .field:first-child label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  #bills-saved > .toolbar .field [data-dropdown] { width: 130px; }
+  #bills-saved > .toolbar .grow { flex: 1 1 160px; }
+  #bills-saved > .toolbar :is(input, [data-dropdown], button) { height: 36px; font-size: 15px; padding-inline: 10px; }
+  #bills-saved > .toolbar button:disabled { display: none; }
+  #bills-saved > .toolbar .spacer { display: none; }
+  #savedTotals { font-size: 14.5px; }
+  #invoiceTable td { padding-block: 3px; }
+
+  /* Edit windows (a bill, a party, …): smaller heading and margins, so more lines show. */
+  .drawer-head { padding: 6px 14px 6px 18px; }
+  .drawer-head h2 { font-size: 18.5px; }
+  .drawer-head .sub { font-size: 14px; margin-top: 0; }
+  .drawer-body { padding: 8px 18px 12px; gap: 8px; }
+  .drawer-body .section-head h3 { font-size: 13px; }
+  .drawer-body .fields { gap: 6px 12px; }
+  .drawer-body .field { gap: 2px; }
+  .drawer-body .field > label { font-size: 14px; }
+  .drawer-body input, .drawer-body [data-dropdown] { height: 36px; }
+  table.bill-grid td { padding: 1px 4px; }
+  table.bill-grid input { height: 30px; }
+  table.bill-grid th { padding: 4px; }
+  .drawer-foot { padding: 6px 18px; gap: 8px; }
+  .drawer-foot button { height: 38px; padding-inline: 12px; }
+
+  /* Masters and other toolbars. */
+  .toolbar { gap: 8px; }
+  .toolbar .field { flex-direction: row; align-items: center; gap: 6px; }
+  .toolbar input, .toolbar [data-dropdown] { height: 36px; }
+  .toolbar label.check { white-space: nowrap; }
+}
