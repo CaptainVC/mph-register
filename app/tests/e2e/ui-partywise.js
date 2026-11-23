@@ -85,12 +85,17 @@ const entries = [
     assert.equal(await visible(entryRows), 5, "Space expands the finish");
     assert.equal(await ashleyS2G.locator("button").evaluate((button) => button === document.activeElement), true);
     await ashleyS2G.locator("button").click();
-    await page.locator("#collapseAllParties").click();
+    const toggleAll = page.locator("#toggleAllParties");
+    assert.equal((await toggleAll.textContent()).trim(), "Expand all", "a collapsed finish still offers Expand all");
+    await toggleAll.click();
+    assert.equal((await toggleAll.textContent()).trim(), "Collapse all", "everything open offers Collapse all");
+    await toggleAll.click();
+    assert.equal((await toggleAll.textContent()).trim(), "Expand all");
     assert.equal(await visible(entryRows), 0, "Collapse all closes every party");
     assert.equal(await visible(finishRows), 0);
     assert.deepEqual(await partyRows.locator("button").evaluateAll((buttons) =>
       buttons.map((button) => button.getAttribute("aria-expanded"))), ["false", "false"]);
-    await page.locator("#expandAllParties").click();
+    await toggleAll.click();
     assert.equal(await visible(finishRows), 4, "Expand all opens every party");
     assert.equal(await visible(entryRows), 5, "Expand all also reopens collapsed finishes");
     assert.deepEqual(await partyRows.locator("button").evaluateAll((buttons) =>
