@@ -187,11 +187,13 @@ table.bill-grid td.row-actions button.remove:hover { color: var(--err); backgrou
 table.bill-grid [data-dropdown] { --select-pad: 24px; --select-arrow-gap: 5px; }
 table.bill-grid .kind-select { width: 92px; height: 32px; font-size: 14px; padding-left: 5px; margin-left: 3px; }
 .draft-move-hint { margin: 0 0 10px; }
-.bill-no-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0 0 12px; }
-.bill-no-row label { font-weight: 700; }
+.bill-no-row, .bill-discount-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0 0 12px; }
+.bill-no-row label, .bill-discount-row label { font-weight: 700; }
 .bill-no-prefix { font-weight: 700; }
-.bill-no-input { width: 7.5rem; font-weight: 700; }
+.bill-no-input, .bill-discount-input { width: 7.5rem; font-weight: 700; }
 .bill-no-hint { font-size: 13px; }
+.bill-discount-hint { font-size: 13px; }
+.bill-discount-input:invalid { border-color: var(--err); }
 .bill-no-problem { color: var(--err); font-weight: 600; flex-basis: 100%; }
 .bill-no-problem:empty { display: none; }
 button.draft-recipient[data-dropdown] { width: auto; max-width: min(100%, 32rem); font: inherit; color: inherit; }

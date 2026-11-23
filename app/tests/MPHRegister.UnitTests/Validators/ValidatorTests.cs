@@ -129,6 +129,22 @@ public sealed class MasterValidatorTests
         Assert.Equal(ok, new ColorInputValidator().ErrorsFor(new ColorInput(null, name, hex)).Count == 0);
 }
 
+public sealed class BillDiscountPctValidatorTests
+{
+    [Theory]
+    [InlineData(0, true)]
+    [InlineData(100, true)]
+    [InlineData(12.5, true)]
+    [InlineData(-0.01, false)]
+    [InlineData(100.01, false)]
+    [InlineData(12.345, false)]
+    public void Bill_discount_is_limited_to_100_percent_and_two_decimals(double value, bool valid)
+    {
+        var errors = new BillDiscountPctValidator().ErrorsFor(new BillDiscountPct((decimal)value));
+        Assert.Equal(valid, errors.Count == 0);
+    }
+}
+
 public sealed class SettingsValidatorTests
 {
     private static SettingsInput Input(FirmProfile? firm = null, BillRules? rules = null, PrintSettings? print = null, string? fy = null, int? next = null) =>

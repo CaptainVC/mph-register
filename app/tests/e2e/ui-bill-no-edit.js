@@ -63,6 +63,12 @@ async function seed() {
     assert.equal(await input.inputValue(), String(taken + 1), "the next free number is shown before saving");
     assert.equal(await page.locator(".bill-no-problem").textContent(), "");
 
+    const discount = page.locator("#billDiscount0");
+    assert.equal(await discount.inputValue(), "0", "the party discount is the initial value");
+    await discount.fill("10");
+    await page.waitForFunction(() => document.querySelector("#draftArea .bill-totals").textContent.includes("10%"));
+    assert.match(await page.locator("#draftArea .bill-totals").textContent(), /₹100\.00/, "the discount amount is recalculated");
+
     // A number that a saved bill already has is refused on screen and nothing is saved.
     await input.fill(String(taken));
     await page.locator(".bill-no-problem").filter({ hasText: "already used" }).waitFor();
@@ -79,8 +85,11 @@ async function seed() {
     await page.locator("#printSaved").waitFor();
     const [saved] = await call("/api/invoices?party=" + encodeURIComponent(SECOND));
     assert.equal(serialOf(saved.invoiceNo), chosen);
+    const savedBill = await call(`/api/invoices/${saved.id}`);
+    assert.equal(savedBill.discountPct, 10, "the edited discount percentage is saved on the bill");
+    assert.equal(savedBill.discount, 100, "the saved discount amount uses the edited percentage");
     assert.deepEqual(errors, []);
-    console.log("PASS: Make bills shows an editable bill no. and refuses one that clashes with a saved bill.");
+    console.log("PASS: Make bills lets the user edit the discount and bill no., recalculates totals, and refuses a number that clashes with a saved bill.");
   } finally {
     await browser.close();
   }

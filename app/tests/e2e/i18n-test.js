@@ -121,6 +121,7 @@ const cases = [
   ["Make bills from 2 ticked entries (40 THAN)", "2 चुनी गई Entries से बिल बनाएँ (40 थान)"],
   ["Save and number these 2 bills", "इन 2 बिलों को Save करें और नंबर दें"],
   ["2 bill(s) ready to check. Nothing is saved until you press Save.", "2 बिल Check के लिए तैयार। Save दबाने तक कुछ Save नहीं होगा।"],
+  ["Defaults to the party's discount. Applies to this bill only.", "पार्टी का Discount पहले से है। बदलाव सिर्फ़ इस बिल में लागू होगा।"],
   ["Saved 2 bill(s)", "2 बिल Save हो गए"],
   ["Saved ✓ Save दर", "Save हो गया ✓ Save दर"],
   ["No rate for शैली — enter the rate.", "शैली के लिए Rate नहीं है — Rate डालें।"],

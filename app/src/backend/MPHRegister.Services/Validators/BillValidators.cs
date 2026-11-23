@@ -70,3 +70,14 @@ public sealed class BillLinesValidator : AbstractValidator<BillLines>
         });
     }
 }
+
+public sealed record BillDiscountPct(decimal Value);
+
+public sealed class BillDiscountPctValidator : AbstractValidator<BillDiscountPct>
+{
+    public BillDiscountPctValidator()
+    {
+        RuleFor(x => x.Value).InclusiveBetween(0, 100).WithMessage("Discount must be between 0 and 100.");
+        RuleFor(x => x.Value).Must(value => decimal.Round(value, 2) == value).WithMessage("Discount can have at most 2 decimals.");
+    }
+}

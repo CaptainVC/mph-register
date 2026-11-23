@@ -115,6 +115,7 @@ Object.assign(window.mphI18n.exact, {
   "Use Move… to send a row to another draft or start a new bill.": "Row को दूसरे Draft में भेजने या नया बिल बनाने के लिए Move… चुनें।",
   "New bill": "नया बिल",
   "You can change it. It cannot match a bill already saved.": "आप इसे बदल सकते हैं। यह पहले से Save हुए किसी बिल जैसा नहीं हो सकता।",
+  "Defaults to the party's discount. Applies to this bill only.": "पार्टी का Discount पहले से है। बदलाव सिर्फ़ इस बिल में लागू होगा।",
   "Entries for": "इनकी Entries",
   "Bill recipient updated.": "बिल की पार्टी Update हो गई।",
   "This subtotal has its own references. Clear them before moving its last detail row.": "इस Subtotal के अपने References हैं। आखिरी Detail Row को Move करने से पहले उन्हें हटाएँ।",
