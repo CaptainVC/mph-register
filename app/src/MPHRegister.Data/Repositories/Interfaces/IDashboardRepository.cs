@@ -24,4 +24,7 @@ public interface IDashboardRepository
 
     /// <summary>Earliest saved bill or inward date, or null when there is no data.</summary>
     string? EarliestDate();
+
+    /// <summary>The first register month with entries (yyyy-MM): the register is recorded from then on.</summary>
+    string? EarliestRegisterMonth();
 }

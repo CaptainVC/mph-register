@@ -81,4 +81,6 @@ public sealed class DashboardRepository(IDbSession session) : RepositoryBase(ses
             SELECT bill_date AS d FROM invoices WHERE status = 'saved'
             UNION ALL SELECT entry_date FROM entries);
         """);
+
+    public string? EarliestRegisterMonth() => Scalar<string>("SELECT MIN(register_month) FROM entries;");
 }

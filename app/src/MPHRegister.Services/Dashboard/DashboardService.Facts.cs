@@ -22,6 +22,11 @@ public sealed partial class DashboardService
         for (var month = start; month <= today; month = month.AddMonths(1)) months.Add(Dates.Month(month));
         var monthIndex = months.Select((m, i) => (m, i)).ToDictionary(x => x.m, x => x.i, StringComparer.Ordinal);
         int? MonthOf(string date) => date.Length >= 7 && monthIndex.TryGetValue(date[..7], out var i) ? i : null;
+        // The register starts at its first register month: older entries are only the unfinished work it carried in, so they are
+        // not cloth received in their own month, and that work counts in the first month recorded.
+        var recordedFrom = data.EarliestRegisterMonth() is { } first && monthIndex.TryGetValue(first, out var firstIndex) ? firstIndex : 0;
+        int? InwardMonth(string date) => MonthOf(date) is { } i && i >= recordedFrom ? i : null;
+        int OpenMonth(string date) => Math.Max(MonthOf(date) ?? 0, recordedFrom);
 
         var bills = data.Bills(Dates.Iso(start), asOf);
         var lines = data.FinishMonths(asOf);
@@ -68,7 +73,7 @@ public sealed partial class DashboardService
         }
         foreach (var e in entries)
         {
-            if (MonthOf(e.EntryDate) is not { } month) continue;
+            if (InwardMonth(e.EntryDate) is not { } month) continue;
             var row = InwardRow(parties.Id(e.Party), month);
             row[2]++;
             row[3] += e.Than;
@@ -85,18 +90,19 @@ public sealed partial class DashboardService
         }
         foreach (var s in sent)
         {
-            if (MonthOf(s.Month) is { } month) InwardRow(parties.Id(s.Party), month)[8] += s.Pieces;
+            if (InwardMonth(s.Month) is { } month) InwardRow(parties.Id(s.Party), month)[8] += s.Pieces;
         }
 
         var lastBill = billDates.Select(b => b.LastBill).Max();
         var lastInward = entries.Count == 0 ? null : entries[^1].EntryDate;
         var queue = OpenWorkOf(entries, valuer, today, lastBill)
-            .GroupBy(o => parties.Id(o.Party))
+            .GroupBy(o => (Party: parties.Id(o.Party), Month: OpenMonth(o.Entry.EntryDate)))
             .Select(g =>
             {
                 var ready = g.Where(o => o.Ready).ToList();
                 return new FactsUnbilled(
-                    g.Key,
+                    g.Key.Party,
+                    g.Key.Month,
                     Estimate(ready),
                     Estimate(g.Where(o => !o.Ready)),
                     Estimate(g.Where(o => !o.Exact)),
@@ -109,14 +115,14 @@ public sealed partial class DashboardService
                     Estimate(ready.Where(o => o.DispatchIssue)),
                     Estimate(ready.Where(o => o.BeforeDispatch)));
             })
-            .OrderByDescending(q => q.Ready.Value).ThenByDescending(q => q.Ready.Than).ThenByDescending(q => q.Factory.Value).ThenBy(q => q.Party)
+            .OrderBy(q => q.Party).ThenBy(q => q.Month)
             .ToList();
         var stock = entries
-            .GroupBy(e => parties.Id(e.Party))
-            .Select(g => (Party: g.Key, Figures: Stock(g.ToList(), valuer)))
+            .GroupBy(e => (Party: parties.Id(e.Party), Month: OpenMonth(e.EntryDate)))
+            .Select(g => (g.Key.Party, g.Key.Month, Figures: Stock(g.ToList(), valuer)))
             .Where(s => s.Figures.Total.Entries > 0)
-            .OrderBy(s => s.Party)
-            .Select(s => new FactsStock(s.Party, s.Figures.Total, s.Figures.Unbilled, s.Figures.BeforeDispatch, s.Figures.Billed, s.Figures.Repairs, s.Figures.NoBill))
+            .OrderBy(s => s.Party).ThenBy(s => s.Month)
+            .Select(s => new FactsStock(s.Party, s.Month, s.Figures.Total, s.Figures.Unbilled, s.Figures.BeforeDispatch, s.Figures.Billed, s.Figures.Repairs, s.Figures.NoBill))
             .ToList();
         var quiet = Quiet(entries, today, lastInward, int.MaxValue)
             .Select(q => new FactsQuiet(parties.Id(q.Party), q.UsualThan, q.RecentThan, q.LastInward, q.DaysSinceLast))
