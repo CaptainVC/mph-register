@@ -341,9 +341,11 @@ function createCombo(container, getItems, { onPick } = {}) {
 
 // ---------- Entry form ----------
 const YES_NO_OPTIONS = [["No", "No"], ["Yes", "Yes"]];
+// Every screen's Month filter is the same multi-select tick list.
+const MULTI_MONTH_IDS = ["registerViewMonth", "partyViewMonth", "aawakMonth", "savedMonth"];
 document.querySelectorAll("[data-dropdown]").forEach((control) => {
   if (control.id === "repair") setupDropdown(control, YES_NO_OPTIONS, "No", { enterOpens: false });
-  else if (control.id === "registerViewMonth") setupDropdown(control, [], "", { multiple: true, summary: monthsSummary });
+  else if (MULTI_MONTH_IDS.includes(control.id)) setupDropdown(control, [], "", { multiple: true, summary: monthsSummary });
   else setupDropdown(control);
 });
 const partyCombo = createCombo($("partyCombo"), () => state.masters.parties, {
@@ -1927,14 +1929,15 @@ $("toggleAllParties").addEventListener("click", () => {
 // Ticking a filter re-uses the rows already loaded; anything else reads them again.
 async function renderPartywise(options) {
   const version = ++partyRenderVersion;
-  const month = $("partyViewMonth").value;
+  const months = $("partyViewMonth").values;
   const party = partyFilterCombo.canonical();
   const query = party ? `&party=${encodeURIComponent(party.name)}` : "";
-  const key = `${month}|${query}`;
+  const key = `${months}|${query}`;
   if (options?.reuse !== true || partywiseLoaded.key !== key) {
-    const loaded = await api(`/api/partywise?month=${encodeURIComponent(month)}${query}`);
+    // One month is asked for by name; several are read together (to keep the party order) and cut down here.
+    const loaded = await api(`/api/partywise?month=${encodeURIComponent(months.length === 1 ? months[0] : "")}${query}`);
     if (version !== partyRenderVersion) return;
-    partywiseLoaded = { key, party: party ? party.name : "", entries: loaded };
+    partywiseLoaded = { key, party: party ? party.name : "", entries: months.length > 1 ? loaded.filter((e) => months.includes(e.registerMonth)) : loaded };
   }
   const all = partywiseLoaded.entries.filter((e) => partyPeriodFilter.matches(e.registerMonth));
   const entries = partyRowFilter(all);
@@ -2027,7 +2030,7 @@ async function renderPartywise(options) {
   syncToggleAllParties();
   $("partyTable").replaceChildren(headerRow(), body);
   setTableEmpty($("partyTable"), entries.length ? "" : all.length ? "No entries match the filters."
-    : month ? "No entries in this month." : partyPeriodFilter.year ? "No entries in this financial year." : "No entries.");
+    : months.length ? `No entries in ${months.length > 1 ? "these months" : "this month"}.` : partyPeriodFilter.year ? "No entries in this financial year." : "No entries.");
   const partyCountEl = $("partyCount");
   partyCountEl.textContent = `${entries.length === all.length ? num(all.length) : `${num(entries.length)} of ${num(all.length)}`} entries${party ? ` for ${party.name}` : ""}`;
   partyCountEl.classList.toggle("filtered", entries.length !== all.length || Boolean(party));

@@ -81,6 +81,22 @@ const invoice = (id, month, extra = {}) => ({
     assert.ok((await page.locator("#partyTable tr.group").textContent()).includes("3 entries"));
     await chooseDropdown(page.locator("#partyViewMonth"), "2026-04");
     await partyRows([4]);
+    // Month is a multi-select here too: more clicks add months, and unticking them all shows every month again.
+    await chooseDropdown(page.locator("#partyViewMonth"), "2026-11");
+    await partyRows([4, 5]);
+    assert.equal(await page.locator("#partyViewMonth").textContent(), "Apr 2026, Nov 2026");
+    await chooseDropdown(page.locator("#partyViewMonth"), "2027-03");
+    await partyRows([4, 5, 6]);
+    assert.equal(await page.locator("#partyViewMonth").textContent(), "3 months selected");
+    await chooseDropdown(page.locator("#partyViewMonth"), "2026-04");
+    await partyRows([5, 6]);
+    await chooseDropdown(page.locator("#partyViewMonth"), "2026-11");
+    await chooseDropdown(page.locator("#partyViewMonth"), "2027-03");
+    await partyRows([4, 5, 6]);
+    assert.equal(await page.locator("#partyViewMonth").textContent(), "All months");
+    await chooseDropdown(page.locator("#partyViewMonth"), "2026-04");
+    await partyRows([4]);
+    await page.locator("#partyViewMonth").press("Escape");
     await chooseDropdown(page.locator("#partyFinancialYear"), "2025");
     await partyRows([2, 3]);
     assert.equal(await dropdownValue(page.locator("#partyViewMonth")), "");
@@ -139,6 +155,16 @@ const invoice = (id, month, extra = {}) => ({
     assert.equal(await page.evaluate(() => window.printedIds), "4,6", "printing obeys FY and excludes cancelled bills");
     await chooseDropdown(page.locator("#savedMonth"), "2026-04");
     await invoiceRows([4]);
+    await chooseDropdown(page.locator("#savedMonth"), "2026-11");
+    await invoiceRows([4, 5]);
+    assert.equal(await page.locator("#savedMonth").textContent(), "Apr 2026, Nov 2026");
+    await chooseDropdown(page.locator("#savedMonth"), "2026-04");
+    await chooseDropdown(page.locator("#savedMonth"), "2026-11");
+    await invoiceRows([4, 5, 6]);
+    assert.equal(await page.locator("#savedMonth").textContent(), "All months");
+    await chooseDropdown(page.locator("#savedMonth"), "2026-04");
+    await invoiceRows([4]);
+    await page.locator("#savedMonth").press("Escape");
     await chooseDropdown(page.locator("#savedFinancialYear"), "2025");
     await invoiceRows([2, 3]);
     assert.equal(await dropdownValue(page.locator("#savedMonth")), "");
@@ -158,6 +184,55 @@ const invoice = (id, month, extra = {}) => ({
     assert.equal(await dropdownValue(page.locator("#savedFinancialYear")), "2023");
     await chooseDropdown(page.locator("#savedFinancialYear"), "2022");
     await invoiceRows([9]);
+
+    // AAWAK register: the same multi-select Month, with the months cut down on the screen.
+    const arrival = (id, month) => ({
+      id, number: String(id), aawakNo: id, aawakSuffix: "", aawakMonth: month, arrivalDate: `${month}-10`, party: "TEST PARTY", group: "",
+      transporter: "LORRY", nag: id * 10, slipsNag: id * 10, inwardText: String(id), note: "", refs: [id], slips: [], missing: [], status: "linked", warnings: [], lastImport: null,
+    });
+    const arrivals = [arrival(1, "2026-04"), arrival(2, "2026-11"), arrival(3, "2027-03")];
+    await page.route("**/api/arrivals/months", (route) => route.fulfill({ json: [...new Set(arrivals.map((a) => a.aawakMonth))].sort().reverse()
+      .map((month) => ({ month, arrivals: arrivals.filter((a) => a.aawakMonth === month).length })) }));
+    await page.route(/\/api\/arrivals(\?.*)?$/, (route) => {
+      const month = new URL(route.request().url()).searchParams.get("month");
+      return route.fulfill({ json: arrivals.filter((a) => !month || a.aawakMonth === month) });
+    });
+    const arrivalRows = async (ids) => {
+      await page.waitForFunction((expected) =>
+        [...document.querySelectorAll("#aawakTable tbody tr")].map((tr) => tr.dataset.id).join(",") === expected.join(","), ids.map(String));
+    };
+    const aawakMonth = page.locator("#aawakMonth");
+    await page.locator('[data-view="aawak"]').click();
+    await page.locator('.subtabs[data-group="aawak"] [data-sub="register"]').click();
+    await arrivalRows([1, 2, 3]);
+    assert.deepEqual(await values("aawakMonth"), ["", "2027-03", "2026-11", "2026-04"]);
+    await chooseDropdown(aawakMonth, "2026-04");
+    await arrivalRows([1]);
+    await chooseDropdown(aawakMonth, "2026-11");
+    await arrivalRows([1, 2]);
+    assert.equal(await aawakMonth.textContent(), "Apr 2026, Nov 2026");
+    await chooseDropdown(aawakMonth, "2027-03");
+    await arrivalRows([1, 2, 3]);
+    assert.equal(await aawakMonth.textContent(), "3 months selected");
+    await chooseDropdown(aawakMonth, "2026-04");
+    await arrivalRows([2, 3]);
+    await chooseDropdown(aawakMonth, "2026-11");
+    await chooseDropdown(aawakMonth, "2027-03");
+    await arrivalRows([1, 2, 3]);
+    assert.equal(await aawakMonth.textContent(), "All months");
+    await chooseDropdown(aawakMonth, "2026-11");
+    await arrivalRows([2]);
+    // "Link again" covers every ticked month.
+    const relinked = [];
+    await page.route("**/api/arrivals/relink?*", (route) => {
+      relinked.push(new URL(route.request().url()).searchParams.get("month"));
+      return route.fulfill({ json: { arrivals: 1, linked: 1, nagDiffers: 0, partlyLinked: 0, notLinked: 0 } });
+    });
+    await chooseDropdown(aawakMonth, "2026-04");
+    await aawakMonth.press("Escape");
+    await page.locator("#aawakRelink").click();
+    await page.waitForFunction(() => document.getElementById("toasts").textContent.includes("Linked again ✓ 2 rows"));
+    assert.deepEqual(relinked.sort(), ["2026-04", "2026-11"]);
 
     await page.locator('[data-view="import"]').click();
     await page.waitForLoadState("networkidle");

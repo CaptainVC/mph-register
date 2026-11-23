@@ -151,6 +151,7 @@ const entries = [
     const slip = { ...entries[1], id: 6, inwardNo: 6, status: "allZero", than: 0, nettThan: 0, nag: 0, dispatched: 0, balance: 0, designNo: "INW 547" };
     await page.unroute("**/api/partywise?**");
     await page.route("**/api/partywise?**", (route) => route.fulfill({ json: [...entries, slip] }));
+    await chooseDropdown(page.locator("#partyViewMonth"), "2026-10");
     await chooseDropdown(page.locator("#partyViewMonth"), "2026-11");
     await page.waitForFunction(() => document.getElementById("partyCount").textContent === "6 entries");
     const groupsOfAshley = await finishRows.evaluateAll((rows) => rows.map((row) =>
