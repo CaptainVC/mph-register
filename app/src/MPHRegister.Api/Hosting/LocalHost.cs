@@ -21,6 +21,9 @@ public static class LocalHost
         }
     }
 
+    /// <summary>Edge's arguments for the app window: maximised, so a small laptop screen is used to its edges.</summary>
+    internal static string EdgeArguments(Uri url) => $"--app={url.AbsoluteUri} --start-maximized";
+
     /// <summary>Opens the app in an Edge app window on Windows, else the default browser.</summary>
     public static void OpenWindow(Uri url)
     {
@@ -33,7 +36,7 @@ public static class LocalHost
             {
                 try
                 {
-                    Process.Start(new ProcessStartInfo("msedge", $"--app={url.AbsoluteUri}") { UseShellExecute = true });
+                    Process.Start(new ProcessStartInfo("msedge", EdgeArguments(url)) { UseShellExecute = true });
                 }
                 catch (System.ComponentModel.Win32Exception)
                 {
