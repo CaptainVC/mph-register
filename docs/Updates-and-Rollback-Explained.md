@@ -80,18 +80,14 @@ internet was off). If there is a newer version, a yellow bar appears at the top:
 
 - **Update now** installs it (next steps).
 - **What's new** opens the release notes.
-
 - **Later** hides the bar until he opens the app again. The update is also always in the menu (below).
 
-In Hinglish the same bar reads:
+The same update bar is available in Hinglish.
 
 ### Installing
 
-**Update now** first asks, so that half-typed entries are saved:
-
-Then a small window shows the progress. He does not need to do anything:
-
-The same window reloads by itself and confirms the update along its bottom edge.
+When he selects **Update now**, the app asks him to save any in-progress entries and confirm the update. A small window
+shows the download and launch progress. It reloads by itself and confirms the update along its bottom edge.
 
 ### The menu
 
@@ -119,7 +115,7 @@ number. An older version refuses a data file with a number it does not know. So 
 
 ### Usual case: the data format did not change
 
-Going back keeps everything, including the entries made after the update:
+Going back keeps everything, including the entries made after the update.
 
 ### The data format changed: a red warning
 
