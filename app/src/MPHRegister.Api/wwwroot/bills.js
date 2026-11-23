@@ -879,7 +879,7 @@ $("saveBills").addEventListener("click", async () => {
       el("ul", {}, saved.map((s) => el("li", { text: `${s.invoiceNo} — ${s.partyName} — ${num(s.than)} THAN — ${rupees(s.total)}` }))),
       el("button", { type: "button", id: "printSaved", text: "Print these bills", onclick: () => openPrint(ids) }),
       el("button", { type: "button", class: "secondary", id: "pdfSaved", text: "Save as PDF", onclick: (e) => downloadPdf(saved.map((s) => s.id), e.currentTarget) }),
-      el("button", { type: "button", class: "secondary", id: "excelSaved", text: "Write to Excel…", onclick: () => openExcelExport(saved) }),
+      el("button", { type: "button", class: "secondary", id: "excelSaved", text: "Export to Excel…", onclick: () => openExcelExport(saved) }),
     ]));
     $("billSelectedCount").textContent = `Saved ${saved.length} bill(s)`;
     $("billSelectedThan").textContent = `${num(saved.reduce((sum, doc) => sum + doc.than, 0))} THAN`;
@@ -1378,7 +1378,7 @@ function openExcelExport(bills) {
   const close = el("button", { type: "button", class: "ghost", text: "Close", onclick: () => closeDrawer($("excelDrawer")) });
   drawerForm(form, {
     key: "excel",
-    title: "Write bills to Excel",
+    title: "Export bills to Excel",
     subtitle: "Into a copy of the month's bill workbook — your file is not changed",
     body: [
       section("1. Bills", [

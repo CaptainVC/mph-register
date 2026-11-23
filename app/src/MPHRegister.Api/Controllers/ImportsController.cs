@@ -63,7 +63,7 @@ public sealed class ImportsController(IInwardImportService inward, IBillImportSe
         }
         catch (JsonException)
         {
-            throw new AppValidationException("Tick the bills to write to Excel.");
+            throw new AppValidationException("Tick the bills to export to Excel.");
         }
     }
 

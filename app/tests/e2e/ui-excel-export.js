@@ -1,4 +1,4 @@
-// Routed fixtures exercise the Write to Excel window without a real workbook or real data.
+// Routed fixtures exercise the Export to Excel window without a real workbook or real data.
 const assert = require("node:assert/strict");
 const { chromium } = require("playwright-core");
 
@@ -89,7 +89,7 @@ const row = (b, status, extra = {}) => ({
     await page.locator("#excelDrawer .drawer-foot button").filter({ hasText: /^Close$/ }).click();
     await page.waitForFunction(() => !document.querySelector("#excelDrawer").open);
     assert.deepEqual(errors, []);
-    console.log("PASS: Saved bills EXCEL column, Write to Excel ticks, check, replace and download of the filled workbook.");
+    console.log("PASS: Saved bills EXCEL column, Export to Excel ticks, check, replace and download of the filled workbook.");
   } finally {
     await browser.close();
   }
