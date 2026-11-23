@@ -1,0 +1,10 @@
+/* ---------- Import ---------- */
+.import-form { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.import-form .field { min-width: 260px; }
+.report { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: var(--radius); padding: 18px; margin-top: 14px; display: grid; gap: 12px; }
+.report.ok { border-left-color: var(--ok); }
+.report.err { border-left-color: var(--err); }
+.report table { border-collapse: collapse; }
+.report td, .report th { border-bottom: 1px solid var(--line-soft); padding: 6px 14px 6px 0; text-align: left; font-size: 15.5px; }
+.report ul { max-height: 260px; overflow: auto; margin: 0; padding-left: 22px; }
+.report-actions { display: flex; gap: 10px; flex-wrap: wrap; }

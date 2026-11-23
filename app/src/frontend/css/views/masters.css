@@ -1,0 +1,25 @@
+/* ---------- Masters ---------- */
+.split { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(340px, 1fr); gap: 14px; min-height: 0; flex: 1 1 0; }
+.split > .col { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.party-name, .finish-name { font-weight: 700; }
+.sister-list { display: flex; flex-direction: column; gap: 2px; max-height: 50vh; overflow-y: auto; margin: 8px 0; padding: 6px 10px; border: 1px solid var(--input-border); border-radius: 8px; }
+.sister-row { flex-wrap: wrap; }
+.map-table td { padding: 4px 6px 4px 0; }
+.map-table [data-dropdown] { min-width: 185px; }
+.signature-preview { height: 60px; width: auto; padding: 4px; border: 1px dashed var(--input-border); border-radius: 6px; background: #fff; object-fit: contain; }
+.config-path { font-family: ui-monospace, Consolas, monospace; font-size: 14.5px; word-break: break-all; background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 6px; padding: 10px 12px; }
+
+/* Settings: section list on the left, cards on the right, save bar always in reach. */
+.settings-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 20px; align-items: start; max-width: 1240px; }
+.settings-nav { position: sticky; top: 0; display: flex; flex-direction: column; gap: 3px; padding-top: 4px; }
+.settings-nav a { color: var(--muted); text-decoration: none; padding: 9px 12px; border-radius: 6px; font-weight: 600; font-size: 16px; }
+.settings-nav a:hover { background: var(--hover); color: var(--heading); }
+.settings-nav a.active { background: var(--accent-soft); color: var(--accent); }
+#firmForm { display: grid; gap: 16px; }
+#firmForm .card h2 { margin-bottom: 2px; }
+.save-bar {
+  position: sticky; bottom: 0; z-index: 3; display: flex; gap: 12px; align-items: center; padding: 12px 16px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-lg);
+}
+/* A field brought into view (Tab, a click, a settings link) stops above the sticky save bar instead of under it. */
+#settingsScroll { scroll-padding-bottom: 96px; }

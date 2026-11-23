@@ -1,0 +1,39 @@
+<section id="view-register" class="view fit">
+  <div class="register-panel">
+    <div class="panel-top">
+      <div class="field month-field"><label for="registerFinancialYear">Financial year</label><button type="button" id="registerFinancialYear" data-dropdown title="April to March"></button></div>
+      <div class="field month-field"><label for="registerViewMonth">Month</label><button type="button" id="registerViewMonth" data-dropdown></button></div>
+      <div class="field search-field"><label for="registerSearch">Search</label>
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M13.5 13.5L18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <input id="registerSearch" type="search" placeholder="Party, design, lot, gate pass…">
+          <button type="button" id="clearRegisterSearch" class="search-clear hidden" aria-label="Clear search" title="Clear search">×</button>
+        </div>
+      </div>
+      <div class="colset" role="group" aria-label="Columns" title="Which columns to show" data-table="registerTable">
+        <button type="button" data-set="main" aria-pressed="false" title="The entry and its bill: no sideways scrolling">Main</button>
+        <button type="button" data-set="jawak" aria-pressed="false" title="Dispatches (JAWAK) with NAG and BALANCE: no sideways scrolling">JAWAK</button>
+        <button type="button" data-set="all" aria-pressed="false" title="Every column, as in the Excel register">All (like Excel)</button>
+      </div>
+      <button type="button" id="registerFiltersToggle" class="secondary panel-btn filter-toggle" aria-expanded="false" aria-controls="registerFilters" title="Show or hide the row filters"><span>Filters</span><span class="filter-toggle-count hidden"></span></button>
+      <button type="button" id="openDeletedEntries" class="secondary panel-btn" title="Entries deleted in the app; restore one from here">Deleted entries</button>
+      <div class="panel-count-wrap"><span id="registerCount" class="count-pill"></span></div>
+    </div>
+    <div class="filter-bar hidden" id="registerFilters" role="group" aria-label="Row filters: click to include, or open options to exclude"></div>
+    <div class="totals-row">
+      <div id="registerTotals" class="totals-strip" aria-label="Summary totals"></div>
+      <div class="table-jump" role="group" aria-label="Go to">
+        <button type="button" id="registerTop" class="secondary" title="Go to the first entry">↑ Top</button>
+        <button type="button" id="registerNewest" class="secondary" title="Go to the newest entries">↓ Newest</button>
+      </div>
+    </div>
+  </div>
+  <div class="table-wrap fill"><table class="register" id="registerTable"></table></div>
+  <div id="sendFullBar" class="send-bar hidden" role="group" aria-label="Send ticked entries in full">
+    <span id="sendFullSummary" class="send-summary" aria-live="polite"></span>
+    <div class="field"><label for="sendFullGatePass">Gate pass no.</label><input id="sendFullGatePass" type="text" autocomplete="off"></div>
+    <div class="field"><label for="sendFullDate">Date</label><input id="sendFullDate" type="date"></div>
+    <button type="button" id="sendFullSave">Mark sent in full</button>
+    <button type="button" id="sendFullClear" class="secondary">Clear ticks</button>
+  </div>
+</section>

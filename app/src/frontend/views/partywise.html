@@ -1,0 +1,25 @@
+<section id="view-partywise" class="view fit">
+  <div class="register-panel">
+    <div class="panel-top">
+      <div class="field month-field"><label for="partyFinancialYear">Financial year</label><button type="button" id="partyFinancialYear" data-dropdown title="April to March"></button></div>
+      <div class="field month-field"><label for="partyViewMonth">Month</label><button type="button" id="partyViewMonth" data-dropdown></button></div>
+      <div class="field search-field"><label for="partyFilter">Party</label>
+        <div class="combo" id="partyFilterCombo">
+          <input id="partyFilter" type="text" placeholder="All parties (type to filter)">
+        </div>
+      </div>
+      <button type="button" id="clearPartyFilter" class="secondary panel-btn">Show all</button>
+      <button type="button" id="toggleAllParties" class="secondary panel-btn" title="Open every party and finish">Expand all</button>
+      <div class="colset" role="group" aria-label="Columns" title="Which columns to show" data-table="partyTable">
+        <button type="button" data-set="main" aria-pressed="false" title="The entry and its bill: no sideways scrolling">Main</button>
+        <button type="button" data-set="jawak" aria-pressed="false" title="Dispatches (JAWAK) with NAG and BALANCE: no sideways scrolling">JAWAK</button>
+        <button type="button" data-set="all" aria-pressed="false" title="Every column, as in the Excel register">All (like Excel)</button>
+      </div>
+      <button type="button" id="partyFiltersToggle" class="secondary panel-btn filter-toggle" aria-expanded="false" aria-controls="partyFilters" title="Show or hide the row filters"><span>Filters</span><span class="filter-toggle-count hidden"></span></button>
+      <div class="panel-count-wrap"><span id="partyCount" class="count-pill"></span></div>
+    </div>
+    <div class="filter-bar hidden" id="partyFilters" role="group" aria-label="Row filters: click to include, or open options to exclude"></div>
+    <div id="partyTotals" class="totals-strip" aria-label="Summary totals"></div>
+  </div>
+  <div class="table-wrap fill"><table class="register" id="partyTable"></table></div>
+</section>

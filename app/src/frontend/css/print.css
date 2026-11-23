@@ -1,0 +1,33 @@
+/* Carlito has Calibri's character widths, so bills keep the Excel layout on computers without Calibri (SIL OFL, assets/fonts/). */
+@font-face { font-family: "Carlito"; src: url("../assets/fonts/Carlito-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; }
+@font-face { font-family: "Carlito"; src: url("../assets/fonts/Carlito-Bold.woff2") format("woff2"); font-weight: 700; font-style: normal; }
+@font-face { font-family: "Carlito"; src: url("../assets/fonts/Carlito-Italic.woff2") format("woff2"); font-weight: 400; font-style: italic; }
+@font-face { font-family: "Carlito"; src: url("../assets/fonts/Carlito-BoldItalic.woff2") format("woff2"); font-weight: 700; font-style: italic; }
+
+* { box-sizing: border-box; }
+body { margin: 0; color: #000; background: #e8ebf0; font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; }
+.toolbar { position: sticky; top: 0; z-index: 5; display: flex; gap: 12px; align-items: center; padding: 10px 18px; background: #002060; color: #fff; font: 17px "Segoe UI", Arial, sans-serif; }
+.toolbar button { font: inherit; font-weight: 700; padding: 8px 18px; border-radius: 6px; border: 1px solid #fff; background: #fff; color: #002060; cursor: pointer; }
+.toolbar button.secondary { background: transparent; color: #fff; }
+.toolbar button:disabled { opacity: .5; cursor: wait; }
+#bills { padding: 16px 0; }
+
+/* One sheet of paper per bill; paper size and margins come from the Excel page setup. */
+.sheet { position: relative; margin: 0 auto 16px; background: #fff; box-shadow: 0 2px 12px rgba(0, 0, 0, .18); overflow: hidden; }
+.sheet .area { position: relative; }
+table.xl { border-collapse: collapse; table-layout: fixed; }
+table.xl td { padding: 0 2px; overflow: hidden; white-space: nowrap; line-height: 1.1; }
+table.xl td.wrap { white-space: normal; overflow-wrap: anywhere; }
+table.xl td.pre { white-space: pre; }
+.signature { position: absolute; pointer-events: none; }
+.cancelled::after { content: "CANCELLED"; position: absolute; top: 38%; left: 8%; font: 700 64pt Calibri, Arial, sans-serif; color: rgba(200, 0, 0, .35); transform: rotate(-25deg); }
+
+@media print {
+  body { background: #fff; }
+  .no-print { display: none !important; }
+  #bills { padding: 0; }
+  .sheet { margin: 0; box-shadow: none; width: auto !important; height: auto !important; padding: 0 !important; overflow: visible; break-after: page; page-break-after: always; }
+  .sheet:last-child { break-after: auto; page-break-after: auto; }
+}
+:root[data-theme="dark"] body { background: #2b2f36; }
+@media print { :root[data-theme="dark"] body { background: #fff; } }

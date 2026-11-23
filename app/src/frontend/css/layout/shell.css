@@ -1,0 +1,55 @@
+/* ---------- Page ---------- */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); font-size: 17px; line-height: 1.45;
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden;
+}
+:root:not(.ready) * { transition: none !important; }
+
+/* ---------- App shell ---------- */
+.top {
+  display: flex; align-items: center; gap: 16px; height: 60px; padding: 0 18px;
+  background: var(--brand); color: var(--brand-text); border-bottom: 1px solid rgb(0 0 0 / .15);
+}
+.brand { font-weight: 700; font-size: 20px; white-space: nowrap; letter-spacing: .2px; }
+.tabs { display: flex; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  background: transparent; color: var(--brand-muted); border: 0; height: 40px; padding: 0 14px; font-size: 16.5px;
+  font-weight: 600; border-radius: 8px; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s;
+}
+.tab:hover { background: rgb(255 255 255 / .1); color: var(--brand-text); }
+.tab.active { background: rgb(255 255 255 / .16); color: var(--brand-text); }
+.menu-toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 38px; padding: 0 14px; border-radius: 19px; font-size: 15.5px; font-weight: 600; white-space: nowrap;
+  background: transparent; color: var(--brand-text); border: 1px solid rgb(255 255 255 / .35);
+}
+.menu-toggle:hover, .menu-toggle[aria-expanded="true"] { background: rgb(255 255 255 / .14); border-color: rgb(255 255 255 / .55); }
+.menu-icon { font-size: 16px; line-height: 1; }
+
+main { overflow: auto; padding: 16px 20px; scroll-behavior: smooth; display: flex; flex-direction: column; }
+main > * { flex: 0 0 auto; }
+.status-bar {
+  font-size: 14px; padding: 6px 20px; color: var(--muted); background: var(--panel-2); border-top: 1px solid var(--line);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.view { display: none; }
+.view.active { display: block; }
+/* A "fit" screen takes exactly the height left under the header and any notice; its table scrolls inside. */
+.view.fit.active { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; gap: 10px; }
+.subview { display: none; }
+.subview.active { display: block; }
+.view.fit > .subview.active { flex: 1 1 0; min-height: 0; }
+.subview.fit.active { display: flex; flex-direction: column; gap: 10px; }
+.subview.scroll.active { overflow: auto; }
+
+h1 { font-size: 23px; margin: 0; color: var(--heading); font-weight: 700; }
+h2 { font-size: 20px; margin: 0; color: var(--heading); font-weight: 700; }
+h3 { font-size: 15px; margin: 0; color: var(--heading); font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+p { margin: 0; }
+.muted { color: var(--muted); font-weight: normal; font-size: 15.5px; }
+.hidden { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }

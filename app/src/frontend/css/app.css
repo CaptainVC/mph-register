@@ -1,0 +1,21 @@
+/* MPH Register screens. One layout system: app shell (header / scrolling content / footer), cards, field grids,
+   tables that fill the space they are given, and slide-in panels (<dialog class="drawer">) for every edit window. */
+
+/* The parts, in cascade order: a later file wins over an earlier one for rules of the same weight. */
+@import url("base/fonts.css");
+@import url("base/theme.css");
+@import url("layout/shell.css");
+@import url("components/cards-and-panels.css");
+@import url("components/forms.css");
+@import url("components/tables.css");
+@import url("components/combo.css");
+@import url("views/entry.css");
+@import url("views/import.css");
+@import url("views/bills.css");
+@import url("views/masters.css");
+@import url("components/drawers.css");
+@import url("views/dashboard.css");
+@import url("views/deleted-entries.css");
+@import url("views/aawak.css");
+@import url("views/register-tools.css");
+@import url("layout/laptop.css");

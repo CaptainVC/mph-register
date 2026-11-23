@@ -12,7 +12,7 @@ rm -rf "$work"
 mkdir -p "$work/app" "$work/release" "$work/data"
 
 publish() {
-  dotnet publish "$root/app/src/MPHRegister.Api" -c Release -r win-x64 --self-contained -nologo -v q -p:Version="$1" \
+  dotnet publish "$root/app/src/backend/MPHRegister.Api" -c Release -r win-x64 --self-contained -nologo -v q -p:Version="$1" \
     -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -o "$2"
 }
 publish 0.0.1 "$work/old"

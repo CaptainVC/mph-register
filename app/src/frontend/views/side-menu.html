@@ -1,0 +1,43 @@
+<dialog id="sideMenu" class="drawer side-menu" aria-labelledby="sideMenuTitle">
+  <div class="side-menu-panel">
+    <header class="drawer-head">
+      <h2 id="sideMenuTitle">Menu</h2>
+      <button type="button" id="sideMenuClose" class="icon-btn" title="Close (Esc)" aria-label="Close">×</button>
+    </header>
+    <div class="side-menu-body">
+      <div class="side-menu-group">
+        <div class="side-menu-label">Language</div>
+        <div id="langSwitch" class="segmented" role="group" aria-label="Language" data-no-i18n="all">
+          <button type="button" id="langEn" class="seg-btn active" data-lang="en" aria-pressed="true">English</button>
+          <button type="button" id="langHi" class="seg-btn" data-lang="hi" aria-pressed="false">हिन्दी (Hinglish)</button>
+        </div>
+      </div>
+      <div class="side-menu-group">
+        <div class="side-menu-label">Theme</div>
+        <div id="themeSwitch" class="segmented" role="group" aria-label="Theme">
+          <button type="button" id="themeLight" class="seg-btn active" data-theme="light" aria-pressed="true">☀ Light</button>
+          <button type="button" id="themeDark" class="seg-btn" data-theme="dark" aria-pressed="false">☾ Dark</button>
+        </div>
+      </div>
+      <hr class="side-menu-sep">
+      <button type="button" id="menuSettings" class="side-menu-item" data-view="settings">
+        <span class="side-menu-icon" aria-hidden="true">⚙</span>
+        <span class="side-menu-text">
+          <span class="side-menu-title">Settings</span>
+          <span class="side-menu-desc">Firm details, bill rules, printing and features</span>
+        </span>
+        <span class="side-menu-arrow" aria-hidden="true">›</span>
+      </button>
+      <hr class="side-menu-sep">
+      <div class="side-menu-group">
+        <div class="side-menu-label">App version</div>
+        <div id="updateInfo" class="side-menu-note" role="status"></div>
+        <div class="side-menu-actions">
+          <button type="button" id="checkUpdates" class="secondary small">Check for updates</button>
+          <button type="button" id="installUpdate" class="small hidden">Update now</button>
+          <button type="button" id="rollbackUpdate" class="secondary small hidden">Go back to the previous version</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</dialog>

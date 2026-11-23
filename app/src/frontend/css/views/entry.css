@@ -1,0 +1,73 @@
+/* ---------- New entry ---------- */
+/* Large boxes, clear labels and an always-open dispatch area: made for unhurried typing, not for power users. */
+.entry-card { padding: 22px 24px; }
+.entry-card.editing { border: 2px solid var(--over); }
+.entry-card h1 { font-size: 25px; }
+.entry-help { font-size: 16.5px; color: var(--muted); }
+.entry-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 18px 16px; align-items: start; }
+.entry-grid .c1 { grid-column: span 1; }
+.entry-grid .c2 { grid-column: span 2; }
+.entry-grid .c3 { grid-column: span 3; }
+.entry-grid .c5 { grid-column: span 5; }
+.entry-grid .field { gap: 7px; }
+.entry-grid .field > .label, .entry-grid .field > label:first-child { font-size: 16px; letter-spacing: .3px; }
+.entry-grid input, .entry-grid [data-dropdown], .entry-grid output { height: 52px; font-size: 20px; }
+.entry-grid input, .entry-grid [data-dropdown] { border-width: 1.5px; }
+.entry-grid [data-dropdown] { --select-pad: 30px; --select-arrow-gap: 7px; padding-left: 10px; }
+.entry-grid output { border: 1.5px dashed var(--line); color: var(--heading); }
+.auto-tag {
+  display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 4px; vertical-align: 2px;
+  background: var(--calc-bg); color: var(--muted); font-size: 12.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
+  cursor: help;
+}
+@media (max-width: 1100px) {
+  .entry-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .entry-grid .c5, .entry-grid .c3 { grid-column: span 3; }
+  .entry-grid .c1, .entry-grid .c2 { grid-column: span 2; }
+}
+
+.dispatch {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.dispatch-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; }
+.dispatch-head h2 { font-size: 21px; }
+.dispatch-help { font-size: 15.5px; color: var(--muted); margin-top: 2px; }
+.dispatch-summary { display: flex; gap: 10px; flex-wrap: wrap; }
+.d-stat {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 132px; padding: 8px 14px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-sm);
+}
+.d-stat-label { font-size: 13.5px; font-weight: 700; letter-spacing: .35px; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.d-stat b { font-size: 23px; color: var(--heading); font-variant-numeric: tabular-nums; line-height: 1.2; }
+.d-stat.pending { background: var(--warn-soft); border-color: var(--warn); }
+.d-stat.pending .d-stat-label, .d-stat.pending b { color: var(--warn); }
+.d-stat.done { background: var(--ok-soft); border-color: var(--ok); }
+.d-stat.done .d-stat-label, .d-stat.done b { color: var(--ok); }
+.d-stat.over { background: var(--err-soft); border-color: var(--err); }
+.d-stat.over .d-stat-label, .d-stat.over b { color: var(--err); }
+.dispatch-body { display: flex; gap: 18px 28px; align-items: flex-start; flex-wrap: wrap; }
+.dispatch-list { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; min-width: 0; }
+.dispatch-table { border-collapse: collapse; }
+.dispatch-table th { font-size: 15px; text-align: left; color: var(--heading); padding: 0 8px 6px; font-weight: 700; letter-spacing: .3px; }
+.dispatch-table th:first-child, .dispatch-table td.d-num { text-align: center; width: 36px; padding-left: 0; padding-right: 0; }
+.dispatch-table td { padding: 5px 8px; vertical-align: middle; }
+.dispatch-table td.d-num { font-size: 18px; font-weight: 700; color: var(--muted); }
+.dispatch-table input { width: 190px; height: 50px; font-size: 19px; border-width: 1.5px; }
+.dispatch-table td.d-date-cell .muted { display: block; margin-top: 4px; font-size: 14px; }
+.dispatch-table button.link { height: 40px; font-size: 15.5px; }
+#addDispatch { height: 46px; font-size: 17px; }
+.dispatch .short-than { width: 190px; }
+.dispatch .short-than > label { font-size: 15px; }
+.dispatch .short-than input { height: 50px; font-size: 19px; border-width: 1.5px; }
+
+.entry-actions { gap: 16px; }
+#saveButton { height: 56px; min-width: 240px; padding: 0 28px; font-size: 20px; border-radius: 8px; }
+.entry-actions .message { font-size: 18px; }
+.entry-card .warnings { font-size: 16.5px; }
+
+.recent-card { margin-top: 16px; }
+.recent-hint {
+  display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 17px;
+  background: var(--accent-soft); color: var(--heading); font-size: 15.5px; font-weight: 600;
+}

@@ -1,0 +1,19 @@
+/* ---------- Deleting an entry and restoring it ---------- */
+.edit-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+#formMessage button.small { margin-left: 8px; vertical-align: middle; }
+.deleted-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.deleted-item { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; background: var(--panel); }
+.deleted-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.deleted-facts { margin-top: 4px; }
+.deleted-when { font-size: 14px; margin-top: 2px; }
+.deleted-notes { margin: 6px 0 0; padding-left: 18px; }
+.deleted-notes .clash { color: var(--err); }
+.deleted-notes .warn { color: var(--warn); }
+.deleted-empty { color: var(--muted); }
+
+/* Export to Excel: the check lists what is typed over the workbook's formulas, so those cells wrap. */
+#excelResult td.excel-details { white-space: normal; min-width: 340px; max-width: 560px; font-size: 14.5px; }
+#excelResult td.excel-details ul { margin: 0; padding-left: 18px; }
+#excelResult td .check { margin-left: 10px; }
+#excelNotes, #excelProblems { margin: 0; padding-left: 22px; }
+#excelForm .excel-bills { max-height: 300px; overflow: auto; }

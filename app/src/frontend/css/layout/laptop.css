@@ -1,0 +1,170 @@
+/* ---------- Laptop layout ----------
+   A short window (a 14"/15" laptop, about 640-700 points under the title bar and taskbar) keeps the text and the boxes
+   that are typed into the same size, and gives the space around them to the rows instead. Taller windows are unchanged. */
+@media (max-height: 820px) {
+  /* Shell: thinner top bar and status bar (the status bar stays: messages appear over it), smaller margins. */
+  .top { height: 46px; padding: 0 12px; gap: 10px; }
+  .brand { font-size: 17.5px; }
+  .tab { height: 34px; padding: 0 12px; font-size: 16px; }
+  .menu-toggle { height: 32px; padding: 0 12px; font-size: 15px; }
+  main { padding: 8px 12px 6px; }
+  .status-bar { font-size: 12.5px; padding: 2px 12px; }
+  .view.fit.active, .subview.fit.active { gap: 6px; }
+  .notice-bar { padding: 6px 12px; font-size: 14.5px; }
+
+  /* Register and Party-wise: one row of controls, labels beside their boxes; the year needs no label. */
+  .panel-top { gap: 8px; padding: 6px 8px; align-items: center; flex-wrap: nowrap; }
+  .panel-top .field { flex-direction: row; align-items: center; gap: 6px; }
+  .panel-top .field > label { font-size: 14px; white-space: nowrap; }
+  .panel-top .field > label[for$="FinancialYear"] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .panel-top .month-field { flex: 0 0 auto; }
+  .panel-top .month-field [data-dropdown] { width: 150px; }
+  .panel-top .field:has(> [id$="FinancialYear"]) [data-dropdown] { width: 124px; }
+  .panel-top .search-field { flex: 1 1 150px; max-width: 420px; }
+  .panel-top [data-dropdown], .panel-top input { height: 36px; font-size: 16px; }
+  .panel-btn { height: 36px; font-size: 15px; padding: 0 12px; }
+  .colset button { height: 34px; padding: 0 10px; font-size: 14.5px; }
+  .count-pill { height: 32px; padding: 0 12px; font-size: 14.5px; }
+  .panel-count-wrap { min-height: 36px; }
+
+  /* Totals: one thin line, same figures and colours. */
+  .totals-strip { flex-wrap: nowrap; }
+  .totals-strip .stat { flex: 1 1 0; flex-direction: row; align-items: baseline; justify-content: center; gap: 5px; padding: 4px; min-height: 0; }
+  .totals-strip .stat-label { font-size: 12px; letter-spacing: 0; }
+  .totals-strip .stat-value { font-size: 16px; }
+
+  /* Tables: the same 16px text with less padding; a heading may take two lines, so a column is only as wide as its numbers. */
+  table.register th { padding: 4px 5px; font-size: 13px; line-height: 1.15; white-space: normal; letter-spacing: .1px; }
+  table.register td { padding: 3px 6px; }
+  #registerTable, #partyTable, #recentTable { --col-inw: 62px; --col-date: 94px; --col-party: 196px; }
+  #registerTable.cols-main, #recentTable { --col-party: 232px; }
+  #registerTable.cols-jawak { --col-inw: 84px; --col-date: 88px; --col-party: 196px; }
+  #registerTable.cols-jawak :is(thead th, tr[data-entry-id] > td):nth-child(5) { width: 80px; min-width: 80px; max-width: 80px; }
+  #registerTable.cols-jawak td { padding-inline: 5px; }
+  /* In JAWAK a long party name keeps to one line, so every row stays one line tall. */
+  #registerTable.cols-jawak tr[data-entry-id] > td:nth-child(3) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  :where(#registerTable, #partyTable, #recentTable) :is(thead th, tr[data-entry-id] > td):is(:nth-child(4), :nth-child(5)) { width: 96px; min-width: 96px; max-width: 96px; }
+  :where(#registerTable.cols-main, #partyTable.cols-main, #recentTable) :is(thead th, tr[data-entry-id] > td):is(:nth-child(4), :nth-child(5)) { width: 106px; min-width: 106px; max-width: 106px; }
+  /* A long finish name wraps at its spaces rather than widening the table past the screen. */
+  :where(#registerTable, #partyTable, #recentTable) tr[data-entry-id] > td:nth-child(10) { white-space: normal; }
+  table.register td.bill-cell, table.register td.warning-cell { width: 140px; min-width: 140px; max-width: 140px; }
+  table.register td.bill-cell .bill-text, table.register td.warning-cell .warning-text { -webkit-line-clamp: 1; line-clamp: 1; }
+  table.register tr.group td .group-bar, table.register tr.subgroup td .group-bar { padding-block: 2px; min-height: 0; }
+  .group-stat { padding: 1px 8px; }
+  tr.group .group-stat-value { font-size: 15.5px; }
+  .table-jump { flex-direction: row; gap: 3px; padding: 2px 4px; }
+  .table-jump button { height: 24px; font-size: 13px; padding: 0 6px; }
+  .table-wrap.fill { min-height: 160px; }
+  .send-bar { padding: 5px 12px; }
+  .send-bar input { height: 36px; }
+  .send-bar button { height: 38px; }
+
+  /* New entry: the same large boxes, dispatch on one line, Save beside it, and the last saved entries under the form. */
+  #view-entry.active { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; }
+  .entry-card { padding: 10px 14px 12px; }
+  .entry-card > * + * { margin-top: 8px; }
+  .entry-card h1 { font-size: 19px; }
+  .entry-help { display: none; }
+  .entry-grid { gap: 6px 12px; }
+  .entry-grid .field { gap: 2px; }
+  .entry-grid .field > .label, .entry-grid .field > label:first-child { font-size: 14px; }
+  .entry-grid input, .entry-grid [data-dropdown], .entry-grid output { height: 42px; font-size: 19px; }
+  #entryForm { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; }
+  #entryForm > * { grid-column: 1 / -1; }
+  #entryForm > #dispatchSection { grid-column: 1; }
+  #entryForm > .entry-actions {
+    grid-column: 2; align-self: stretch; margin-top: 8px; flex-direction: column; flex-wrap: nowrap; justify-content: flex-end; align-items: stretch; gap: 6px;
+  }
+  #saveButton { height: 64px; min-width: 190px; font-size: 18px; }
+  .entry-actions .message { font-size: 15px; max-width: 190px; }
+  .dispatch { padding: 6px 12px 8px; gap: 4px; }
+  .dispatch-head { align-items: center; }
+  .dispatch-head h2 { font-size: 17px; }
+  .dispatch-help { display: none; }
+  .dispatch-summary { gap: 6px; }
+  .d-stat { flex-direction: row; gap: 8px; min-width: 0; padding: 2px 10px; }
+  .d-stat-label { font-size: 12px; }
+  .d-stat b { font-size: 17px; }
+  .dispatch-body { align-items: flex-end; gap: 12px; flex-wrap: nowrap; }
+  .dispatch-list { flex-direction: row; align-items: flex-end; gap: 10px; }
+  .dispatch-table th { padding-bottom: 0; font-size: 13px; }
+  .dispatch-table td { padding-block: 2px; }
+  .dispatch-table input { width: 150px; height: 38px; font-size: 17px; }
+  #addDispatch { height: 38px; padding: 0 10px; font-size: 14.5px; margin-bottom: 2px; }
+  .dispatch .short-than { width: 120px; }
+  .dispatch .short-than > label { font-size: 13px; }
+  .dispatch .short-than input { height: 38px; font-size: 17px; }
+  .recent-card { padding: 8px 12px; margin-top: 8px; }
+  .recent-card > * + * { margin-top: 6px; }
+  .recent-card h2 { font-size: 17px; }
+  .recent-hint { font-size: 13.5px; padding: 2px 10px; }
+  #view-entry .recent-card { flex: 1 1 0; min-height: 150px; display: flex; flex-direction: column; }
+  #view-entry .recent-card .table-wrap { flex: 1 1 0; max-height: none; min-height: 0; }
+
+  /* Bills: the sub-tab already says "Make bills", so the dates keep only their boxes, on one line. */
+  .subtab { height: 34px; font-size: 15.5px; }
+  .bill-date-card { padding-block: 4px; padding-inline: 12px; align-items: center; justify-content: flex-start; }
+  .bill-intro { display: none; }
+  .bill-date-fields { display: flex; flex: 1 1 auto; flex-wrap: nowrap; justify-content: space-between; gap: 8px; }
+  .bill-date-fields .field { flex: 0 0 auto; flex-direction: row; align-items: center; gap: 6px; }
+  .bill-date-fields label { font-size: 13.5px; white-space: nowrap; }
+  .bill-date-fields input, .bill-date-fields [data-dropdown] { height: 34px; font-size: 15px; }
+  .bill-date-fields input[data-picker=date] { width: 176px; }
+  .bill-date-fields input[data-picker=month] { width: 204px; }
+  .bill-date-fields [data-dropdown] { width: 136px; }
+  .bill-layout { grid-template-columns: 250px minmax(0, 1fr); gap: 8px; }
+  .party-pick { padding: 8px; gap: 6px; }
+  .party-pick-head h2 { font-size: 16.5px; }
+  .party-pick #billParty { height: 36px; font-size: 16px; }
+  .party-pick-hint { display: none; }
+  .pick-list li + li { margin-top: 4px; }
+  button.party-choice { grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; padding: 5px 10px; min-height: 0; }
+  button.party-choice[aria-current="true"] { padding: 4px 9px; }
+  .party-choice .pick-name { grid-column: 1; font-size: 14.5px; }
+  .party-choice .pick-amount { grid-column: 2; grid-row: 1; font-size: 14.5px; text-align: right; }
+  .party-choice .pick-count { grid-column: 1 / -1; font-size: 12.5px; }
+  .party-choice .pick-selected { display: none; }
+  .candidate-tools { padding-block: 4px; padding-inline: 12px; }
+  .candidate-tools h3 { font-size: 16px; }
+  .candidate-selection-tools button { height: 32px; }
+  #candidateTable th { padding: 5px 6px; }
+  #candidateTable td { height: 34px; padding: 2px 6px; font-size: 16px; }
+  .bill-action-dock { padding-block: 6px; padding-inline: 14px; }
+  .bill-action-dock button { height: 40px; }
+  #billSelectionSummary strong { font-size: 18px; }
+
+  /* Saved bills: one row of controls; Cancel selected and Undo appear once a bill is ticked. */
+  #bills-saved > .toolbar { flex-wrap: nowrap; gap: 8px; align-items: center; }
+  #bills-saved > .toolbar .field { flex-direction: row; align-items: center; gap: 6px; min-width: 0; }
+  #bills-saved > .toolbar .field label { font-size: 14px; white-space: nowrap; }
+  #bills-saved > .toolbar .field:first-child label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  #bills-saved > .toolbar .field [data-dropdown] { width: 130px; }
+  #bills-saved > .toolbar .grow { flex: 1 1 160px; }
+  #bills-saved > .toolbar :is(input, [data-dropdown], button) { height: 36px; font-size: 15px; padding-inline: 10px; }
+  #bills-saved > .toolbar button:disabled { display: none; }
+  #bills-saved > .toolbar .spacer { display: none; }
+  #savedTotals { font-size: 14.5px; }
+  #invoiceTable td { padding-block: 3px; }
+
+  /* Edit windows (a bill, a party, …): smaller heading and margins, so more lines show. */
+  .drawer-head { padding: 6px 14px 6px 18px; }
+  .drawer-head h2 { font-size: 18.5px; }
+  .drawer-head .sub { font-size: 14px; margin-top: 0; }
+  .drawer-body { padding: 8px 18px 12px; gap: 8px; }
+  .drawer-body .section-head h3 { font-size: 13px; }
+  .drawer-body .fields { gap: 6px 12px; }
+  .drawer-body .field { gap: 2px; }
+  .drawer-body .field > label { font-size: 14px; }
+  .drawer-body input, .drawer-body [data-dropdown] { height: 36px; }
+  table.bill-grid td { padding: 1px 4px; }
+  table.bill-grid input { height: 30px; }
+  table.bill-grid th { padding: 4px; }
+  .drawer-foot { padding: 6px 18px; gap: 8px; }
+  .drawer-foot button { height: 38px; padding-inline: 12px; }
+
+  /* Masters and other toolbars. */
+  .toolbar { gap: 8px; }
+  .toolbar .field { flex-direction: row; align-items: center; gap: 6px; }
+  .toolbar input, .toolbar [data-dropdown] { height: 36px; }
+  .toolbar label.check { white-space: nowrap; }
+}

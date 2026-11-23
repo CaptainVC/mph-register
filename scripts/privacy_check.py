@@ -43,8 +43,8 @@ IN_CI = os.environ.get("CI") == "true"
 # Binary files that may be committed: the frozen synthetic v0.4 fixture (its text is checked too), the fonts and the app icon.
 ALLOWED_BINARIES = (
     re.compile(r"^app/tests/fixtures/v04-seeded\.db$"),
-    re.compile(r"^app/src/MPHRegister\.Api/wwwroot/fonts/[^/]+\.woff2$"),
-    re.compile(r"^app/src/MPHRegister\.Api/wwwroot/favicon\.ico$"),
+    re.compile(r"^app/src/frontend/assets/fonts/[^/]+\.woff2$"),
+    re.compile(r"^app/src/frontend/assets/images/favicon\.ico$"),
 )
 FORBIDDEN_EXTENSIONS = {
     ".xls", ".xlsx", ".xlsm", ".xlsb", ".ods", ".csv", ".db", ".sqlite", ".sqlite3", ".db-wal", ".db-shm",

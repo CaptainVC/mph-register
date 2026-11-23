@@ -1,0 +1,82 @@
+<section id="view-masters" class="view fit">
+  <nav class="subtabs" data-group="masters">
+    <button class="subtab active" data-sub="parties">Parties</button>
+    <button class="subtab" data-sub="sisters">Sister firms</button>
+    <button class="subtab hidden" data-sub="styles">Billing styles</button>
+    <button class="subtab" data-sub="finishes">Finishes and groups</button>
+    <button class="subtab" data-sub="colors">Colours</button>
+    <button class="subtab" data-sub="lorry">Lorry walas</button>
+  </nav>
+
+  <div id="masters-parties" class="subview fit active">
+    <div class="toolbar">
+      <div class="field grow"><label for="partySearch">Search</label><input type="search" id="partySearch" placeholder="Party, GSTIN, address, style…"></div>
+      <label class="check"><input type="checkbox" id="showInactiveParties"> Show inactive</label>
+      <label class="check"><input type="checkbox" id="onlyPartyProblems"> Only with problems</label>
+      <span class="spacer"></span>
+      <span id="partyMasterCount" class="muted"></span>
+      <button type="button" id="addParty">+ Add party</button>
+    </div>
+    <div class="table-wrap fill"><table class="register" id="partyMasterTable"></table></div>
+  </div>
+
+  <div id="masters-sisters" class="subview fit">
+    <div class="toolbar">
+      <p class="muted" style="flex: 1 1 400px">Parties in the same sister-firm group may bill each other's entries in Excel; the bill import then links them. A party can be in one group only.</p>
+      <span id="sisterCount" class="muted"></span>
+      <button type="button" id="addSister">+ Add sister group</button>
+    </div>
+    <div class="table-wrap fill"><table class="register" id="sisterTable"></table></div>
+  </div>
+
+  <div id="masters-styles" class="subview fit">
+    <div class="toolbar">
+      <p class="muted" style="flex: 1 1 400px">A billing style says what each bill line shows and how entries are put on lines. Every party picks one style, so changing a style changes the bills of all its parties.</p>
+      <span id="styleCount" class="muted"></span>
+      <button type="button" id="addStyle">+ Add billing style</button>
+    </div>
+    <div class="table-wrap fill"><table class="register" id="styleTable"></table></div>
+  </div>
+
+  <div id="masters-finishes" class="subview fit">
+    <div class="split">
+      <div class="col">
+        <div class="toolbar">
+          <h2>Finishes</h2>
+          <label class="check"><input type="checkbox" id="showInactiveFinishes"> Show inactive</label>
+          <span class="spacer"></span>
+          <span id="finishCount" class="muted"></span>
+          <button type="button" id="addFinish">+ Add finish</button>
+        </div>
+        <div class="table-wrap fill" id="finishTableWrap"><table class="register" id="finishMasterTable"></table></div>
+      </div>
+      <div class="col">
+        <div class="toolbar">
+          <h2>Finish groups</h2>
+          <span class="spacer"></span>
+          <button type="button" id="addGroup" class="secondary">+ Add group</button>
+        </div>
+        <div class="table-wrap fill"><table class="register" id="groupMasterTable"></table></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="masters-lorry" class="subview fit">
+    <div class="toolbar">
+      <p class="muted" style="flex: 1 1 400px">The lorry walas of the Aawak register. Renaming one to another's name merges the two; other spellings are how the Aawak import recognises a name written differently.</p>
+      <label class="check"><input type="checkbox" id="showInactiveLorry"> Show inactive</label>
+      <span id="lorryCount" class="muted"></span>
+      <button type="button" id="addLorry">+ Add lorry wala</button>
+    </div>
+    <div class="table-wrap fill"><table class="register" id="lorryTable"></table></div>
+  </div>
+
+  <div id="masters-colors" class="subview fit">
+    <div class="toolbar">
+      <p class="muted" style="flex: 1 1 400px">Colour names for party and finish names on bills and screens.</p>
+      <span id="colorCount" class="muted"></span>
+      <button type="button" id="addColor">+ Add colour</button>
+    </div>
+    <div class="table-wrap fill"><table class="register" id="colorTable"></table></div>
+  </div>
+</section>

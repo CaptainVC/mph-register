@@ -1,0 +1,71 @@
+<section id="view-entry" class="view active">
+  <form id="entryForm" class="card entry-card" autocomplete="off" novalidate>
+    <div class="card-head">
+      <h1 id="formTitle">New inward entry</h1>
+      <div class="edit-buttons">
+        <button type="button" id="deleteEntry" class="danger hidden" title="Delete this entry (it can be restored from Register → Deleted entries)">Delete entry</button>
+        <button type="button" id="cancelEdit" class="secondary hidden">Cancel correction (Esc)</button>
+      </div>
+    </div>
+    <p class="entry-help">Fill the boxes from left to right. Press Enter to go to the next box. Enter on TWO PART saves the entry.</p>
+    <div class="entry-grid">
+      <div class="field c1"><label for="inwardNo">INW. NO.</label><input id="inwardNo" type="number" min="0" required></div>
+      <div class="field c2"><label for="entryDate">DATE</label><input id="entryDate" type="date" required></div>
+      <div class="field c5"><label for="party">PARTY</label>
+        <div class="combo" id="partyCombo">
+          <input id="party" type="text" placeholder="Type to search party" required>
+        </div>
+      </div>
+      <div class="field c2"><label for="designNo">D.N.</label><input id="designNo" type="text"></div>
+      <div class="field c2"><label for="lotNo">LOT N.</label><input id="lotNo" type="text"></div>
+
+      <div class="field c1"><label for="repair">REP.</label><button type="button" id="repair" data-dropdown></button></div>
+      <div class="field c2"><label for="than">THAN</label><input id="than" type="number" min="0" required></div>
+      <div class="field c1"><label for="tp">TP</label><input id="tp" type="number" min="0"></div>
+      <div class="field c1"><span class="label">NAG <span class="auto-tag" title="Worked out by the app: THAN + TP">auto</span></span><output id="nag">0</output></div>
+      <div class="field c3"><label for="finish">FINISH</label>
+        <div class="combo" id="finishCombo">
+          <input id="finish" type="text" placeholder="Type to search finish">
+        </div>
+      </div>
+      <div class="field c2"><span class="label">NETT THAN <span class="auto-tag" title="Worked out by the app: THAN, or 0 for a repair">auto</span></span><output id="nett">0</output></div>
+      <div class="field c2"><label for="twoPart">TWO PART</label><input id="twoPart" type="number" min="0" data-last="true"></div>
+    </div>
+
+    <section id="dispatchSection" class="dispatch" aria-labelledby="dispatchTitle">
+      <div class="dispatch-head">
+        <div>
+          <h2 id="dispatchTitle">Dispatch (JAWAK)</h2>
+          <p class="dispatch-help">Leave the row empty if nothing has been sent yet.</p>
+        </div>
+        <div id="dispatchSummary" class="dispatch-summary" aria-live="polite">
+          <div class="d-stat"><span class="d-stat-label">NAG + TWO PART</span><span class="sr-only">: </span><b id="dispatchTotal">0</b></div>
+          <div class="d-stat"><span class="d-stat-label">Sent (JAWAK)</span><span class="sr-only">: </span><b id="dispatchSent">0</b></div>
+          <div class="d-stat" id="dispatchBalanceStat"><span class="d-stat-label">Balance</span><span class="sr-only">: </span><b id="dispatchBalance">0</b></div>
+        </div>
+      </div>
+      <div class="dispatch-body">
+        <div class="dispatch-list">
+          <table class="dispatch-table">
+            <thead><tr><th>#</th><th>JAWAK NAG</th><th>GATE PASS NO</th><th>DATE</th><th></th></tr></thead>
+            <tbody id="dispatchRows"></tbody>
+          </table>
+          <button type="button" id="addDispatch" class="secondary">+ Add another dispatch</button>
+        </div>
+        <div class="field short-than"><label for="shortThan">SHORT THAN</label><input id="shortThan" type="number" min="0"></div>
+      </div>
+    </section>
+
+    <div class="actions entry-actions">
+      <button type="submit" id="saveButton">Save entry (Enter)</button>
+      <div id="formMessage" class="message" role="status" aria-live="polite"></div>
+    </div>
+    <ul id="entryWarnings" class="warnings"></ul>
+    <div id="entryAawak" class="entry-aawak" aria-live="polite"></div>
+  </form>
+
+  <div class="card recent-card">
+    <div class="card-head"><h2>Recently saved here</h2><span class="recent-hint">Click a cell to edit it; click INW. NO. to open the whole entry</span></div>
+    <div class="table-wrap"><table class="register" id="recentTable"></table></div>
+  </div>
+</section>

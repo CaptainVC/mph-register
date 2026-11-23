@@ -1,0 +1,204 @@
+/* ---------- Tables ---------- */
+.table-wrap { overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); max-height: 400px; }
+.table-wrap.fill { flex: 1 1 auto; min-height: 220px; max-height: none; }
+table.register { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 16px; }
+table.register th {
+  position: sticky; top: 0; z-index: 2; background: var(--th-bg); color: var(--heading); font-size: 14px; font-weight: 700;
+  letter-spacing: .3px; padding: 10px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line-soft); white-space: nowrap; text-align: center;
+}
+table.register td { padding: 8px 10px; border-bottom: 1px solid var(--line-soft); border-right: 1px solid var(--line-soft); text-align: center; white-space: nowrap; }
+table.register td.wrap { white-space: normal; min-width: 150px; max-width: 300px; }
+table.register tbody tr { cursor: pointer; transition: background .1s; }
+table.register tbody tr[data-entry-id] { cursor: default; }
+table.register tbody tr:hover td { background: var(--hover); }
+table.register tbody tr.selected td { background: var(--selected); }
+#invoiceTable .pick { width: 48px; padding-inline: 12px; }
+#invoiceTable input[type=checkbox] { display: block; margin: 0 auto; width: 22px; height: 22px; accent-color: var(--accent); cursor: pointer; }
+#invoiceTable tr.bill-row-selected td { background: var(--accent-soft); }
+/* Cells edit in place like a spreadsheet; INW. NO. opens the whole entry. */
+table.register td.editable { cursor: cell; }
+table.register td.editable:hover { box-shadow: inset 0 0 0 1px var(--accent); }
+table.register tbody tr[data-entry-id] td.inward { cursor: pointer; }
+table.register tbody tr[data-entry-id] td.inward:hover { text-decoration: underline; }
+#recentTable th:first-child, #registerTable th:first-child, #partyTable th:first-child { cursor: help; }
+table.register td.cell-editing { padding: 2px 4px; box-shadow: inset 0 0 0 2px var(--accent); }
+table.register td.cell-editing .cell-input {
+  height: 34px; padding: 0 8px; font-size: 16px; border-radius: 4px; text-align: inherit; box-shadow: none;
+}
+table.register td.cell-editing .cell-input:is([data-dropdown], [data-suggestions]) { padding-right: 28px; --select-arrow-gap: 6px; }
+table.register td.cell-saving { opacity: .6; }
+table.register td.cell-draft { color: var(--warn); font-style: italic; }
+table.register td.cell-saved { animation: cell-saved .9s ease-out; }
+@keyframes cell-saved { from { background: var(--accent-soft); } }
+table.register caption { caption-side: bottom; padding: 24px; color: var(--muted); }
+/* Empty-table note: as wide as the visible box (not the table), so its text stays centred when the table scrolls sideways. */
+.table-empty {
+  position: sticky; left: 0; display: flex; align-items: center; justify-content: center; min-height: 120px;
+  padding: 28px 24px; text-align: center; color: var(--muted); font-size: 17.5px; line-height: 1.5;
+}
+.table-wrap.fill .table-empty { min-height: 200px; }
+table.register td.left { text-align: left; }
+/* Register and Party-wise: INW. NO., DATE and PARTY stay in view while the rest scrolls sideways. The three have fixed widths so
+   each one can sit exactly after the one before it. */
+#registerTable, #partyTable { --col-inw: 84px; --col-date: 112px; --col-party: 210px; }
+:where(#registerTable, #partyTable) :is(thead th, tr[data-entry-id] > td):nth-child(-n+3) { position: sticky; box-sizing: border-box; }
+:where(#registerTable, #partyTable) :is(thead th, tr[data-entry-id] > td):nth-child(1) { left: 0; width: var(--col-inw); min-width: var(--col-inw); max-width: var(--col-inw); }
+:where(#registerTable, #partyTable) :is(thead th, tr[data-entry-id] > td):nth-child(2) { left: var(--col-inw); width: var(--col-date); min-width: var(--col-date); max-width: var(--col-date); }
+:where(#registerTable, #partyTable) :is(thead th, tr[data-entry-id] > td):nth-child(3) {
+  left: calc(var(--col-inw) + var(--col-date)); width: var(--col-party); min-width: var(--col-party); max-width: var(--col-party);
+  box-shadow: 2px 0 0 var(--line);
+}
+/* D.N. and LOT N. keep the same width in "Recently saved here", so a long lot list wraps at its commas on two lines
+   instead of standing one number per line. */
+:where(#registerTable, #partyTable, #recentTable) :is(thead th, tr[data-entry-id] > td):is(:nth-child(4), :nth-child(5)) {
+  box-sizing: border-box; width: 112px; min-width: 112px; max-width: 112px;
+}
+:where(#registerTable, #partyTable, #recentTable) tr[data-entry-id] > td:is(:nth-child(4), :nth-child(5)) {
+  white-space: normal; overflow-wrap: normal;
+}
+:where(#registerTable, #partyTable) tr[data-entry-id] > td:nth-child(-n+3) { z-index: 1; background: var(--panel); }
+:where(#registerTable, #partyTable) thead th:nth-child(-n+3) { z-index: 3; }
+:where(#registerTable, #partyTable) tr[data-entry-id] > td:nth-child(3) { white-space: normal; overflow-wrap: anywhere; }
+/* BILL NO. wraps to two lines at most; hover shows all of it, a click opens the cell out. */
+table.register td.bill-cell { width: 190px; min-width: 190px; max-width: 190px; cursor: pointer; }
+table.register td.bill-cell .bill-text {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+  white-space: normal; overflow-wrap: anywhere; line-height: 1.35;
+}
+table.register td.bill-cell.expanded .bill-text { display: block; -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; }
+/* WARNINGS uses the same fixed, two-line preview as BILL NO.; clicking reveals the full text. */
+table.register td.warning-cell { width: 190px; min-width: 190px; max-width: 190px; cursor: pointer; }
+table.register td.warning-cell .warning-text {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+  white-space: normal; overflow-wrap: anywhere; line-height: 1.35;
+}
+table.register td.warning-cell.expanded .warning-text { display: block; -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; }
+table.register td.num, table.register td.money { text-align: right; font-variant-numeric: tabular-nums; }
+table.register a.bill-link { color: var(--accent); font-weight: 600; text-decoration: underline; }
+table.register a.bill-link:hover { background: var(--accent-soft); }
+table.register td.inward { color: var(--inward); font-weight: 700; }
+table.register td.big { font-size: 17px; }
+table.register td.rep-yes { color: var(--err); font-weight: 700; }
+table.register td.rep-no { color: var(--accent); font-weight: 700; }
+table.register td.bad { color: var(--err); font-weight: 700; }
+table.register td.good { color: var(--ok); font-weight: 700; }
+table.register td.changed { color: var(--changed); font-weight: 700; }
+table.register td.wrap { white-space: normal; min-width: 260px; text-align: left; }
+table.register tr.pending td { background: var(--pending); }
+table.register tr.partial td { background: var(--partial); }
+table.register tr.over td { background: var(--over); }
+/* A slip kept only for its number (THAN billed in an earlier register): faded, never an alarm. */
+table.register tr.allZero td { background: var(--all-zero); }
+table.register tr.allZero td:not(.inward) { color: var(--muted); }
+table.register tr.carried td:first-child { background: var(--carried); }
+table.register tr.has-warning td:first-child { box-shadow: inset 4px 0 0 var(--err); }
+table.register tr.inactive td { color: var(--inactive); }
+table.register tr.group td {
+  background: var(--group-bg); color: var(--group-text); text-align: left; cursor: pointer;
+  padding: 0; border-bottom: 1px solid rgb(255 255 255 / .14); border-right: 0;
+}
+table.register tbody tr.group:not(:first-child) td { border-top: 3px solid var(--bg); }
+table.register tr.subgroup td {
+  background: var(--subgroup-bg); color: var(--heading); text-align: left; cursor: pointer;
+  padding: 0; border-bottom: 1px solid var(--line); border-right: 0;
+}
+table.register tbody tr.group:hover td { background: var(--group-bg); }
+table.register tbody tr.subgroup:hover td { background: var(--subgroup-bg); }
+
+button.group-bar {
+  position: sticky; left: 0; width: fit-content;
+  display: flex; align-items: center; gap: 14px; white-space: nowrap;
+  height: auto; padding: 6px 14px; background: transparent; color: inherit;
+  border: 0; border-radius: 0; font: inherit; text-align: left;
+}
+button.group-bar:hover { background: transparent; }
+button.group-bar:focus-visible { outline: 2px solid currentColor; outline-offset: -3px; }
+.group-chevron { width: 8px; height: 8px; border-right: 2px solid; border-bottom: 2px solid; transform: rotate(-45deg); flex: 0 0 auto; }
+.group-bar[aria-expanded="true"] .group-chevron { transform: rotate(45deg); }
+tr.group .group-bar { box-shadow: inset 4px 0 0 var(--group-accent); }
+tr.subgroup .group-bar { padding: 5px 14px; box-shadow: inset 4px 0 0 var(--accent); }
+
+.group-identity {
+  display: inline-flex; align-items: center; gap: 9px; min-width: 300px; flex: 0 0 auto;
+}
+tr.subgroup .group-identity { padding-left: 16px; }
+.group-kicker {
+  font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 4px; line-height: 1.2;
+}
+tr.group .group-kicker { background: rgb(255 255 255 / .12); color: var(--group-muted); }
+tr.subgroup .group-kicker { background: var(--subgroup-card-bg); border: 1px solid var(--subgroup-card-border); color: var(--muted); }
+.group-name { font-weight: 700; line-height: 1.25; }
+tr.group .group-name { font-size: 17.5px; color: var(--group-text); }
+tr.subgroup .group-name { font-size: 16px; color: var(--heading); }
+.group-name-empty { font-style: italic; opacity: .78; }
+.group-count {
+  font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums;
+  padding: 1px 8px; border-radius: 999px; line-height: 1.45; margin-left: auto;
+}
+tr.group .group-count { background: var(--group-card-bg); border: 1px solid var(--group-card-border); color: var(--group-muted); }
+tr.subgroup .group-count { background: var(--subgroup-card-bg); border: 1px solid var(--subgroup-card-border); color: var(--muted); }
+
+.group-stats {
+  display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto;
+}
+.group-stat {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  padding: 3px 10px; border-radius: var(--radius-sm); line-height: 1.25;
+}
+tr.group .group-stat { background: var(--group-card-bg); border: 1px solid var(--group-card-border); }
+tr.subgroup .group-stat { background: var(--subgroup-card-bg); border: 1px solid var(--subgroup-card-border); }
+
+.group-stat-label {
+  font-size: 12px; font-weight: 700; letter-spacing: .35px; text-transform: uppercase;
+}
+tr.group .group-stat-label { color: var(--group-muted); }
+tr.subgroup .group-stat-label { color: var(--muted); }
+
+.group-stat-value {
+  font-weight: 700; font-variant-numeric: tabular-nums;
+}
+tr.group .group-stat-value { font-size: 16.5px; color: var(--group-text); }
+tr.subgroup .group-stat-value { font-size: 15.5px; color: var(--heading); }
+
+/* Balance status highlights inside Party (dark banner) and Finish (soft band) summary bars */
+tr.group .group-stat.is-balance { background: rgb(245 166 35 / .22); border-color: rgb(250 195 90 / .55); }
+tr.group .group-stat.is-balance .group-stat-label { color: #ffe09e; }
+tr.group .group-stat.is-balance .group-stat-value { color: #ffd166; }
+
+tr.group .group-stat.is-over { background: rgb(244 112 103 / .24); border-color: rgb(255 138 128 / .6); }
+tr.group .group-stat.is-over .group-stat-label { color: #ffc7c2; }
+tr.group .group-stat.is-over .group-stat-value { color: #ff9b94; }
+
+tr.group .group-stat.is-clear { background: rgb(87 171 90 / .22); border-color: rgb(120 212 124 / .5); }
+tr.group .group-stat.is-clear .group-stat-label { color: #c4f4c7; }
+tr.group .group-stat.is-clear .group-stat-value { color: #85eb8c; }
+
+tr.subgroup .group-stat.is-balance { background: var(--warn-soft); border-color: var(--warn); }
+tr.subgroup .group-stat.is-balance .group-stat-label,
+tr.subgroup .group-stat.is-balance .group-stat-value { color: var(--warn); }
+
+tr.subgroup .group-stat.is-over { background: var(--err-soft); border-color: var(--err); }
+tr.subgroup .group-stat.is-over .group-stat-label,
+tr.subgroup .group-stat.is-over .group-stat-value { color: var(--err); }
+
+tr.subgroup .group-stat.is-clear { background: var(--ok-soft); border-color: var(--ok); }
+tr.subgroup .group-stat.is-clear .group-stat-label,
+tr.subgroup .group-stat.is-clear .group-stat-value { color: var(--ok); }
+
+table.mini { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 15.5px; border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; }
+table.mini th { background: var(--th-bg); color: var(--heading); font-size: 14px; font-weight: 700; letter-spacing: .3px; text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+table.mini td { padding: 6px 10px; border-bottom: 1px solid var(--line-soft); height: 46px; }
+table.mini tr:last-child td { border-bottom: 0; }
+table.mini td.num { text-align: right; font-variant-numeric: tabular-nums; }
+table.mini th.num { text-align: right; }
+table.mini td.cell-actions { white-space: nowrap; text-align: right; }
+table.mini td.cell-actions button + button { margin-left: 4px; }
+table.mini td input, table.mini td [data-dropdown] { width: 100%; }
+table.mini td.num input { text-align: right; }
+table.mini td input, table.mini td [data-dropdown] { height: 36px; font-size: 15.5px; }
+table.mini tr.editing td { background: var(--selected); }
+table.mini caption { caption-side: bottom; text-align: center; padding: 20px 12px; font-size: 15.5px; color: var(--muted); }
+.preview-table td { min-width: 66px; height: 34px; }
+.preview-table tr.k-priced td { background: var(--priced-bg); font-weight: 700; }
+.preview-table tr.k-blank td { height: 12px; background: var(--blank-bg); }
