@@ -1,0 +1,8 @@
+/* ---------- Linked entry: the LINKED ENTRY column, its side window and the New Entry check ---------- */
+table.register td.link-cell { white-space: nowrap; }
+a.link-warn { color: var(--warn); }
+.link-note { margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-2); line-height: 1.5; }
+.link-note.warn { border-color: var(--note-border); background: var(--note-bg); }
+.entry-grid output#linkPreview { height: auto; min-height: 52px; padding: 8px 12px; flex-wrap: wrap; gap: 4px 18px; font-size: 17px; font-weight: 400; }
+.link-line.ok { color: var(--ok); font-weight: 700; }
+.link-line.warn { color: var(--warn); font-weight: 700; }

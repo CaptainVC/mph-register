@@ -24,6 +24,7 @@ const ROW_FILTERS = [
     { key: "balance", label: "Has balance", group: "balance", tip: "Still to dispatch: BALANCE is above 0, so some stock is still with you", test: (e) => e.balance > 0 },
     { key: "warning", label: "Has warning", group: "warning", swatch: true, tip: "Point at the row to read the warning", test: (e) => e.warnings.length > 0 },
     { key: "aawakNone", label: "No Aawak", group: "aawakNone", tip: "No Aawak row (gate arrival) was found for the slip", test: (e) => e.aawakState === "none" },
+    { key: "linkCheck", label: "Check link", group: "linkCheck", tip: "An all-zero entry whose D.N. names a slip that was not found, or that is under another party", test: (e) => linkNeedsCheck(e) },
   ] },
   { caption: "Last import", help: "What the latest import of each month's inward workbook did: include New or Updated to see those entries", filters: [
     { key: "importAdded", label: "New", tip: "Added as a new row by the latest import of its month's workbook", test: (e) => e.lastImport?.action === "added" },

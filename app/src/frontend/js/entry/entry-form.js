@@ -223,6 +223,7 @@ async function resetForm({ keepDate = true } = {}) {
   document.querySelectorAll("#entryForm .invalid").forEach((n) => n.classList.remove("invalid"));
   showWarnings([]);
   updateCalculated();
+  scheduleLinkPreview();
   repairMarkSeen = false;
   await syncEntryMonth(monthOf(date));
 }
@@ -248,6 +249,7 @@ function loadIntoForm(entry) {
   $("shortThan").value = entry.shortThan ?? "";
   fillDispatches(entry.dispatches);
   updateCalculated();
+  scheduleLinkPreview();
   repairMarkSeen = formHasRepairMark();
   showWarnings(entry.billedIn ? [`Already billed (${entry.billedIn}). Changing this entry does not change that bill.`, ...entry.warnings] : entry.warnings);
   setMessage("", "");

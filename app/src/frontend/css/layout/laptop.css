@@ -37,17 +37,25 @@
   table.register th { padding: 4px 5px; font-size: 13px; line-height: 1.15; white-space: normal; letter-spacing: .1px; }
   table.register td { padding: 3px 6px; }
   #registerTable, #partyTable, #recentTable { --col-inw: 62px; --col-date: 94px; --col-party: 196px; }
-  #registerTable.cols-main, #recentTable { --col-party: 232px; }
+  #registerTable.cols-main, #recentTable { --col-party: 208px; }
   #registerTable.cols-jawak { --col-inw: 84px; --col-date: 88px; --col-party: 196px; }
   #registerTable.cols-jawak :is(thead th, tr[data-entry-id] > td):nth-child(5) { width: 80px; min-width: 80px; max-width: 80px; }
   #registerTable.cols-jawak td { padding-inline: 5px; }
   /* In JAWAK a long party name keeps to one line, so every row stays one line tall. */
   #registerTable.cols-jawak tr[data-entry-id] > td:nth-child(3) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   :where(#registerTable, #partyTable, #recentTable) :is(thead th, tr[data-entry-id] > td):is(:nth-child(4), :nth-child(5)) { width: 96px; min-width: 96px; max-width: 96px; }
-  :where(#registerTable.cols-main, #partyTable.cols-main, #recentTable) :is(thead th, tr[data-entry-id] > td):is(:nth-child(4), :nth-child(5)) { width: 106px; min-width: 106px; max-width: 106px; }
+  :where(#registerTable.cols-main, #partyTable.cols-main, #recentTable) :is(thead th, tr[data-entry-id] > td):is(:nth-child(4), :nth-child(5)) { width: 98px; min-width: 98px; max-width: 98px; }
+  /* NETT THAN (11th) keeps to its own width so FINISH gets the rest. */
+  :where(#registerTable.cols-main, #partyTable.cols-main, #recentTable) :is(thead th, tr[data-entry-id] > td):nth-child(11) { width: 66px; min-width: 66px; }
+  /* LINKED ENTRY (13th) is narrow here: "← Jun · 547" without the word INW, and a longer text is cut short instead of
+     widening the table (its tooltip has it all). */
+  :where(#registerTable, #partyTable, #recentTable) :is(thead th, tr[data-entry-id] > td):nth-child(13) { width: 96px; min-width: 96px; max-width: 96px; }
+  .link-inw { display: none; }
+  .link-box { display: block; max-width: 82px; overflow: hidden; text-overflow: ellipsis; }
   /* A long finish name wraps at its spaces rather than widening the table past the screen. */
   :where(#registerTable, #partyTable, #recentTable) tr[data-entry-id] > td:nth-child(10) { white-space: normal; }
-  table.register td.bill-cell, table.register td.warning-cell { width: 140px; min-width: 140px; max-width: 140px; }
+  table.register td.bill-cell { width: 118px; min-width: 118px; max-width: 118px; }
+  table.register td.warning-cell { width: 104px; min-width: 104px; max-width: 104px; }
   table.register td.bill-cell .bill-text, table.register td.warning-cell .warning-text { -webkit-line-clamp: 1; line-clamp: 1; }
   table.register tr.group td .group-bar, table.register tr.subgroup td .group-bar { padding-block: 2px; min-height: 0; }
   .group-stat { padding: 1px 8px; }

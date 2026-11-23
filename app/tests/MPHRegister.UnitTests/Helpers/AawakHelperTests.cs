@@ -100,3 +100,20 @@ public sealed class RegisterFileNameTests
     [Fact]
     public void No_month_without_a_month_and_year() => Assert.Null(RegisterFileName.GuessMonth("gate register.xlsx"));
 }
+
+public sealed class InwardReferenceTests
+{
+    [Theory]
+    [InlineData("INW NO 547", new[] { 547 })]
+    [InlineData("INW NO,548", new[] { 548 })]
+    [InlineData("INW NO ,556", new[] { 556 })]
+    [InlineData("inw no 12-14", new[] { 12, 13, 14 })]
+    [InlineData("INW NO 547, 548", new[] { 547, 548 })]
+    [InlineData("INW NO 547, 547", new[] { 547 })]
+    [InlineData("D-2210", new int[0])]
+    [InlineData("", new int[0])]
+    [InlineData(null, new int[0])]
+    [InlineData("INW NO", new int[0])]
+    public void Reads_the_slip_numbers_a_DN_points_to_only_when_it_mentions_INW(string? designNo, int[] expected) =>
+        Assert.Equal(expected, InwardReference.Numbers(designNo));
+}

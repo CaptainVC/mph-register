@@ -9,6 +9,7 @@
 .entry-grid .c2 { grid-column: span 2; }
 .entry-grid .c3 { grid-column: span 3; }
 .entry-grid .c5 { grid-column: span 5; }
+.entry-grid .c12 { grid-column: 1 / -1; }
 .entry-grid .field { gap: 7px; }
 .entry-grid .field > .label, .entry-grid .field > label:first-child { font-size: 16px; letter-spacing: .3px; }
 .entry-grid input, .entry-grid [data-dropdown], .entry-grid output { height: 52px; font-size: 20px; }
