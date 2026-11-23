@@ -135,6 +135,18 @@ async function seed() {
     assert.equal(await inward.count(), 1);
     await page.locator("#registerFilters .filter-clear").click();
 
+    // Marking a slip as not needing an arrival doesn't change the register's "No Aawak found" wording.
+    await page.locator('[data-view="aawak"]').click();
+    await page.locator('.subtabs[data-group="aawak"] [data-sub="check"]').click();
+    const notNeeded = page.getByRole("button", { name: "No Aawak needed" });
+    await notNeeded.waitFor();
+    await notNeeded.click();
+    await notNeeded.waitFor({ state: "detached" });
+    await page.locator('[data-view="register"]').click();
+    await page.locator("#registerSearch").fill(PARTY);
+    await inward.nth(1).waitFor();
+    assert.equal(await (await cellOf(503)).textContent(), "No Aawak found");
+
     // Totals for the month.
     await page.locator('[data-view="aawak"]').click();
     await page.locator('.subtabs[data-group="aawak"] [data-sub="totals"]').click();
