@@ -104,8 +104,8 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
     await page.locator("#dashUnbilledTable tbody tr", { hasText: unbilled.party }).first().locator("button.small").click();
     await page.waitForFunction(() => document.getElementById("view-bills").classList.contains("active") && billsState.candidates);
     check("make bill opens Bills for the party", (await page.evaluate(() => billsState.candidates.billParty)) === unbilled.party);
-    check("period starts at the oldest unbilled entry", (await page.inputValue("#periodFrom")) <= unbilled.oldest, await page.inputValue("#periodFrom"));
-    check("period runs to the end of this month", (await page.inputValue("#periodTo")) >= today, await page.inputValue("#periodTo"));
+    check("period starts at the oldest unbilled entry", (await page.$eval("#periodFrom", (box) => box.value)) <= unbilled.oldest, await page.$eval("#periodFrom", (box) => box.value));
+    check("period runs to the end of this month", (await page.$eval("#periodTo", (box) => box.value)) >= today, await page.$eval("#periodTo", (box) => box.value));
     check("its unbilled entries are listed", (await page.evaluate(() => billsState.candidates.entries.length)) >= unbilled.entries);
     await openDashboard();
   }

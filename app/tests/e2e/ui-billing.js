@@ -212,7 +212,7 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
   await page.fill("#billMonth", "2026-10");
   await page.dispatchEvent("#billMonth", "change");
   await page.waitForFunction(() => document.querySelectorAll("#toBillList li").length > 5);
-  check("bill dates follow the month", (await page.inputValue("#billDate")) === "2026-10-31" && (await page.inputValue("#periodFrom")) === "2026-09-26");
+  check("bill dates follow the month", (await page.$eval("#billDate", (box) => box.value)) === "2026-10-31" && (await page.$eval("#periodFrom", (box) => box.value)) === "2026-09-26");
   const toBill = await page.$$eval("#toBillList .pick-name", (n) => n.map((x) => x.textContent));
   check("parties to bill listed", toBill.includes(P.twoBillParty) && toBill.includes(P.bigParty), toBill.length + "");
   check("party choices are real keyboard-accessible buttons", (await page.$$("#toBillList button.party-choice")).length === toBill.length);
