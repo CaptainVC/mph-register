@@ -37,14 +37,13 @@ const COLUMNS = [
   ["WARNINGS", (e) => e.warnings.join(" "), "left warning-cell", (td, e) => fillWarningCell(td, e)],
 ];
 
-// The Aawak column: the Aawak rows (gate arrivals) the slip came on, each a link to that row; "No Aawak found" when a slip
-// that should have one has none; "No Aawak needed" when it was marked so.
+// The Aawak column: the Aawak rows (gate arrivals) the slip came on, each a link to that row; "No Aawak found" when there
+// is no arrival row, including when the slip was marked as not needing one.
 const NO_Aawak_TEXT = "No Aawak found";
 const Aawak_NOT_NEEDED_TEXT = "No Aawak needed";
 function aawakText(entry) {
   if (entry.aawak?.length) return entry.aawak.map((a) => a.number).join(", ");
-  if (entry.aawakState === "none") return NO_Aawak_TEXT;
-  return entry.aawakState === "notNeeded" ? Aawak_NOT_NEEDED_TEXT : "";
+  return entry.aawakState === "none" || entry.aawakState === "notNeeded" ? NO_Aawak_TEXT : "";
 }
 
 function fillAawakCell(td, entry) {
