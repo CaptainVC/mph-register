@@ -16,6 +16,7 @@
       <button class="tab active" data-view="entry" role="tab">New Entry</button>
       <button class="tab" data-view="register" role="tab">Register</button>
       <button class="tab" data-view="partywise" role="tab">Party-wise</button>
+      <button class="tab" data-view="aawak" role="tab" title="Goods arriving at the gate">AAWAK</button>
       <button class="tab" data-view="bills" role="tab">Bills</button>
       <button class="tab" data-view="dashboard" role="tab">Dashboard</button>
       <button class="tab" data-view="masters" role="tab">Masters</button>
@@ -95,6 +96,7 @@
           <div id="formMessage" class="message" role="status" aria-live="polite"></div>
         </div>
         <ul id="entryWarnings" class="warnings"></ul>
+        <div id="entryAawak" class="entry-aawak" aria-live="polite"></div>
       </form>
 
       <div class="card recent-card">
@@ -124,6 +126,97 @@
         <div id="registerTotals" class="totals-strip" aria-label="Summary totals"></div>
       </div>
       <div class="table-wrap fill"><table class="register" id="registerTable"></table></div>
+    </section>
+
+    <!-- ===== AAWAK (goods arriving at the gate) ===== -->
+    <section id="view-aawak" class="view fit">
+      <nav class="subtabs" data-group="aawak">
+        <button class="subtab active" data-sub="new">New AAWAK</button>
+        <button class="subtab" data-sub="register">AAWAK register</button>
+        <button class="subtab" data-sub="totals">Totals</button>
+        <button class="subtab" data-sub="check">Check</button>
+      </nav>
+
+      <div id="aawak-new" class="subview scroll active">
+        <form id="arrivalForm" class="card entry-card" autocomplete="off" novalidate>
+          <div class="card-head">
+            <h1 id="arrivalFormTitle">New AAWAK</h1>
+          </div>
+          <p class="entry-help">One row per consignment: the party, the lorry wala, the NAG and the inward slips it brought. Press Enter to go to the next box; Enter on NOTE saves.</p>
+          <div class="entry-grid">
+            <div class="field c1"><label for="arrivalNo">AAWAK NO</label><input id="arrivalNo" type="text" inputmode="numeric" title="Leave as it is for the next number; a letter after it (217A) for a row put in later"></div>
+            <div class="field c2"><label for="arrivalDate">DATE</label><input id="arrivalDate" type="date" required></div>
+            <div class="field c5"><label for="arrivalParty">PARTY</label>
+              <div class="combo" id="arrivalPartyCombo"><input id="arrivalParty" type="text" placeholder="Type to search party" required></div>
+            </div>
+            <div class="field c2"><span class="label">GROUP</span><output id="arrivalGroup" class="muted"></output></div>
+            <div class="field c1"><label for="arrivalNag">NAG</label><input id="arrivalNag" type="number" min="1" required></div>
+            <div class="field c3"><label for="arrivalTransporter">LORRY WALA</label>
+              <div class="combo" id="arrivalTransporterCombo"><input id="arrivalTransporter" type="text" placeholder="Type to search lorry wala" required></div>
+            </div>
+            <div class="field c2"><label for="arrivalInward">INW NO</label><input id="arrivalInward" type="text" placeholder="12-14, 20" title="The inward slip numbers: 12-14, 13 TO 17, 19,20"></div>
+            <div class="field c4"><label for="arrivalNote">NOTE</label><input id="arrivalNote" type="text" data-last="true"></div>
+          </div>
+          <div id="arrivalSlips" class="aawak-slips" aria-live="polite"></div>
+          <div class="actions entry-actions">
+            <button type="submit" id="arrivalSave">Save AAWAK (Enter)</button>
+            <div id="arrivalMessage" class="message" role="status" aria-live="polite"></div>
+          </div>
+        </form>
+        <div class="card recent-card">
+          <div class="card-head"><h2>Recently saved here</h2><span class="recent-hint">Click a row to open it; click an INW NO to open that inward entry</span></div>
+          <div class="table-wrap"><table class="register aawak-table" id="arrivalRecentTable"></table></div>
+        </div>
+      </div>
+
+      <div id="aawak-register" class="subview fit">
+        <div class="register-panel">
+          <div class="panel-top">
+            <div class="field month-field"><label for="aawakFinancialYear">Financial year</label><button type="button" id="aawakFinancialYear" data-dropdown title="April to March"></button></div>
+            <div class="field month-field"><label for="aawakMonth">Month</label><button type="button" id="aawakMonth" data-dropdown></button></div>
+            <div class="field search-field"><label for="aawakSearch">Search</label>
+              <div class="search-box"><input id="aawakSearch" type="search" placeholder="Party, lorry wala, INW NO, note…"></div>
+            </div>
+            <div class="field month-field"><label for="aawakStatus">Show</label><button type="button" id="aawakStatus" data-dropdown></button></div>
+            <button type="button" id="aawakRelink" class="secondary panel-btn" title="Look again for the inward slips of every AAWAK row of this month">Link again</button>
+            <button type="button" id="openDeletedArrivals" class="secondary panel-btn" title="AAWAK rows deleted in the app; restore one from here">Deleted rows</button>
+            <div class="panel-count-wrap"><span id="aawakCount" class="count-pill"></span></div>
+          </div>
+          <div id="aawakTotals" class="totals-strip" aria-label="Summary totals"></div>
+        </div>
+        <div class="table-wrap fill"><table class="register aawak-table" id="aawakTable"></table></div>
+      </div>
+
+      <div id="aawak-totals" class="subview scroll">
+        <div class="card">
+          <h1>AAWAK totals</h1>
+          <p class="muted">NAG per party and per lorry wala for any days (the workbook's Total sheet). Sister firms are added up under their group.</p>
+          <div class="import-form">
+            <div class="field"><label for="totalsPeriod">Period</label><button type="button" id="totalsPeriod" data-dropdown></button></div>
+            <div class="field"><label for="totalsFrom">From</label><input id="totalsFrom" type="date"></div>
+            <div class="field"><label for="totalsTo">To</label><input id="totalsTo" type="date"></div>
+            <div class="field"><label for="totalsOrder">Order</label><button type="button" id="totalsOrder" data-dropdown></button></div>
+            <label class="check"><input type="checkbox" id="totalsGroup" checked> Group sister firms</label>
+            <button type="button" id="totalsPrint" class="secondary">Print totals</button>
+            <button type="button" id="statementsPrint" class="secondary">Print lorry-wala statements</button>
+          </div>
+        </div>
+        <div id="totalsResult"></div>
+      </div>
+
+      <div id="aawak-check" class="subview scroll">
+        <div class="card">
+          <h1>Check AAWAK against the inward register</h1>
+          <p class="muted">AAWAK rows whose slips were not found or whose NAG differs, and inward slips with no AAWAK row.</p>
+          <div class="import-form">
+            <div class="field"><label for="checkFrom">From</label><input id="checkFrom" type="date"></div>
+            <div class="field"><label for="checkTo">To</label><input id="checkTo" type="date"></div>
+            <button type="button" id="checkRun">Check</button>
+            <button type="button" id="checkRelink" class="secondary">Link again</button>
+          </div>
+        </div>
+        <div id="checkResult"></div>
+      </div>
     </section>
 
     <!-- ===== Party-wise ===== -->
@@ -255,6 +348,7 @@
         <button class="subtab hidden" data-sub="styles">Billing styles</button>
         <button class="subtab" data-sub="finishes">Finishes and groups</button>
         <button class="subtab" data-sub="colors">Colours</button>
+        <button class="subtab" data-sub="lorry">Lorry walas</button>
       </nav>
 
       <div id="masters-parties" class="subview fit active">
@@ -310,6 +404,16 @@
         </div>
       </div>
 
+      <div id="masters-lorry" class="subview fit">
+        <div class="toolbar">
+          <p class="muted" style="flex: 1 1 400px">The lorry walas of the AAWAK register. Renaming one to another's name merges the two; other spellings are how the AAWAK import recognises a name written differently.</p>
+          <label class="check"><input type="checkbox" id="showInactiveLorry"> Show inactive</label>
+          <span id="lorryCount" class="muted"></span>
+          <button type="button" id="addLorry">+ Add lorry wala</button>
+        </div>
+        <div class="table-wrap fill"><table class="register" id="lorryTable"></table></div>
+      </div>
+
       <div id="masters-colors" class="subview fit">
         <div class="toolbar">
           <p class="muted" style="flex: 1 1 400px">Colour names for party and finish names on bills and screens.</p>
@@ -338,6 +442,7 @@
       <nav class="subtabs" data-group="import">
         <button class="subtab active" data-sub="inward">Inward register</button>
         <button class="subtab" data-sub="bills">Bills</button>
+        <button class="subtab" data-sub="aawak">AAWAK</button>
       </nav>
 
       <div id="import-inward" class="subview scroll active">
@@ -355,6 +460,22 @@
           </div>
         </div>
         <div id="importResult"></div>
+      </div>
+
+      <div id="import-aawak" class="subview scroll">
+        <div class="card">
+          <h1>Import an AAWAK workbook</h1>
+          <p class="muted">Reads the <b>Main</b> sheet of the gate's monthly AAWAK workbook (and its hidden <b>Details</b> lists). Your workbook is never changed. A backup is taken before anything is imported.</p>
+          <p class="muted">Import a newer copy of the same month as often as you like: rows are matched by AAWAK NO, new rows are added, what changed in the workbook is applied and what was changed in the app is kept. Each row is then linked to its inward slips.</p>
+          <div class="import-form">
+            <div class="field"><label for="aawakImportFile">Workbook (.xlsm / .xlsx)</label><input id="aawakImportFile" type="file" accept=".xlsm,.xlsx,.xls"></div>
+            <div class="field" style="min-width: 205px"><label for="aawakImportMonth">AAWAK month</label><input id="aawakImportMonth" type="month" title="Read from the file name when left empty"></div>
+            <label class="check"><input type="checkbox" id="aawakImportGroups"> Give parties without a sister-firm group the workbook's party group</label>
+            <button type="button" id="aawakImportCheck">1. Check file</button>
+            <button type="button" id="aawakImportRun" disabled>2. Import</button>
+          </div>
+        </div>
+        <div id="aawakImportResult"></div>
       </div>
 
       <div id="import-bills" class="subview scroll">
@@ -438,6 +559,9 @@
   <dialog id="colorDrawer" class="drawer narrow"><form id="colorForm" class="drawer-form" autocomplete="off" novalidate></form></dialog>
   <dialog id="invoiceDrawer" class="drawer wide"><form id="invoiceEditor" class="drawer-form" autocomplete="off" novalidate></form></dialog>
   <dialog id="excelDrawer" class="drawer wide"><form id="excelForm" class="drawer-form" autocomplete="off" novalidate></form></dialog>
+  <dialog id="arrivalDrawer" class="drawer medium"><form id="arrivalEditor" class="drawer-form" autocomplete="off" novalidate></form></dialog>
+  <dialog id="deletedArrivalsDrawer" class="drawer medium"><form id="deletedArrivalsForm" class="drawer-form" autocomplete="off" novalidate></form></dialog>
+  <dialog id="lorryDrawer" class="drawer narrow"><form id="lorryForm" class="drawer-form" autocomplete="off" novalidate></form></dialog>
   <dialog id="deletedDrawer" class="drawer medium"><form id="deletedForm" class="drawer-form" autocomplete="off" novalidate></form></dialog>
   <dialog id="dashPartyPanel" class="drawer medium" aria-label="Party" data-no-i18n="all"></dialog>
   <dialog id="dashPicker" class="drawer narrow" aria-label="Choose parties" data-no-i18n="all"></dialog>
@@ -454,5 +578,6 @@
   <script src="masters.js"></script>
   <script src="bills.js"></script>
   <script src="dashboard.js"></script>
+  <script src="aawak.js"></script>
 </body>
 </html>

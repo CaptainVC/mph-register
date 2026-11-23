@@ -120,18 +120,22 @@ public sealed partial class DatabaseInitializer(DataOptions options, IConnection
     private void AddMissingNames(SqliteConnection connection)
     {
         var index = ConfigIndex.For(config.Current);
-        var parties = connection.Query<string>("SELECT DISTINCT party FROM entries UNION SELECT DISTINCT party FROM invoices;")
+        var parties = connection.Query<string>("SELECT DISTINCT party FROM entries UNION SELECT DISTINCT party FROM invoices UNION SELECT DISTINCT party FROM arrivals;")
             .Select(n => n.NormalizeName()).Where(n => n.Length > 0 && index.Party(n) is null).Order(StringComparer.Ordinal).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var finishes = connection.Query<string>("SELECT DISTINCT finish FROM entries;")
             .Select(n => n.NormalizeName()).Where(n => n.Length > 0 && index.Finish(n) is null).Order(StringComparer.Ordinal).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        if (parties.Count == 0 && finishes.Count == 0) return;
+        var transporters = connection.Query<string>("SELECT DISTINCT transporter FROM arrivals UNION SELECT DISTINCT transporter FROM deleted_arrivals;")
+            .Select(n => n.NormalizeName()).Where(n => n.Length > 0 && index.Transporter(n) is null).Order(StringComparer.Ordinal).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (parties.Count == 0 && finishes.Count == 0 && transporters.Count == 0) return;
         config.Update(c => c with
         {
             Parties = [.. c.Parties, .. parties.Select(n => new PartyConfig { Name = n, Active = false, BillingStyle = ConfigIndex.For(c).FallbackStyle.Name })],
             Finishes = [.. c.Finishes, .. finishes.Select(n => new FinishConfig { Name = n, Active = false })],
+            Transporters = [.. c.Transporters, .. transporters.Select(n => new TransporterConfig { Name = n, Active = false })],
         });
         var added = new List<string>();
         if (parties.Count > 0) added.Add($"{parties.Count} part{(parties.Count == 1 ? "y" : "ies")} used by entries or bills were not in the config file and were added as inactive: {string.Join(", ", parties)}.");
+        if (transporters.Count > 0) added.Add($"{transporters.Count} lorry wala{(transporters.Count == 1 ? string.Empty : "s")} used by AAWAK rows were not in the config file and were added as inactive: {string.Join(", ", transporters)}.");
         if (finishes.Count > 0) added.Add($"{finishes.Count} finish{(finishes.Count == 1 ? string.Empty : "es")} used by entries were not in the config file and were added as inactive: {string.Join(", ", finishes)}.");
         config.AddNotices(added);
     }

@@ -36,6 +36,7 @@ from pathlib import Path
 
 CONFIG_DIR = Path(os.environ.get("MPH_PRIVACY_DIR") or Path.home() / ".config" / "mph-register")
 CACHE_FILE = CONFIG_DIR / "workbook-terms.txt"
+NAMES_CACHE_FILE = CONFIG_DIR / "workbook-names.txt"
 EXTRA_FILE = CONFIG_DIR / "extra-terms.txt"
 IN_CI = os.environ.get("CI") == "true"
 
@@ -173,6 +174,15 @@ class Terms:
         for m in UDYAM.finditer(text):
             self.codes.add(re.sub(r"[^A-Z0-9]", "", m.group(0).upper()))
 
+    def add_person(self, text: str | None) -> None:
+        """A lorry wala's name: private unless it is only common words (such as PARTY, the party's own vehicle)."""
+        if not text or not isinstance(text, str):
+            return
+        tokens = re.findall(r"[A-Za-z0-9]+", text.upper())
+        if tokens and all(t in COMMON_WORDS or len(t) < 3 for t in tokens):
+            return
+        self.add_name(text)
+
     def add_text(self, text: str | None) -> None:
         """Free text such as the bank line: only its numbers and codes are private, and any non-common word."""
         if not text or not isinstance(text, str):
@@ -222,6 +232,12 @@ def add_config(terms: Terms, config: dict) -> None:
         terms.add_name(party.get("sisterGroup"))
         terms.add_name(party.get("address"))
         terms.add_numbers(party.get("gstin"))
+    for transporter in config.get("transporters") or []:
+        if not isinstance(transporter, dict):
+            continue
+        terms.add_person(transporter.get("name"))
+        for spelling in transporter.get("otherSpellings") or []:
+            terms.add_person(spelling)
 
 
 def add_database(terms: Terms, path: Path) -> None:
@@ -240,6 +256,11 @@ def add_database(terms: Terms, path: Path) -> None:
                         terms.add_name(name)
                     terms.add_name(address)
                     terms.add_numbers(gstin)
+        for table in ("arrivals", "deleted_arrivals"):
+            if table in tables:
+                for party, transporter in db.execute(f"SELECT DISTINCT party, transporter FROM {table}"):
+                    terms.add_name(party)
+                    terms.add_person(transporter)
         if "settings" in tables:
             for key, value in db.execute("SELECT key, value FROM settings WHERE key IN ('firm', 'signature_png')"):
                 if key == "firm":
@@ -264,6 +285,44 @@ def workbook_strings(path: Path) -> list[str]:
         return []
 
 
+def lorry_names(path: Path) -> list[str]:
+    """The names under the "Lorry Wala" header of an AAWAK workbook's sheets (the hidden Details sheet's list)."""
+    try:
+        with zipfile.ZipFile(path) as book:
+            shared = []
+            if "xl/sharedStrings.xml" in book.namelist():
+                xml = book.read("xl/sharedStrings.xml").decode("utf-8", "replace")
+                for item in re.findall(r"<si>(.*?)</si>", xml, re.S):
+                    shared.append("".join(re.findall(r"<t[^>]*>(.*?)</t>", item, re.S)))
+            names = []
+            for name in book.namelist():
+                if not (name.startswith("xl/worksheets/") and name.endswith(".xml")):
+                    continue
+                xml = book.read(name).decode("utf-8", "replace")
+                cells = {}
+                for ref, attrs, body in re.findall(r'<c r="([A-Z]+\d+)"([^>]*)>(.*?)</c>', xml, re.S):
+                    value = re.search(r"<v>(.*?)</v>", body, re.S)
+                    inline = re.search(r"<t[^>]*>(.*?)</t>", body, re.S)
+                    if 't="s"' in attrs and value and value.group(1).isdigit() and int(value.group(1)) < len(shared):
+                        cells[ref] = shared[int(value.group(1))]
+                    elif inline:
+                        cells[ref] = inline.group(1)
+                for ref, text in cells.items():
+                    if text.strip().upper() != "LORRY WALA":
+                        continue
+                    column, row = re.match(r"([A-Z]+)(\d+)", ref).groups()
+                    following = chr(ord(column[-1]) + 1) if len(column) == 1 and column < "Z" else ""
+                    if cells.get(f"{following}{row}", "").strip().upper() != "ACTIVE":
+                        continue
+                    below = int(row) + 1
+                    while cells.get(f"{column}{below}", "").strip():
+                        names.append(cells[f"{column}{below}"].strip())
+                        below += 1
+            return names
+    except (OSError, zipfile.BadZipFile, KeyError):
+        return []
+
+
 def refresh_cache(quiet: bool = False) -> None:
     folder = workbook_folder()
     if not folder or not folder.is_dir():
@@ -271,12 +330,19 @@ def refresh_cache(quiet: bool = False) -> None:
             print(f"privacy: no workbooks folder ({folder}); nothing to cache.")
         return
     terms = Terms()
+    lorries: set[str] = set()
     for book in sorted(folder.rglob("*.xls*")):
         if book.name.startswith("~$"):
             continue
         for text in workbook_strings(book):
             terms.add_numbers(text)
+        if "AWAK" in book.name.upper():
+            lorries.update(lorry_names(book))
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile("w", dir=CONFIG_DIR, delete=False, encoding="utf-8") as out:
+        out.write("# Lorry-wala names from the AAWAK workbooks, built by scripts/privacy_check.py --refresh; never commit.\n")
+        out.write("\n".join(sorted(lorries)) + "\n")
+    os.replace(out.name, NAMES_CACHE_FILE)
     with tempfile.NamedTemporaryFile("w", dir=CONFIG_DIR, delete=False, encoding="utf-8") as out:
         out.write("# Built by scripts/privacy_check.py --refresh from the workbooks; never commit.\n")
         out.write("\n".join(sorted(terms.codes)) + "\n")
@@ -302,15 +368,17 @@ def load_private_terms() -> tuple[tuple[re.Pattern[str] | None, re.Pattern[str] 
     books = workbook_folder()
     if books and books.is_dir():
         newest = max((p.stat().st_mtime for p in books.rglob("*.xls*")), default=0)
-        if not CACHE_FILE.exists() or CACHE_FILE.stat().st_mtime < newest:
+        stale = min((p.stat().st_mtime for p in (CACHE_FILE, NAMES_CACHE_FILE) if p.exists()), default=0)
+        if not CACHE_FILE.exists() or not NAMES_CACHE_FILE.exists() or stale < newest:
             refresh_cache(quiet=True)
-    for path in (CACHE_FILE, EXTRA_FILE):
+    adders = {CACHE_FILE: terms.codes.add, NAMES_CACHE_FILE: terms.add_person, EXTRA_FILE: terms.add_name}
+    for path, add in adders.items():
         if path.exists():
             sources.append(str(path))
             for line in path.read_text(encoding="utf-8").splitlines():
                 line = line.strip()
                 if line and not line.startswith("#"):
-                    (terms.codes.add if path == CACHE_FILE else terms.add_name)(line)
+                    add(line)
     phrase_pattern = code_pattern = None
     phrases = sorted(terms.phrases, key=len, reverse=True)
     if phrases:

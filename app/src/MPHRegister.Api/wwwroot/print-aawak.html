@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>AAWAK totals</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <style>
+    @page { size: A4; margin: 12mm; }
+    body { font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; color: #111; margin: 0; }
+    .toolbar { position: sticky; top: 0; display: flex; gap: 8px; padding: 10px 16px; background: #f3f4f6; border-bottom: 1px solid #ddd; }
+    .toolbar button { font: inherit; padding: 6px 14px; cursor: pointer; }
+    main { padding: 16px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    h2 { font-size: 16px; margin: 18px 0 6px; }
+    p.sub { margin: 0 0 12px; color: #444; }
+    table { border-collapse: collapse; margin: 0 0 12px; }
+    th, td { border: 1px solid #999; padding: 3px 8px; font-size: 13px; text-align: left; }
+    td.n, th.n { text-align: right; }
+    tfoot th { background: #eee; }
+    .pair { display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; }
+    .statement { break-after: page; }
+    .statement:last-child { break-after: auto; }
+    .error { color: #b00020; }
+    @media print { .toolbar { display: none; } main { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="toolbar"><button type="button" id="printNow">Print</button><button type="button" id="closePage">Close</button></div>
+  <main id="page"></main>
+  <script src="print-aawak.js"></script>
+</body>
+</html>

@@ -20,6 +20,6 @@ public sealed class InfoService(DataOptions options, IConfigStore config, IEntry
         return new InfoDto(Version, options.DatabasePath, options.BackupDirectory, options.ConfigPath, options.DataDirectory, options.Source,
             entries.Count(), current.Display.Theme, current.Display.ShowExcelImport, current.Firm.Name,
             status.Notices, status.Problem, current.Display.Language,
-            current.Display.ShowBillingStyles, current.Display.ShowPartywise, current.Display.ShowBills, current.Display.ShowColors, current.Display.ShowDashboard);
+            current.Display.ShowBillingStyles, current.Display.ShowPartywise, current.Display.ShowBills, current.Display.ShowColors, current.Display.ShowDashboard, current.Display.ShowAawak);
     }
 }

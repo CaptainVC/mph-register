@@ -1,7 +1,9 @@
 using FluentValidation;
+using MPHRegister.Services.Arrivals;
 using MPHRegister.Services.Billing;
 using MPHRegister.Services.Dashboard;
 using MPHRegister.Services.Entries;
+using MPHRegister.Services.Imports.Aawak;
 using MPHRegister.Services.Imports.Bills;
 using MPHRegister.Services.Imports.Inward;
 using MPHRegister.Services.Interfaces;
@@ -32,6 +34,10 @@ public static class ServiceModule
         services.AddScoped<IBillImportService, BillImportService>();
         services.AddScoped<IBillExportService, BillExportService>();
         services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<ArrivalReader>();
+        services.AddScoped<ArrivalLinker>();
+        services.AddScoped<IArrivalService, ArrivalService>();
+        services.AddScoped<IAawakImportService, AawakImportService>();
         return services;
     }
 }

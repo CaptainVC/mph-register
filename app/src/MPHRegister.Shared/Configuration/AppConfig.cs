@@ -41,6 +41,11 @@ public sealed record AppConfig
 
     public IReadOnlyList<PartyConfig> Parties { get; init; } = [];
 
+    /// <summary>The lorry walas of the AAWAK (gate arrival) register.</summary>
+    public IReadOnlyList<TransporterConfig> Transporters { get; init; } = [];
+
+    public AawakSettings Aawak { get; init; } = new();
+
     /// <summary>The signature printed on bills, as a data URL ("data:image/png;base64,…"), or null for none.</summary>
     public string? Signature { get; init; }
 }
@@ -212,6 +217,38 @@ public sealed record DisplaySettings
 
     /// <summary>Show the Dashboard screen (income, unbilled work, GST and parties).</summary>
     public bool ShowDashboard { get; init; } = true;
+
+    /// <summary>Show the AAWAK screen (goods arriving at the gate).</summary>
+    public bool ShowAawak { get; init; } = true;
+}
+
+/// <summary>How AAWAK rows are matched with inward slips.</summary>
+public sealed record AawakSettings
+{
+    public const int DefaultLinkWindowDays = 3;
+
+    /// <summary>An inward slip may be dated this many days before or after the arrival that names it.</summary>
+    public int LinkWindowDays { get; init; } = DefaultLinkWindowDays;
+
+    /// <summary>
+    /// Inward slips dated from this day (ISO) on should have an AAWAK row; earlier ones are not checked. Null checks from the
+    /// first AAWAK row in the data file.
+    /// </summary>
+    public string? CheckSlipsFrom { get; init; }
+}
+
+/// <summary>Someone who brings goods to the gate (a LORRY WALA of the AAWAK register).</summary>
+public sealed record TransporterConfig
+{
+    public string Name { get; init; } = string.Empty;
+
+    public bool Active { get; init; } = true;
+
+    /// <summary>Other ways the name is written in the gate's workbook; the import reads them as this lorry wala.</summary>
+    public IReadOnlyList<string> OtherSpellings { get; init; } = [];
+
+    /// <summary>The party's own vehicle rather than a hired lorry.</summary>
+    public bool OwnVehicle { get; init; }
 }
 
 public sealed record NamedColor

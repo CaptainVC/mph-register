@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
+using MPHRegister.Contracts.Arrivals;
 using MPHRegister.Contracts.Billing;
 using MPHRegister.Contracts.Imports;
 using MPHRegister.Services.Interfaces;
@@ -14,7 +15,7 @@ namespace MPHRegister.Api.Controllers;
 /// uploaded bill workbook comes back as a filled copy (the "request" field says which bills).
 /// </summary>
 [Route("api")]
-public sealed class ImportsController(IInwardImportService inward, IBillImportService bills, IBillExportService export) : ApiControllerBase
+public sealed class ImportsController(IInwardImportService inward, IBillImportService bills, IBillExportService export, IAawakImportService aawak) : ApiControllerBase
 {
     private static readonly string[] Workbooks = [".xlsm", ".xlsx", ".xls"];
 
@@ -24,6 +25,15 @@ public sealed class ImportsController(IInwardImportService inward, IBillImportSe
     {
         var (form, file) = await ReadWorkbook("Choose a workbook to import.", cancellationToken);
         return await WithTempCopy(file, "mph-import", path => inward.Import(path, Path.GetFileName(file.FileName), form["month"].ToString(), form["commit"] == "true"), cancellationToken);
+    }
+
+    /// <summary>An AAWAK (gate arrival) workbook; "groups=true" also gives parties without a group the workbook's party group.</summary>
+    [HttpPost("import/aawak")]
+    [RequestSizeLimit(Limits.MaxUploadBytes)]
+    public async Task<ActionResult<AawakImportReport>> ImportAawak(CancellationToken cancellationToken)
+    {
+        var (form, file) = await ReadWorkbook("Choose an AAWAK workbook to import.", cancellationToken);
+        return await WithTempCopy(file, "mph-aawak", path => aawak.Import(path, Path.GetFileName(file.FileName), form["month"].ToString(), form["commit"] == "true", form["groups"] == "true"), cancellationToken);
     }
 
     [HttpPost("billing/import")]

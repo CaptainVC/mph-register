@@ -7,6 +7,7 @@ using MPHRegister.Data.Config;
 using MPHRegister.Data.Database;
 using MPHRegister.Data.Entities;
 using MPHRegister.Data.Repositories.Interfaces;
+using MPHRegister.Services.Arrivals;
 using MPHRegister.Services.Interfaces;
 using MPHRegister.Shared.Configuration;
 using MPHRegister.Shared.Constants;
@@ -20,23 +21,13 @@ public sealed partial class InwardImportService(
     IEntryRepository entries,
     IConfigStore config,
     IImportLogRepository log,
+    ArrivalLinker linker,
     TimeProvider clock) : IInwardImportService
 {
     private const int CarryoverDateSlipDays = 20;
 
-    private static readonly string[] MonthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-
     /// <summary>"INWARD REG.-OCT.-26-27.xlsm" → 2026-10. Only the first year counts (the June file is named 26-29).</summary>
-    public static string? GuessMonth(string fileName)
-    {
-        ArgumentNullException.ThrowIfNull(fileName);
-        var name = fileName.ToUpperInvariant();
-        var month = Array.FindIndex(MonthNames, m => Regex.IsMatch(name, $"(^|[^A-Z]){m}([^A-Z]|$)", RegexOptions.None, TimeSpan.FromSeconds(1)));
-        var year = FinancialYearPattern().Match(name);
-        if (month < 0 || !year.Success) return null;
-        var firstYear = 2000 + int.Parse(year.Groups[1].Value, CultureInfo.InvariantCulture);
-        return string.Create(CultureInfo.InvariantCulture, $"{(month >= 3 ? firstYear : firstYear + 1):0000}-{month + 1:00}");
-    }
+    public static string? GuessMonth(string fileName) => RegisterFileName.GuessMonth(fileName);
 
     /// <summary>
     /// Checks (and with <paramref name="commit"/> saves) a month's inward workbook. Into a month that already has entries it
@@ -126,6 +117,7 @@ public sealed partial class InwardImportService(
             unit.Commit();
             imported = true;
             AddInactive(addedParties, addedFinishes);
+            LinkArrivals(marks.Select(m => m.EntryId).Concat(plan.Removals.Select(r => r.Id)).ToList(), rows);
         }
 
         var notInWorkbook = plan.Removals.Select(e => (Entry: e, Note: imported ? "was removed" : "will be removed"))
@@ -175,6 +167,16 @@ public sealed partial class InwardImportService(
         if (row.Dispatches.Count > 0) parts.Add(string.Create(CultureInfo.InvariantCulture, $"{row.Dispatches.Count} {(row.Dispatches.Count == 1 ? "dispatch" : "dispatches")}"));
         if (row.AfterBlankRows) parts.Add("carryover row");
         return string.Create(CultureInfo.InvariantCulture, $"INW. NO. {row.InwardNo} of {row.Date} ({row.Party}): {string.Join(", ", parts)}.");
+    }
+
+    /// <summary>AAWAK rows naming the imported slips (or linked to entries the import changed or removed) are linked again.</summary>
+    private void LinkArrivals(List<long> entryIds, List<InwardRow> rows)
+    {
+        if (rows.Count == 0) return;
+        var dates = rows.Select(r => r.Date).Order(StringComparer.Ordinal).ToList();
+        using var unit = session.Begin();
+        linker.LinkAround(entryIds, rows.Where(r => !r.AfterBlankRows).Select(r => r.InwardNo).ToList(), dates[0], dates[^1]);
+        unit.Commit();
     }
 
     /// <summary>Names the register uses but the config file lacks are added as inactive, after the entries are safely saved.</summary>
@@ -507,6 +509,4 @@ public sealed partial class InwardImportService(
     /// <summary>What importing does: <c>Saved</c> entries were in the month, <c>Typed</c> ones were entered in the app and stay.</summary>
     private sealed record MonthPlan(int Saved, List<RowPlan> Rows, List<EntryEntity> Removals, List<EntryEntity> Typed, List<ImportIssue> Changes, List<ImportIssue> Kept);
 
-    [GeneratedRegex(@"(\d{2})-(\d{2})")]
-    private static partial Regex FinancialYearPattern();
 }

@@ -54,7 +54,21 @@ public sealed record EntryDto(
     IReadOnlyList<string> Warnings,
     string? BilledIn,
     bool NoBillNeeded = false,
-    ImportMarkDto? LastImport = null);
+    ImportMarkDto? LastImport = null,
+    IReadOnlyList<EntryArrivalDto>? Aawak = null,
+    string AawakState = "");
+
+/// <summary>An AAWAK row the entry came on.</summary>
+public sealed record EntryArrivalDto(long Id, string AawakMonth, string Number, string ArrivalDate, string Transporter, int Nag);
+
+/// <summary>Whether an entry has its AAWAK row: found, none found, not needed (marked), or not checked (empty).</summary>
+public static class EntryAawakState
+{
+    public const string Found = "found";
+    public const string None = "none";
+    public const string NotNeeded = "notNeeded";
+    public const string NotChecked = "";
+}
 
 public sealed record MonthSummary(string Month, int Entries);
 

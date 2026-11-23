@@ -35,6 +35,8 @@ public static partial class ConfigNormalizer
             Finishes = Unique(config.Finishes, f => f.Name, "Finish", notices, CleanFinish),
             Parties = SisterGroupMigration.Apply(Unique(config.Parties, p => p.Name, "Party", notices, p => CleanParty(p, notices)), notices),
             Signature = CleanSignature(config.Signature, notices),
+            Transporters = CleanTransporters(config.Transporters, notices),
+            Aawak = CleanAawak(config.Aawak ?? new AawakSettings(), notices),
         };
     }
 
@@ -260,6 +262,39 @@ public static partial class ConfigNormalizer
             BillingStyle = p.BillingStyle.NormalizeName(),
             BillAs = billAs,
             Rates = rates,
+        };
+    }
+
+    /// <summary>Names are unique, and another spelling belongs to one lorry wala only and is never a name itself.</summary>
+    private static List<TransporterConfig> CleanTransporters(IEnumerable<TransporterConfig?>? items, List<string> notices)
+    {
+        var list = Unique(items, t => t.Name, "Lorry wala", notices, t => t with { Name = t.Name.NormalizeName() });
+        var taken = new HashSet<string>(list.Select(t => t.Name), StringComparer.OrdinalIgnoreCase);
+        return list.Select(t =>
+        {
+            var spellings = new List<string>();
+            foreach (var spelling in (t.OtherSpellings ?? []).Select(x => x.NormalizeName()).Where(x => x.Length > 0))
+            {
+                if (taken.Add(spelling)) spellings.Add(spelling);
+                else if (!spellings.Contains(spelling, StringComparer.OrdinalIgnoreCase) && !string.Equals(spelling, t.Name, StringComparison.OrdinalIgnoreCase))
+                    notices.Add($"Lorry wala \"{t.Name}\": the other spelling \"{spelling}\" is already a name or another lorry wala's spelling; it was dropped.");
+            }
+            return t with { OtherSpellings = spellings };
+        }).ToList();
+    }
+
+    private static AawakSettings CleanAawak(AawakSettings a, List<string> notices)
+    {
+        var from = (a.CheckSlipsFrom ?? string.Empty).Trim();
+        if (from.Length > 0 && !Dates.TryParseIso(from, out _))
+        {
+            notices.Add($"AAWAK: \"{from}\" is not a date (yyyy-MM-dd); slips are checked from the first AAWAK row instead.");
+            from = string.Empty;
+        }
+        return a with
+        {
+            LinkWindowDays = Clamp(a.LinkWindowDays, 0, 15, "AAWAK days between an arrival and its slips", notices),
+            CheckSlipsFrom = from.Length > 0 ? from : null,
         };
     }
 

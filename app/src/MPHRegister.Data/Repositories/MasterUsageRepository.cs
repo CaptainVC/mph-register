@@ -9,6 +9,9 @@ public sealed class MasterUsageRepository(IDbSession session) : RepositoryBase(s
     public IReadOnlyList<NameCount> PartyEntryCounts() =>
         Query<NameCount>("SELECT party AS name, COUNT(*) AS count FROM entries GROUP BY party COLLATE NOCASE;");
 
+    public IReadOnlyList<NameCount> PartyArrivalCounts() =>
+        Query<NameCount>("SELECT party AS name, COUNT(*) AS count FROM arrivals GROUP BY party COLLATE NOCASE;");
+
     public IReadOnlyList<NameCount> FinishEntryCounts() =>
         Query<NameCount>("SELECT finish AS name, COUNT(*) AS count FROM entries GROUP BY finish COLLATE NOCASE;");
 
@@ -17,6 +20,8 @@ public sealed class MasterUsageRepository(IDbSession session) : RepositoryBase(s
         UPDATE entries SET party = @to WHERE party = @from COLLATE NOCASE;
         UPDATE deleted_entries SET party = @to WHERE party = @from COLLATE NOCASE;
         UPDATE invoices SET party = @to WHERE party = @from COLLATE NOCASE;
+        UPDATE arrivals SET party = @to WHERE party = @from COLLATE NOCASE;
+        UPDATE deleted_arrivals SET party = @to WHERE party = @from COLLATE NOCASE;
         """,
         new { from, to });
 
