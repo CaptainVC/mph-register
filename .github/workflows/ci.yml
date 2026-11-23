@@ -112,6 +112,7 @@ jobs:
           node tests/e2e/ui-updates.js
           node tests/e2e/ui-rollback.js
           node tests/e2e/ui-aawak.js
+          node tests/e2e/ui-date-picker.js
           node tests/e2e/ui-laptop-layout.js
       - name: Hinglish translations and locale round trips
         run: node tests/e2e/i18n-test.js
