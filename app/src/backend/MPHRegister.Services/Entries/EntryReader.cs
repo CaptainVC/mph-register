@@ -22,6 +22,7 @@ public sealed class EntryReader(IEntryRepository entries, IImportLogRepository i
         var duplicates = entries.DuplicateInwardNumbers(rows.Select(r => r.RegisterMonth).ToHashSet(StringComparer.Ordinal));
         var index = ConfigIndex.For(masters.Config);
         var marks = imports.LatestImportMarks(scope);
+        var updates = imports.LatestImportUpdates(scope);
         var aawak = arrivals.EntryArrivals(scope).ToLookup(a => a.EntryId);
         var notNeeded = scope is null ? arrivals.NoArrival() : arrivals.NoArrival(scope);
         var checkFrom = masters.Config.Aawak.CheckSlipsFrom ?? arrivals.EarliestDate();
@@ -31,7 +32,7 @@ public sealed class EntryReader(IEntryRepository entries, IImportLogRepository i
                 var sent = dispatches.TryGetValue(r.Id, out var d) ? d : [];
                 var came = aawak[r.Id].Select(a => new EntryArrivalDto(a.ArrivalId, a.AawakMonth, AawakNumber.Format(a.AawakNo, a.AawakSuffix), a.ArrivalDate, a.Transporter, a.Nag)).ToList();
                 var dto = EntryMapper.ToDto(r, sent, duplicates.Contains((r.RegisterMonth, r.InwardNo)), index.Party(r.Party)?.NoBillNeeded ?? false,
-                    marks.GetValueOrDefault(r.Id), came, AawakState(r, sent.Count, came.Count, notNeeded.ContainsKey(r.Id), checkFrom));
+                    marks.GetValueOrDefault(r.Id), came, AawakState(r, sent.Count, came.Count, notNeeded.ContainsKey(r.Id), checkFrom), updates.GetValueOrDefault(r.Id));
                 return links.TryGetValue(r.Id, out var linked) ? dto with { Links = linked } : dto;
             })
             .ToList();

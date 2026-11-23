@@ -17,6 +17,11 @@ public enum RowAction
 public sealed record RowPlan(InwardRow Row, RowAction Action, EntryEntity Entry, IReadOnlyList<DispatchEntity> Dispatches, bool Changed, bool DispatchesChanged = true)
 {
     public IReadOnlyList<string> Changes { get; init; } = [];
+
+    /// <summary>The saved entry (and its dispatches) as it was before an update; what the import changed is the difference.</summary>
+    public EntryEntity? Before { get; init; }
+
+    public IReadOnlyList<DispatchEntity> BeforeDispatches { get; init; } = [];
 }
 
 /// <summary>

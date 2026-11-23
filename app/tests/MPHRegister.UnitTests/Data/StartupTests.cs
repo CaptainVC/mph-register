@@ -64,6 +64,37 @@ public sealed class StartupTests : IDisposable
         c.ExecuteScalar<long>("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = @table;", new { table }) > 0;
 
     [Fact]
+    public void Updates_older_than_the_latest_are_dropped_from_the_import_history_when_the_file_is_upgraded()
+    {
+        Directory.CreateDirectory(folder.Path);
+        using (var c = Open())
+        {
+            var assembly = typeof(DatabaseInitializer).Assembly;
+            foreach (var name in assembly.GetManifestResourceNames().Where(n => n.StartsWith("Migrations.", StringComparison.Ordinal)).OrderBy(n => n, StringComparer.Ordinal).Take(11))
+            {
+                using var reader = new StreamReader(assembly.GetManifestResourceStream(name)!);
+                c.Execute(reader.ReadToEnd());
+            }
+            c.Execute("PRAGMA user_version = 11;");
+            foreach (var id in new[] { 1, 2, 3 })
+                c.Execute("INSERT INTO import_batches(file_name, sha256, register_month, imported_at, entry_count, dispatch_count) VALUES (@name, @name, '2026-10', @at, 0, 0);", new { name = $"b{id}.xlsx", at = $"2026-10-0{id} 10:00:00" });
+            c.Execute(
+                """
+                INSERT INTO import_batch_entries(batch_id, entry_id, action, changes) VALUES
+                    (1, 10, 'added', ''), (2, 10, 'updated', 'THAN 1 → 2'), (3, 10, 'updated', 'THAN 2 → 3'),
+                    (2, 11, 'updated', 'LOT N. filled in (L)'), (1, 12, 'added', '');
+                """);
+        }
+
+        var (_, init) = Start();
+        init.Initialize();
+        using var after = Open();
+        var left = after.Query<(long Batch, long Entry, string Action)>("SELECT batch_id, entry_id, action FROM import_batch_entries ORDER BY entry_id, batch_id;").ToList();
+        Assert.Equal([(1L, 10L, "added"), (3L, 10L, "updated"), (2L, 11L, "updated"), (1L, 12L, "added")], left);
+        Assert.Equal(string.Empty, after.ExecuteScalar<string>("SELECT details FROM import_batch_entries WHERE entry_id = 11;"));
+    }
+
+    [Fact]
     public void A_new_folder_gets_an_empty_data_file_and_a_skeleton_config()
     {
         var (config, init) = Start();

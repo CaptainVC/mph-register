@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using MPHRegister.Contracts.Entries;
 using MPHRegister.Contracts.Imports;
 using MPHRegister.Data.Config;
 using MPHRegister.Data.Database;
@@ -110,7 +111,13 @@ public sealed partial class InwardImportService(
                         break;
                 }
                 if (Mark(p) is { } action)
-                    marks.Add(new ImportBatchEntryEntity { BatchId = batchId, EntryId = entryId, Action = action, SourceRow = p.Row.Row, Changes = string.Join("; ", p.Changes) });
+                    marks.Add(new ImportBatchEntryEntity
+                    {
+                        BatchId = batchId, EntryId = entryId, Action = action, SourceRow = p.Row.Row, Changes = string.Join("; ", p.Changes),
+                        Details = action == ImportMarks.Updated && p.Before is not null
+                            ? ImportDetailsBuilder.ToJson(ImportDetailsBuilder.Between(p.Before, p.BeforeDispatches, p.Entry, p.Dispatches))
+                            : string.Empty,
+                    });
             }
             foreach (var removed in plan.Removals) entries.Delete(removed.Id);
             log.AddInwardBatchEntries(marks.GroupBy(m => m.EntryId).Select(Combine).ToList());
@@ -152,7 +159,13 @@ public sealed partial class InwardImportService(
         var first = marks.First();
         if (!marks.Skip(1).Any()) return first;
         var action = marks.Any(m => m.Action == ImportMarks.Added) ? ImportMarks.Added : ImportMarks.Updated;
-        return first with { Action = action, Changes = string.Join("; ", marks.Select(m => m.Changes).Where(c => c.Length > 0)) };
+        var details = marks.Select(m => ImportDetailsBuilder.FromJson(m.Details)).OfType<ImportChangeDetails>().ToList();
+        return first with
+        {
+            Action = action,
+            Changes = string.Join("; ", marks.Select(m => m.Changes).Where(c => c.Length > 0)),
+            Details = action == ImportMarks.Added || details.Count == 0 ? string.Empty : ImportDetailsBuilder.ToJson(details.Aggregate(ImportDetailsBuilder.Merge)),
+        };
     }
 
     /// <summary>"INW. NO. 7 of 2026-04-04 (PARTY): D.N. D7, LOT N. L7, THAN 11, FINISH F1, 1 dispatch."</summary>
@@ -249,7 +262,7 @@ public sealed partial class InwardImportService(
                 if (update.Changes.Count > 0) changes.Add(new ImportIssue(row.Row, $"{slip}: {string.Join("; ", update.Changes)}."));
                 if (update.Kept.Count > 0) kept.Add(new ImportIssue(row.Row, $"{slip}: {string.Join("; ", update.Kept)}."));
                 if (update.FieldsChanged) WarnIfBilled(stored, row.Row, slip, warnings);
-                plans[i] = new RowPlan(row, RowAction.UpdateSaved, update.Entry, update.Dispatches, update.Changed, update.DispatchesChanged) { Changes = update.Changes };
+                plans[i] = new RowPlan(row, RowAction.UpdateSaved, update.Entry, update.Dispatches, update.Changed, update.DispatchesChanged) { Changes = update.Changes, Before = stored, BeforeDispatches = storedDispatches };
             }
             else
             {
@@ -398,7 +411,7 @@ public sealed partial class InwardImportService(
                 ? $"{Slip(earlier)}, {earlier.RegisterMonth} register: {string.Join("; ", changes)}."
                 : $"{Slip(later!)}: {string.Join("; ", changes)}."));
         }
-        return new RowPlan(row, earlier is not null ? RowAction.MergeIntoEarlier : RowAction.AdoptLaterCarryover, merged, dispatches, changed) { Changes = changes };
+        return new RowPlan(row, earlier is not null ? RowAction.MergeIntoEarlier : RowAction.AdoptLaterCarryover, merged, dispatches, changed) { Changes = changes, Before = stored, BeforeDispatches = storedDispatches };
     }
 
     private static void WarnIfBilled(EntryEntity entry, int row, string slip, List<ImportIssue> warnings)

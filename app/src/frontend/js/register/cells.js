@@ -11,7 +11,7 @@ function isAllZeroInput(payload) {
 }
 
 const COLUMNS = [
-  ["INW. NO.", (e) => e.inwardNo, "inward"],
+  ["INW. NO.", (e) => e.inwardNo, "inward", (td, e) => fillInwardCell(td, e)],
   ["DATE", (e) => formatDate(e.entryDate)],
   ["PARTY", (e) => e.party, "left"],
   ["D.N.", (e) => e.designNo, "", (td, e) => fillIdentifierCell(td, e.designNo)],
@@ -228,13 +228,34 @@ function draftCellText(draft, part) {
   return draft.gatePass;
 }
 
+// "22/Nov/26 21:40" from an import's time.
+function importWhen(importedAt) {
+  const [day, time = ""] = importedAt.split(" ");
+  return `${formatDate(day)} ${time.slice(0, 5)}`.trim();
+}
+
 // "Added by the import of NOV.xlsm on 22/Nov/26 21:40" — the row's tooltip says what the latest import did to it.
 function importNote(mark) {
   if (!mark) return "";
-  const [day, time = ""] = mark.importedAt.split(" ");
-  const when = `${formatDate(day)} ${time.slice(0, 5)}`.trim();
+  const when = importWhen(mark.importedAt);
   if (mark.action === "added") return `Added by the import of ${mark.fileName} on ${when}`;
   return `Updated by the import of ${mark.fileName} (${formatMonth(mark.registerMonth)}) on ${when}${mark.changes ? `: ${mark.changes}` : ""}`;
+}
+
+// The inward number; an entry an import has updated also gets a Δ that opens what the import changed (import-history.js).
+function fillInwardCell(td, entry) {
+  td.append(String(entry.inwardNo));
+  if (!entry.importUpdatedAt) return;
+  const when = importWhen(entry.importUpdatedAt);
+  td.append(el("button", {
+    type: "button", class: "import-tag", text: "Δ", title: `Updated by an import on ${when}. Click to see what changed`,
+    "aria-label": `See what the import of ${when} changed in INW. NO. ${entry.inwardNo}`,
+    onclick: (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openImportHistory(entry.id, event.currentTarget.closest("tbody"));
+    },
+  }));
 }
 
 function fillEntryRow(tr, entry) {

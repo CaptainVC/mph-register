@@ -38,6 +38,9 @@ public sealed record ImportBatchEntryEntity
     public int? SourceRow { get; init; }
 
     public string Changes { get; init; } = string.Empty;
+
+    /// <summary>What the update changed as JSON (fields, dispatches, what follows from them); empty when not recorded.</summary>
+    public string Details { get; init; } = string.Empty;
 }
 
 /// <summary>An entry the latest import of a month added or updated, with that import's file and time.</summary>
@@ -48,6 +51,11 @@ public sealed record ImportMarkEntity
     public string Action { get; init; } = string.Empty;
 
     public string Changes { get; init; } = string.Empty;
+
+    /// <summary>Only read for one entry's history, not for the Register's marks.</summary>
+    public string Details { get; init; } = string.Empty;
+
+    public int? SourceRow { get; init; }
 
     public long BatchId { get; init; }
 
