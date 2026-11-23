@@ -56,69 +56,56 @@ jobs:
         if: runner.os == 'Linux'
         run: for f in $(find src/frontend -name '*.js') tests/e2e/*.js tests/e2e/*.mjs; do node --check "$f" || exit 1; done
 
-      - name: Install browser for register regression
-        if: runner.os == 'Linux'
+      - name: Hinglish translations and locale round trips
+        run: node tests/e2e/i18n-test.js
+
+  screen-regressions:
+    name: Screen regressions (shard ${{ matrix.shard }})
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: app
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      MPH_PORT: 5160
+      MPH_BASE_URL: http://127.0.0.1:5160
+      MPH_NO_BROWSER: 1
+      MPH_BROWSER_CHANNEL: chromium
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: app/global.json
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('app/**/*.csproj', 'app/Directory.Packages.props', 'app/global.json') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore src/backend/MPHRegister.Api/MPHRegister.Api.csproj
+
+      - name: Build app
+        run: dotnet build src/backend/MPHRegister.Api/MPHRegister.Api.csproj --no-restore
+
+      - name: Install browser
         working-directory: app/tests/e2e
         run: |
           npm install --ignore-scripts --no-audit --no-fund
           npx playwright-core install --with-deps chromium
 
-      - name: Register, Party-wise and Bills screen regressions
-        if: runner.os == 'Linux'
+      - name: Run shard
         env:
-          MPH_PORT: 5160
-          MPH_BASE_URL: http://127.0.0.1:5160
-          MPH_DATA_DIR: ${{ runner.temp }}/mph-register-financial-year
-          MPH_NO_BROWSER: 1
-          MPH_BROWSER_CHANNEL: chromium
-        run: |
-          dotnet "src/backend/MPHRegister.Api/bin/Debug/net10.0/MPH Register.dll" > "$RUNNER_TEMP/mph-register.log" 2>&1 &
-          app_pid=$!
-          trap 'kill "$app_pid" 2>/dev/null || true' EXIT
-          for attempt in {1..40}; do
-            if curl --fail --silent "$MPH_BASE_URL/api/info" > /dev/null; then break; fi
-            sleep 0.5
-          done
-          curl --fail --silent "$MPH_BASE_URL/api/info" > /dev/null
-          node tests/e2e/ui-register-financial-year.js
-          node tests/e2e/ui-register-search.js
-          node tests/e2e/ui-financial-year-views.js
-          node tests/e2e/ui-dashboard-party.js
-          node tests/e2e/ui-dashboard-compare.js
-          node tests/e2e/ui-invoice-undo.js
-          node tests/e2e/ui-bills-bulk.js
-          node tests/e2e/ui-invoice-restore.js
-          node tests/e2e/ui-partywise.js
-          node tests/e2e/ui-party-filter-clear.js
-          node tests/e2e/ui-controls.js
-          node tests/e2e/ui-row-filters.js
-          node tests/e2e/ui-partywise.js
-          node tests/e2e/ui-bill-row-moves.js
-          node tests/e2e/ui-select-fit.js
-          node tests/e2e/ui-bill-count.js
-          node tests/e2e/ui-register-bill-no.js
-          node tests/e2e/ui-register-warnings.js
-          node tests/e2e/ui-sticky-columns.js
-          node tests/e2e/ui-no-bill-party.js
-          node tests/e2e/ui-sister-firms.js
-          node tests/e2e/ui-bill-no-edit.js
-          node tests/e2e/ui-i18n.js
-          node tests/e2e/ui-inline-edit.js
-          node tests/e2e/ui-entry-delete.js
-          node tests/e2e/ui-excel-export.js
-          node tests/e2e/ui-return-to-origin.js
-          node tests/e2e/ui-import-marks.js
-          node tests/e2e/ui-import-history.js
-          node tests/e2e/ui-toast-click-through.js
-          node tests/e2e/ui-updates.js
-          node tests/e2e/ui-rollback.js
-          node tests/e2e/ui-aawak.js
-          node tests/e2e/ui-aawak-totals.js
-          node tests/e2e/ui-linked-entry.js
-          node tests/e2e/ui-date-picker.js
-          node tests/e2e/ui-laptop-layout.js
-      - name: Hinglish translations and locale round trips
-        run: node tests/e2e/i18n-test.js
+          MPH_DATA_DIR: ${{ runner.temp }}/mph-register-shard-${{ matrix.shard }}
+        run: sh tests/e2e/run-ci-shard.sh '${{ matrix.shard }}'
 
   # The real Windows app updating itself: 0.0.1 downloads 0.0.2 from a release served on the runner, closes and returns,
   # then goes back to 0.0.1 over a (made-up) data format change.
