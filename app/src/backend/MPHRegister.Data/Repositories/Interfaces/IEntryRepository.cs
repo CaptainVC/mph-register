@@ -106,6 +106,12 @@ public interface IEntryRepository
 
     int NextInwardNumber(string month);
 
+    /// <summary>All-zero slips (no THAN, TP, TWO PART or dispatch) whose D.N. mentions INW, in every month.</summary>
+    IReadOnlyList<LinkSlipEntity> ZeroSlipsNamingInward();
+
+    /// <summary>Entries with THAN, TP or TWO PART that carry one of these INW. NO., in every month.</summary>
+    IReadOnlyList<LinkSlipEntity> SlipsWithNumbers(IReadOnlyCollection<int> numbers);
+
     IReadOnlyList<MonthCount> Months();
 
     long Count();

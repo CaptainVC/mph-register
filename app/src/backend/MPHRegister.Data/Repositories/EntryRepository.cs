@@ -309,5 +309,26 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
         """,
         new { from, to });
 
+    private const string LinkColumns = "SELECT e.id, e.register_month, e.inward_no, e.entry_date, e.party, e.design_no, e.than + e.tp + e.two_part AS than FROM entries e";
+
+    public IReadOnlyList<LinkSlipEntity> ZeroSlipsNamingInward() => Query<LinkSlipEntity>(
+        $"""
+        {LinkColumns}
+        WHERE e.than = 0 AND e.tp = 0 AND e.two_part = 0 AND e.design_no LIKE '%INW%'
+          AND NOT EXISTS (SELECT 1 FROM dispatches d WHERE d.entry_id = e.id)
+        ORDER BY e.id;
+        """);
+
+    public IReadOnlyList<LinkSlipEntity> SlipsWithNumbers(IReadOnlyCollection<int> numbers)
+    {
+        var found = new List<LinkSlipEntity>();
+        foreach (var chunk in numbers.Distinct().Chunk(InListLimit))
+        {
+            found.AddRange(Query<LinkSlipEntity>(
+                $"{LinkColumns} WHERE e.inward_no IN @chunk AND (e.than > 0 OR e.tp > 0 OR e.two_part > 0) ORDER BY e.id;", new { chunk }));
+        }
+        return found;
+    }
+
     public IReadOnlyList<string> DistinctParties() => Query<string>("SELECT DISTINCT party FROM entries ORDER BY party;");
 }

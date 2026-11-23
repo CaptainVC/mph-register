@@ -23,6 +23,7 @@ const COLUMNS = [
   ["FINISH", (e) => e.finish],
   ["NETT THAN", (e) => num(e.nettThan), "big"],
   ["BILL NO.", (e) => e.billedIn || "", "left bill-cell", (td, e) => fillBillNoCell(td, e)],
+  ["LINKED ENTRY", (e) => linkText(e), "left link-cell", (td, e) => fillLinkCell(td, e)],
   ["TWO PART", (e) => (e.twoPart ? num(e.twoPart) : "")],
   ...[0, 1, 2].flatMap((i) => [
     [`JAWAK NAG ${i + 1}`, (e) => num(e.dispatches[i]?.qty ?? ""), "big"],
@@ -70,7 +71,7 @@ function fillAawakCell(td, entry) {
 // Main and JAWAK each fit a laptop screen without sideways scrolling; All is every column, as in the Excel register.
 const DISPATCH_TITLES = [0, 1, 2].flatMap((i) => [`JAWAK NAG ${i + 1}`, `GATE PASS NO ${i + 1}`, `DATE ${i + 1}`]);
 const COLUMN_SETS = {
-  main: ["INW. NO.", "DATE", "PARTY", "D.N.", "LOT N.", "REP.", "THAN", "TP", "NAG", "FINISH", "NETT THAN", "BILL NO.", "BALANCE", "WARNINGS"],
+  main: ["INW. NO.", "DATE", "PARTY", "D.N.", "LOT N.", "REP.", "THAN", "TP", "NAG", "FINISH", "NETT THAN", "BILL NO.", "LINKED ENTRY", "BALANCE", "WARNINGS"],
   jawak: ["INW. NO.", "DATE", "PARTY", "LOT N.", "NAG", "NETT THAN", "TWO PART", ...DISPATCH_TITLES, "MORE JAWAK", "SHORT THAN", "BALANCE"],
 };
 // The laptop layout (css/layout/laptop.css) starts at the same height. A short window starts on Main, a tall one on All.

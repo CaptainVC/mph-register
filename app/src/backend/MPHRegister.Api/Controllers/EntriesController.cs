@@ -13,6 +13,11 @@ public sealed class EntriesController(IEntryService entries) : ApiControllerBase
     [HttpGet("recent")]
     public ActionResult<IReadOnlyList<EntryDto>> Recent([FromQuery] int? limit) => Ok(entries.Recent(limit));
 
+    /// <summary>What an all-zero slip of this month and party would link to with this D.N. (shown while the entry is typed).</summary>
+    [HttpGet("links")]
+    public ActionResult<IReadOnlyList<EntryLinkDto>> Links([FromQuery] string? month, [FromQuery] string? party, [FromQuery] string? designNo) =>
+        Ok(entries.LinksFor(month, party, designNo));
+
     [HttpGet("{id:long}")]
     public ActionResult<EntryDto> Get(long id) => entries.Get(id);
 

@@ -22,6 +22,7 @@ public sealed class EntryService(
     IEntryRepository entries,
     IConfigStore config,
     IEntryReader reader,
+    IEntryLinker entryLinks,
     IValidator<EntryInput> validator,
     ArrivalLinker linker,
     TimeProvider clock) : IEntryService
@@ -30,6 +31,9 @@ public sealed class EntryService(
 
     public IReadOnlyList<EntryDto> Recent(int? limit) =>
         reader.Read(entries.Recent(Math.Clamp(limit ?? Limits.RecentEntriesDefault, 1, Limits.RecentEntriesMax)));
+
+    public IReadOnlyList<EntryLinkDto> LinksFor(string? month, string? party, string? designNo) =>
+        Dates.IsValidMonth(month) && !string.IsNullOrWhiteSpace(party) ? entryLinks.Preview(month!, party.Trim(), designNo) : [];
 
     public EntryDto Get(long id) => Find(id) ?? throw new NotFoundException("Entry not found.");
 

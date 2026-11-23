@@ -26,6 +26,9 @@ public interface IEntryService
     /// <summary>Permanently removes every deleted entry; none of them can be restored afterwards.</summary>
     PurgeDeletedResult PurgeDeleted();
 
+    /// <summary>What an all-zero slip of this register month and party would link to with this D.N.</summary>
+    IReadOnlyList<EntryLinkDto> LinksFor(string? month, string? party, string? designNo);
+
     IReadOnlyList<EntryDto> PartyWise(string? month, string? party);
 
     IReadOnlyList<MonthSummary> Months();

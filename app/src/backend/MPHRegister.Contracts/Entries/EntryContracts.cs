@@ -56,7 +56,8 @@ public sealed record EntryDto(
     bool NoBillNeeded = false,
     ImportMarkDto? LastImport = null,
     IReadOnlyList<EntryArrivalDto>? Aawak = null,
-    string AawakState = "");
+    string AawakState = "",
+    IReadOnlyList<EntryLinkDto>? Links = null);
 
 /// <summary>An Aawak row the entry came on.</summary>
 public sealed record EntryArrivalDto(long Id, string AawakMonth, string Number, string ArrivalDate, string Transporter, int Nag);
@@ -68,6 +69,27 @@ public static class EntryAawakState
     public const string None = "none";
     public const string NotNeeded = "notNeeded";
     public const string NotChecked = "";
+}
+
+/// <summary>
+/// The other end of an all-zero slip's D.N.: an <c>earlier</c> link goes from the zero slip to the entry its D.N. names,
+/// a <c>later</c> link from that entry back to the zero slip. <c>EntryId</c> is the entry at the other end (empty when
+/// <c>State</c> is <c>notFound</c>; <c>InwardNo</c> is then the number looked for).
+/// </summary>
+public sealed record EntryLinkDto(string Direction, string State, long? EntryId, int InwardNo, string? RegisterMonth, string? EntryDate, string? Party, int Than);
+
+public static class EntryLinkDirection
+{
+    public const string Earlier = "earlier";
+    public const string Later = "later";
+}
+
+/// <summary>Found with the same firm, found under another party (probably a typing mistake), or no such slip before the month.</summary>
+public static class EntryLinkState
+{
+    public const string Found = "found";
+    public const string OtherParty = "otherParty";
+    public const string NotFound = "notFound";
 }
 
 public sealed record MonthSummary(string Month, int Entries);
