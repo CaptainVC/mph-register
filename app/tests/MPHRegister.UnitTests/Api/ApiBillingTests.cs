@@ -99,6 +99,36 @@ public sealed class ApiBillingTests(ApiFactory factory) : IClassFixture<ApiFacto
     }
 
     [Fact]
+    public async Task Z_draft_discount_can_be_overridden_and_saved()
+    {
+        var app = await Ready();
+        await app.Post("/api/masters/party", Setup.Party("DISCOUNT PARTY", discount: 0)).Ok();
+        await app.Put("/api/masters/party/rate", new { party = "DISCOUNT PARTY", finish = "F1", rate = 100 }).Ok();
+        var entry = await app.Post("/api/entries", Setup.Entry(701, "DISCOUNT PARTY", than: 10, month: "2027-04")).Ok();
+        var draft = Assert.Single((await app.Post("/api/billing/build", new
+        {
+            party = "DISCOUNT PARTY", month = "2027-04", entryIds = new[] { entry.GetProperty("id").GetInt64() },
+            billDate = "2027-04-30", periodFrom = "2027-04-01", periodTo = "2027-04-30",
+        }).Ok()).EnumerateArray());
+        var edited = draft.Deserialize<Dictionary<string, object?>>()!;
+        edited["discountPct"] = 12.5m;
+
+        var computed = await app.Post("/api/billing/compute", edited).Ok();
+        Assert.Equal(125L, computed.GetProperty("discount").GetInt64());
+
+        var invalid = draft.Deserialize<Dictionary<string, object?>>()!;
+        invalid["discountPct"] = 100.01m;
+        var computeErrors = await app.Post("/api/billing/compute", invalid).Refused(HttpStatusCode.BadRequest);
+        Assert.Contains("Discount must be between 0 and 100.", computeErrors);
+        var saveErrors = await app.Post("/api/billing/save", new { invoices = new[] { invalid } }).Refused(HttpStatusCode.BadRequest);
+        Assert.Contains("Discount must be between 0 and 100.", saveErrors);
+
+        var saved = Assert.Single((await app.Post("/api/billing/save", new { invoices = new[] { edited } }).Ok()).EnumerateArray());
+        Assert.Equal(12.5m, saved.GetProperty("discountPct").GetDecimal());
+        Assert.Equal(125L, saved.GetProperty("discount").GetInt64());
+    }
+
+    [Fact]
     public async Task A_draft_can_bill_a_sister_firm_but_not_an_unrelated_party()
     {
         var app = await Ready();

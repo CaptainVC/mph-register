@@ -30,6 +30,7 @@ public sealed class BillingService(
     IValidator<BillDates> datesValidator,
     IValidator<BillPeriod> periodValidator,
     IValidator<BillLines> linesValidator,
+    IValidator<BillDiscountPct> discountValidator,
     IValidator<StyleInput> styleValidator,
     TimeProvider clock) : IBillingService
 {
@@ -137,6 +138,8 @@ public sealed class BillingService(
     {
         ArgumentNullException.ThrowIfNull(doc);
         doc = Sanitize(doc);
+        var discountErrors = discountValidator.ErrorsFor(new BillDiscountPct(doc.DiscountPct));
+        if (discountErrors.Count > 0) throw new AppValidationException(discountErrors);
         var errors = linesValidator.ErrorsFor(new BillLines(doc.Lines));
         if (errors.Count > 0) throw new AppValidationException(errors);
         var ids = doc.Lines.SelectMany(l => l.EntryIds ?? []).ToHashSet();
@@ -157,7 +160,7 @@ public sealed class BillingService(
             var lines = doc.Lines.Select(l => l.Kind == LineKind.Priced && (l.Rate is null || l.Rate == previousRates.Rate(l.Finish ?? string.Empty))
                 ? l with { Rate = nextRates.Rate(l.Finish ?? string.Empty) }
                 : l).ToList();
-            doc = WithRecipient(doc with { Lines = lines }, next, firm);
+            doc = WithRecipient(doc with { Lines = lines, DiscountPct = next.Discount ?? 0 }, next, firm);
             party = next;
         }
         return BillCalculator.Complete(doc with { Firm = doc.Firm ?? firm }, party, list, firm, sizer);
@@ -184,6 +187,7 @@ public sealed class BillingService(
                 errors.Add($"{label}party \"{doc.Party}\" is not in the party list.");
                 continue;
             }
+            errors.AddRange(discountValidator.ErrorsFor(new BillDiscountPct(doc.DiscountPct)).Select(e => label + e));
             errors.AddRange(datesValidator.ErrorsFor(new BillDates(doc.BillDate, doc.PeriodFrom, doc.PeriodTo)).Select(e => label + e));
             var lineErrors = linesValidator.ErrorsFor(new BillLines(doc.Lines)).Select(e => label + e).ToList();
             errors.AddRange(lineErrors);
@@ -356,7 +360,6 @@ public sealed class BillingService(
         Address = party.Address,
         State = party.State,
         Gstin = party.Gstin,
-        DiscountPct = party.Discount ?? 0,
         TaxMode = TaxModes.Resolve(firm, party.Gstin, party.State),
         CgstRate = firm.CgstRate,
         SgstRate = firm.SgstRate,

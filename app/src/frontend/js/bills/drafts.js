@@ -330,6 +330,27 @@ function renderDrafts() {
     return { node, show };
   }
 
+  function billDiscountField(doc, i, onChange) {
+    const input = el("input", {
+      type: "number", min: "0", max: "100", step: "0.01", required: true,
+      inputmode: "decimal", id: `billDiscount${i}`, class: "bill-discount-input",
+    });
+    input.value = String(doc.discountPct ?? 0);
+    input.setAttribute("aria-label", `Discount for Bill ${i + 1}`);
+    input.setAttribute("aria-invalid", "false");
+    input.addEventListener("input", () => {
+      const valid = input.validity.valid;
+      input.setAttribute("aria-invalid", String(!valid));
+      if (!valid) return;
+      doc.discountPct = input.valueAsNumber;
+      onChange();
+    });
+    return el("div", { class: "bill-discount-row" }, [
+      el("label", { for: input.id, text: "Discount %" }), input,
+      el("span", { class: "muted bill-discount-hint", text: "Defaults to the party's discount. Applies to this bill only." }),
+    ]);
+  }
+
   area.replaceChildren();
   area.append(el("p", { class: "muted draft-move-hint", text: "Use Move… to send a row to another draft or start a new bill." }));
   drafts.forEach((doc, i) => {
@@ -397,8 +418,9 @@ function renderDrafts() {
     grid = billGrid(doc, (redraw) => calculations.set(doc, recompute(redraw)), { moveControl });
     setTitle();
     const numberField = billNumberField(doc, i);
+    const discountField = billDiscountField(doc, i, () => calculations.set(doc, recompute(false)));
     numberFields.push(numberField);
-    area.append(el("section", { class: "card draft" }, [title, numberField.node, grid.node]));
+    area.append(el("section", { class: "card draft" }, [title, numberField.node, discountField, grid.node]));
   });
   area.scrollTop = scrollTop;
   showBillStage(drafts.length ? "preview" : "entries");
@@ -408,6 +430,11 @@ function renderDrafts() {
 
 $("saveBills").addEventListener("click", async () => {
   if ($("draftArea").inert) return;
+  const invalidDiscount = $("draftArea").querySelector(".bill-discount-input:invalid");
+  if (invalidDiscount) {
+    invalidDiscount.reportValidity();
+    return;
+  }
   const party = billsState.candidates.billParty;
   const clash = billsState.numbers.find((number) => number.problem);
   if (clash) {
