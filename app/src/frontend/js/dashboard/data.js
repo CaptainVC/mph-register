@@ -179,7 +179,6 @@ document.addEventListener("mph-lang", () => {
   dashState.view = null;
   if (dashState.model) renderDashboard();
 });
-document.addEventListener("mph-theme", () => { if (dashState.model) renderDashboard(); });
 // Fetched once the app has settled, so the tab opens at once the first time too.
 window.addEventListener("load", () => setTimeout(() => {
   const idle = window.requestIdleCallback || ((run) => setTimeout(run, 0));

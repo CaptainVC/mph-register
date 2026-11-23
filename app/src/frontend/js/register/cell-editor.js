@@ -6,9 +6,42 @@ let activeCellEditor = null;
 let cellSaves = Promise.resolve();
 let partyTableStale = false;
 
+// Every drawn row of an entry by id (Register, Party-wise, Recent), so a saved cell finds its rows without searching a
+// page of thousands of rows. Rows no longer on the page are dropped as they are met (the Register's kept rows stay).
+const entryRowsById = new Map();
+let entryRowsAdded = 0;
+const rowKept = (tr) => tr.isConnected || registerRows.byId.get(rowEntry.get(tr)?.id) === tr;
+
+function trackEntryRow(tr, id) {
+  let rows = entryRowsById.get(id);
+  if (!rows) {
+    rows = new Set();
+    entryRowsById.set(id, rows);
+  }
+  rows.add(tr);
+  if (++entryRowsAdded >= 10000) pruneEntryRows();
+}
+
+// Lets go of rows no longer on the page, so the old tables they belonged to can be freed.
+function pruneEntryRows() {
+  entryRowsAdded = 0;
+  for (const [key, set] of entryRowsById) {
+    for (const row of set) if (!rowKept(row)) set.delete(row);
+    if (!set.size) entryRowsById.delete(key);
+  }
+}
+
+function rowsOfEntry(id) {
+  const rows = entryRowsById.get(id);
+  if (!rows) return [];
+  for (const tr of rows) if (!rowKept(tr)) rows.delete(tr);
+  return [...rows];
+}
+
 function entryRow(entry) {
   const tr = el("tr", {}, COLUMNS.map(() => el("td")));
   fillEntryRow(tr, entry);
+  trackEntryRow(tr, entry.id);
   tr.addEventListener("click", (event) => {
     const td = event.target.closest("td");
     if (!td || td.parentElement !== tr || td.classList.contains("cell-editing")) return;
@@ -111,7 +144,7 @@ function cancelCellEditor(editor) {
 }
 
 function redrawEntry(entry) {
-  document.querySelectorAll(`tr[data-entry-id="${entry.id}"]`).forEach((tr) => fillEntryRow(tr, rowEntry.get(tr)));
+  rowsOfEntry(entry.id).forEach((tr) => fillEntryRow(tr, rowEntry.get(tr)));
 }
 
 // Leaving a half-typed dispatch (no quantity or no gate pass yet) drops it instead of saving something incomplete.
@@ -119,7 +152,7 @@ function discardDraftsExcept(entry, spec) {
   for (const [id, draft] of [...dispatchDrafts]) {
     if (entry && id === entry.id && spec?.dispatch === draft.index) continue;
     dispatchDrafts.delete(id);
-    document.querySelectorAll(`tr[data-entry-id="${id}"]`).forEach((tr) => fillEntryRow(tr, rowEntry.get(tr)));
+    rowsOfEntry(id).forEach((tr) => fillEntryRow(tr, rowEntry.get(tr)));
     toast("Dispatch not saved: it needs both JAWAK NAG and GATE PASS NO.", "err");
   }
 }
@@ -129,9 +162,10 @@ function afterCellEditing() {
   setTimeout(() => {
     if (activeCellEditor) return;
     discardDraftsExcept(null, null);
-    if (partyTableStale) {
+    // A hidden Party-wise draws again when it is opened (switchView), not after every saved cell.
+    if (partyTableStale && $("view-partywise").classList.contains("active")) {
       partyTableStale = false;
-      if ($("partyTable").tBodies.length) renderPartywise().catch(showFatal);
+      if ($("partyTable").tBodies.length) renderPartywise({ reuse: true }).catch(showFatal);
     }
   }, 250);
 }
@@ -142,8 +176,13 @@ function moveCellEditor(editor, move) {
   if (!tr.isConnected) return;
   let target = null;
   if (move.rows) {
-    const rows = [...tr.parentElement.rows].filter((row) => rowEntry.has(row) && !row.hidden);
-    target = rows[rows.indexOf(tr) + move.rows]?.cells[td.cellIndex] || null;
+    // Walks to the next shown entry row instead of copying every row of the table on each Enter.
+    let row = tr;
+    for (let steps = Math.abs(move.rows); steps > 0 && row;) {
+      row = move.rows > 0 ? row.nextElementSibling : row.previousElementSibling;
+      if (row && rowEntry.has(row) && !row.hidden) steps--;
+    }
+    target = row && row !== tr ? row.cells[td.cellIndex] || null : null;
   } else {
     for (let i = td.cellIndex + move.cols; i > 0 && i < tr.cells.length; i += move.cols) {
       if (cellEditable(rowEntry.get(tr), i) && cellShown(tr.cells[i])) { target = tr.cells[i]; break; }
@@ -189,13 +228,15 @@ function applySavedEntry(saved) {
   const update = (list) => { const found = list?.find((e) => e.id === saved.id); if (found) Object.assign(found, saved); };
   for (const list of state.entriesCache.values()) update(list);
   update(partywiseLoaded.entries);
-  document.querySelectorAll(`tr[data-entry-id="${saved.id}"]`).forEach((tr) => {
+  rowsOfEntry(saved.id).forEach((tr) => {
     const entry = rowEntry.get(tr);
     Object.assign(entry, saved);
     fillEntryRow(tr, entry);
   });
   if ($("registerTable").tBodies.length) renderTotals($("registerTotals"), registerShown);
   registerSearchPool.index = null;
+  registerHaystacks = new WeakMap();
+  state.entriesRevision++;
   partyTableStale = true;
 }
 

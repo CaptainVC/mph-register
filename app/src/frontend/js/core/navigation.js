@@ -7,6 +7,8 @@
 function switchView(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === name));
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${name}`));
+  // Page-wide layout rules key on these (body[data-screen]) rather than on body:has(…), which re-checks on every change.
+  document.body.dataset.screen = name;
   $("menuSettings")?.classList.toggle("active", name === "settings");
   let loading = null;
   if (name === "register") {
@@ -20,9 +22,16 @@ function switchView(name) {
   if (name === "dashboard" && typeof showDashboard === "function") loading = showDashboard();
   if (name === "import") loading = refreshImportYears();
   if (name === "aawak" && typeof showAawak === "function") loading = showAawak();
-  refreshInfo().catch(() => {});
+  // Saves and imports refresh the footer themselves; a tab switch only picks up outside changes (notices), now and then.
+  if (Date.now() - infoCheckedAt > INFO_RECHECK_MS) {
+    infoCheckedAt = Date.now();
+    refreshInfo().catch(() => {});
+  }
   return Promise.resolve(loading).catch(showFatal);
 }
+const INFO_RECHECK_MS = 30000;
+let infoCheckedAt = Date.now();
+document.body.dataset.screen = document.querySelector(".view.active")?.id.replace(/^view-/, "") || "";
 document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => {
   returnTrips.length = 0;
   switchView(tab.dataset.view);
@@ -50,14 +59,16 @@ function rememberReturn(kind, target) {
 async function returnFrom(kind) {
   if (returnTrips.at(-1)?.kind !== kind) return false;
   const trip = returnTrips.pop();
-  await switchView(trip.view);
+  const drawn = await switchView(trip.view);
+  // Put back at once: main scrolls smoothly for the user, which would otherwise animate the jump.
   const restore = () => viewScrollers($(`view-${trip.view}`)).forEach((n, i) => {
     const [top, left] = trip.scroll[i] || [0, 0];
-    n.scrollTop = top;
-    n.scrollLeft = left;
+    n.scrollTo({ top, left, behavior: "instant" });
   });
   restore();
-  requestAnimationFrame(restore);
+  // Once more after the tab's rows have been laid out, unless the tab kept the rows it had (nothing moves then, and a late
+  // second restore could undo a scroll made in the meantime).
+  if (drawn !== false) requestAnimationFrame(restore);
   return true;
 }
 
@@ -87,6 +98,7 @@ const subviewHandlers = {};
 function switchSubview(group, sub) {
   document.querySelectorAll(`.subtabs[data-group=${group}] .subtab`).forEach((b) => b.classList.toggle("active", b.dataset.sub === sub));
   document.querySelectorAll(`[id^="${group}-"].subview`).forEach((v) => v.classList.toggle("active", v.id === `${group}-${sub}`));
+  document.body.dataset[`${group}Sub`] = sub;
   const handler = subviewHandlers[`${group}-${sub}`];
   if (handler) Promise.resolve(handler()).catch(showFatal);
 }

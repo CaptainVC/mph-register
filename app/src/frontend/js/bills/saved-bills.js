@@ -90,6 +90,7 @@ function shownInvoices() {
 }
 
 function renderInvoices() {
+  clearTimeout(savedSearchTimer);
   const list = shownInvoices();
   const picked = billsState.selectedInvoices;
   const all = el("input", { type: "checkbox", id: "savedAll", "aria-label": "Select every shown bill" });
@@ -265,7 +266,14 @@ function exportNote(id) {
   return invoice?.exportedAt ? ` It was written to ${invoice.exportedTo} on ${dotDate(invoice.exportedAt.slice(0, 10))}: remove it from that workbook by hand.` : "";
 }
 
-["savedMonth", "savedSearch"].forEach((id) => $(id).addEventListener("input", renderInvoices));
+$("savedMonth").addEventListener("input", renderInvoices);
+// A long list is drawn again once typing pauses, not on every key; a short one at once.
+let savedSearchTimer = 0;
+$("savedSearch").addEventListener("input", () => {
+  clearTimeout(savedSearchTimer);
+  if (billsState.invoices.length < SEARCH_DELAY_FROM_ROWS) renderInvoices();
+  else savedSearchTimer = setTimeout(renderInvoices, 150);
+});
 $("excelShown").addEventListener("click", () => openExcelExport(shownInvoices().filter((i) => i.status !== "cancelled")));
 $("printShown").addEventListener("click", () => {
   const ids = shownInvoices().filter((i) => i.status !== "cancelled").map((i) => i.id);

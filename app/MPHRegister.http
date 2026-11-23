@@ -15,6 +15,18 @@ GET {{baseUrl}}/api/dashboard/facts
 GET {{baseUrl}}/api/dashboard/facts
 If-None-Match: "replace-with-the-etag"
 
+### One financial year (April 2026 to March 2027) of entries, party-wise entries, Aawak rows and bills; a month= wins
+GET {{baseUrl}}/api/entries?fy=2026
+
+GET {{baseUrl}}/api/partywise?fy=2026&party=TEST%20PARTY
+
+GET {{baseUrl}}/api/arrivals?fy=2026
+
+GET {{baseUrl}}/api/invoices?fy=2026
+
+### Every bill month with its number of bills (saved or cancelled), newest first
+GET {{baseUrl}}/api/invoices/months
+
 ### Read the current bill and undo eligibility
 GET {{baseUrl}}/api/invoices/{{invoiceId}}
 

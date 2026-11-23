@@ -27,7 +27,11 @@ public sealed class EntryService(
     ArrivalLinker linker,
     TimeProvider clock) : IEntryService
 {
-    public IReadOnlyList<EntryDto> List(string? month) => reader.Read(entries.List(Dates.IsValidMonth(month) ? month : null));
+    public IReadOnlyList<EntryDto> List(string? month, MonthRange? months = null)
+    {
+        if (Dates.IsValidMonth(month)) return reader.Read(entries.List(month));
+        return reader.Read(months is null ? entries.List(null) : entries.InMonths(months.From, months.To));
+    }
 
     public IReadOnlyList<EntryDto> Recent(int? limit) =>
         reader.Read(entries.Recent(Math.Clamp(limit ?? Limits.RecentEntriesDefault, 1, Limits.RecentEntriesMax)));
@@ -41,12 +45,14 @@ public sealed class EntryService(
     {
         ArgumentNullException.ThrowIfNull(input);
         var (party, finish) = Validate(input, null);
-        using var unit = session.Begin();
-        var now = Dates.Timestamp(clock.GetLocalNow());
-        var id = entries.Insert(ToEntity(0, input, party, finish, now));
-        entries.ReplaceDispatches(id, Dispatches(input));
-        unit.Commit();
-        LinkArrivals(id, [input.InwardNo!.Value], [input.EntryDate!]);
+        long id;
+        using (var unit = session.Begin())
+        {
+            var now = Dates.Timestamp(clock.GetLocalNow());
+            id = entries.Insert(ToEntity(0, input, party, finish, now));
+            entries.ReplaceDispatches(id, Dispatches(input));
+            CommitWithArrivals(unit, id, [input.InwardNo!.Value], [input.EntryDate!]);
+        }
         return Get(id);
     }
 
@@ -59,19 +65,34 @@ public sealed class EntryService(
         {
             entries.Update(ToEntity(id, input, party, finish, Dates.Timestamp(clock.GetLocalNow())));
             entries.ReplaceDispatches(id, Dispatches(input));
-            unit.Commit();
+            CommitWithArrivals(unit, id, [before.InwardNo, input.InwardNo!.Value], [before.EntryDate, input.EntryDate!]);
         }
-        LinkArrivals(id, [before.InwardNo, input.InwardNo!.Value], [before.EntryDate, input.EntryDate!]);
         return Get(id);
     }
 
-    /// <summary>Aawak rows that name the entry's slip number around its date (typed before the slip) link to it now.</summary>
-    private void LinkArrivals(long id, int[] numbers, string[] dates)
+    /// <summary>
+    /// Aawak rows that name the entry's slip number around its date (typed before the slip) link to it now, in the same commit
+    /// as the save (one flush on Windows instead of two). Should linking fail, the save is still committed, as when they were
+    /// two commits, and the error goes on.
+    /// </summary>
+    private void CommitWithArrivals(IUnitOfWork unit, long id, int[] numbers, string[] dates)
     {
-        using var unit = session.Begin();
-        var ordered = dates.Order(StringComparer.Ordinal).ToList();
-        linker.LinkAround([id], numbers, ordered[0], ordered[^1]);
-        unit.Commit();
+        const string Savepoint = "link_arrivals";
+        var transaction = session.Transaction ?? throw new InvalidOperationException("Linking needs the save's transaction.");
+        transaction.Save(Savepoint);
+        var linked = false;
+        try
+        {
+            var ordered = dates.Order(StringComparer.Ordinal).ToList();
+            linker.LinkAround([id], numbers, ordered[0], ordered[^1]);
+            linked = true;
+        }
+        finally
+        {
+            if (linked) transaction.Release(Savepoint);
+            else transaction.Rollback(Savepoint);
+            unit.Commit();
+        }
     }
 
     public DeleteEntryResult Delete(long id)
@@ -112,10 +133,9 @@ public sealed class EntryService(
             var check = RestoreCheck(deleted);
             if (!check.Allowed) throw new AppValidationException(check.Clashes);
             entries.RestoreDeleted(id);
-            unit.Commit();
+            var restored = entries.Get(id)!;
+            CommitWithArrivals(unit, id, [restored.InwardNo], [restored.EntryDate]);
         }
-        var restored = entries.Get(id)!;
-        LinkArrivals(id, [restored.InwardNo], [restored.EntryDate]);
         return Get(id);
     }
 
@@ -165,9 +185,9 @@ public sealed class EntryService(
 
     private static string Slip(EntryEntity entry) => $"INW. NO. {entry.InwardNo} of {entry.EntryDate} ({entry.Party})";
 
-    public IReadOnlyList<EntryDto> PartyWise(string? month, string? party)
+    public IReadOnlyList<EntryDto> PartyWise(string? month, string? party, MonthRange? months = null)
     {
-        IEnumerable<EntryDto> list = List(month);
+        IEnumerable<EntryDto> list = List(month, months);
         if (!string.IsNullOrWhiteSpace(party))
             list = list.Where(e => string.Equals(e.Party, party.NormalizeName(), StringComparison.OrdinalIgnoreCase));
         return list

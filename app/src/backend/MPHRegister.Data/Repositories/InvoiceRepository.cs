@@ -12,20 +12,35 @@ public sealed class InvoiceRepository(IDbSession session) : RepositoryBase(sessi
         source, firm, notes, created_at, updated_at, cancelled_at
         """;
 
-    public IReadOnlyList<InvoiceSummaryRow> List(string? month, string? party) => Query<InvoiceSummaryRow>(
-        """
-        SELECT i.id, i.invoice_no, i.bill_date, i.bill_month, i.fy, i.serial, i.party, i.party_name,
-            (SELECT COALESCE(SUM(qty), 0) FROM invoice_lines l WHERE l.invoice_id = i.id AND l.kind = 'priced') AS than,
-            i.total, i.status, i.source,
-            (SELECT group_concat(DISTINCT finish) FROM invoice_lines l WHERE l.invoice_id = i.id AND l.kind = 'priced') AS finishes,
-            (SELECT COUNT(*) FROM invoice_entries ie WHERE ie.invoice_id = i.id) AS entries,
-            x.exported_at, x.file_name AS exported_to, COALESCE(x.invoice_updated_at <> i.updated_at, 0) AS changed_since_export
-        FROM invoices i
-        LEFT JOIN bill_exports x ON x.id = (SELECT id FROM bill_exports WHERE invoice_id = i.id ORDER BY exported_at DESC, id DESC LIMIT 1)
-        WHERE (@month IS NULL OR i.bill_month = @month) AND (@party IS NULL OR i.party = @party)
-        ORDER BY i.fy, i.serial;
-        """,
-        new { month, party });
+    public IReadOnlyList<InvoiceSummaryRow> List(string? month, string? party, string? fromMonth = null, string? toMonth = null)
+    {
+        // Only the conditions asked for: "(@month IS NULL OR …)" would keep SQLite from using the month index.
+        var where = new List<string>();
+        if (month is not null) where.Add("i.bill_month = @month");
+        if (party is not null) where.Add("i.party = @party");
+        if (fromMonth is not null && toMonth is not null) where.Add("i.bill_month BETWEEN @fromMonth AND @toMonth");
+        return Query<InvoiceSummaryRow>(
+            $"""
+            SELECT i.id, i.invoice_no, i.bill_date, i.bill_month, i.fy, i.serial, i.party, i.party_name,
+                (SELECT COALESCE(SUM(qty), 0) FROM invoice_lines l WHERE l.invoice_id = i.id AND l.kind = 'priced') AS than,
+                i.total, i.status, i.source,
+                (SELECT group_concat(DISTINCT finish) FROM invoice_lines l WHERE l.invoice_id = i.id AND l.kind = 'priced') AS finishes,
+                (SELECT COUNT(*) FROM invoice_entries ie WHERE ie.invoice_id = i.id) AS entries,
+                x.exported_at, x.file_name AS exported_to, COALESCE(x.invoice_updated_at <> i.updated_at, 0) AS changed_since_export
+            FROM invoices i
+            LEFT JOIN bill_exports x ON x.id = (SELECT id FROM bill_exports WHERE invoice_id = i.id ORDER BY exported_at DESC, id DESC LIMIT 1)
+            {(where.Count == 0 ? string.Empty : "WHERE " + string.Join(" AND ", where))}
+            ORDER BY i.fy, i.serial;
+            """,
+            new { month, party, fromMonth, toMonth });
+    }
+
+    public IReadOnlyList<BillMonthCount> Months() =>
+        Query<BillMonthCount>("SELECT bill_month AS month, COUNT(*) AS bills FROM invoices GROUP BY bill_month ORDER BY bill_month DESC;");
+
+    public IReadOnlySet<long> ExistingIds(IReadOnlyCollection<long> ids) => ids.Count == 0
+        ? new HashSet<long>()
+        : Query<long>("SELECT id FROM invoices WHERE id IN (SELECT value FROM json_each(@ids));", new { ids = Json(ids) }).ToHashSet();
 
     public InvoiceEntity? Get(long id) => First<InvoiceEntity>($"SELECT {Columns} FROM invoices WHERE id = @id;", new { id });
 

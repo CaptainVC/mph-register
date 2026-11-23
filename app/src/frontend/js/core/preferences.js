@@ -43,9 +43,13 @@ document.querySelectorAll("#langSwitch [data-lang]").forEach((btn) =>
   btn.addEventListener("click", () => setLanguageChoice(btn.dataset.lang)));
 
 // ---------- Theme (kept in the config file; cached so the page opens in the right colours) ----------
+let appliedTheme = document.documentElement.dataset.theme || null;
 function applyTheme(theme) {
   const dark = theme === "dark";
   const value = dark ? "dark" : "light";
+  // The page opens with the cached theme already set (index.html); screens redraw only when it really changes.
+  const changed = appliedTheme !== null && appliedTheme !== value;
+  appliedTheme = value;
   document.documentElement.dataset.theme = value;
   try { localStorage.setItem("mph-theme", value); } catch { /* private mode */ }
   document.querySelectorAll("#themeSwitch [data-theme]").forEach((btn) => {
@@ -55,7 +59,7 @@ function applyTheme(theme) {
   });
   const select = $("display-theme");
   if (select && select.value !== value) select.value = value;
-  document.dispatchEvent(new CustomEvent("mph-theme"));
+  if (changed) document.dispatchEvent(new CustomEvent("mph-theme"));
 }
 
 async function setThemeChoice(next) {

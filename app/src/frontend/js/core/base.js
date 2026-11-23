@@ -2,11 +2,28 @@
 
 // Shared state, number and date formatting, the API helper and small DOM helpers used by every screen.
 
+// Entry lists by period ("2026-10", "fy:2026", "all", or several months joined by commas). A list being fetched is shared
+// by everyone asking for it; clearing the cache also drops what was asked for before, so a late answer is not kept.
+class EntriesCache extends Map {
+  pending = new Map();
+  generation = 0;
+
+  clear() {
+    super.clear();
+    this.pending.clear();
+    this.generation++;
+  }
+}
+
 const state = {
   masters: { parties: [], finishes: [] },
   entryMonth: "",
   editing: null,
-  entriesCache: new Map(),
+  entriesCache: new EntriesCache(),
+  // Goes up whenever a cached entry changes in place, so screens drawn from the same list know to draw again.
+  entriesRevision: 0,
+  // Requests that may have changed something (anything not a GET), so lists read ahead can tell they may be out of date.
+  writes: 0,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -27,9 +44,15 @@ function money(value) {
 const ENTRY_FIELDS = ["inwardNo", "entryDate", "party", "designNo", "lotNo", "repair", "than", "tp", "finish", "twoPart"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+// Posts that only work something out (counts, drafts, previews) and change nothing.
+const READ_ONLY_POSTS = /^\/api\/(billing\/(count|compute|build|numbers|excel\/preview)|masters\/style\/preview)(\?|$)/;
+
 async function api(path, options = {}) {
   const init = { ...options, headers: { ...(options.headers || {}) } };
-  if (init.method && init.method !== "GET") init.headers["X-MPH-Request"] = "1";
+  if (init.method && init.method !== "GET") {
+    init.headers["X-MPH-Request"] = "1";
+    if (!READ_ONLY_POSTS.test(path)) state.writes++;
+  }
   if (init.json !== undefined) {
     init.headers["Content-Type"] = "application/json";
     init.body = JSON.stringify(init.json);

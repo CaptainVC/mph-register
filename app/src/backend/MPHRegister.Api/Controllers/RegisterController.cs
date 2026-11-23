@@ -15,5 +15,6 @@ public sealed class RegisterController(IEntryService entries) : ApiControllerBas
     public ActionResult<NextInwardDto> NextInward([FromQuery] string? month) => entries.NextInward(month);
 
     [HttpGet("partywise")]
-    public ActionResult<IReadOnlyList<EntryDto>> PartyWise([FromQuery] string? month, [FromQuery] string? party) => Ok(entries.PartyWise(month, party));
+    public ActionResult<IReadOnlyList<EntryDto>> PartyWise([FromQuery] string? month, [FromQuery] string? party, [FromQuery] string? fy) =>
+        Ok(entries.PartyWise(month, party, YearOf(fy)));
 }

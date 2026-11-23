@@ -25,6 +25,8 @@ public sealed record CandidateDto(
     bool Selected,
     decimal? Rate);
 
+/// <param name="Count">How many bills the entries ticked to start with make (what <c>POST /api/billing/count</c> answers for them);
+/// null when none is ticked or no bill is needed.</param>
 public sealed record CandidatesDto(
     string BillParty,
     IReadOnlyList<string> SourceParties,
@@ -36,7 +38,11 @@ public sealed record CandidatesDto(
     IReadOnlyList<string> Problems,
     IReadOnlyList<CandidateDto> Entries,
     IReadOnlyList<string> BillRecipients,
-    bool NoBillNeeded = false);
+    bool NoBillNeeded = false,
+    int? Count = null);
+
+/// <summary>A bill month and how many bills (saved or cancelled) it has.</summary>
+public sealed record BillMonthDto(string Month, int Bills);
 
 public sealed record PartyToBillDto(string Party, int Entries, int NettThan, int NotDispatched);
 

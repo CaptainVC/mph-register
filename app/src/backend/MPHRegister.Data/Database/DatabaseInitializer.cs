@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Dapper;
 using Microsoft.Data.Sqlite;
@@ -31,17 +32,24 @@ public sealed partial class DatabaseInitializer(DataOptions options, IConnection
     {
         Directory.CreateDirectory(options.DataDirectory);
         var existed = File.Exists(options.DatabasePath);
-        if (existed) CheckExistingFile();
+        // Unchanged since the last start's check and backup: that backup already holds this data.
+        var check = existed && !StartCheck.Unchanged(options);
+        var checkedFile = (Size: 0L, WrittenUtcTicks: 0L, Counter: -1L);
+        if (check)
+        {
+            CheckExistingFile();
+            checkedFile = StartCheck.Take(options);
+        }
         var hadConfig = config.FileExists;
         if (hadConfig) config.Load();
         using var connection = factory.Open();
-        if (existed) backups.Backup(connection, "start");
+        if (check) StartCheck.Record(options, checkedFile, backups.Backup(connection, "start"));
         if (hadConfig) config.Backup("start");
 
         var version = Convert.ToInt32(Scalar(connection, "PRAGMA user_version;"), CultureInfo.InvariantCulture);
         if (version > LatestVersion)
             throw new DataFileException("This data file was created by a newer version of MPH Register. Use the newer app.");
-        if (version == 0) Scalar(connection, "PRAGMA journal_mode = DELETE;");
+        if (existed && !check && version < LatestVersion) backups.Backup(connection, "start");
 
         foreach (var migration in Migrations().Where(m => m.Version > version).OrderBy(m => m.Version))
         {
@@ -94,7 +102,7 @@ public sealed partial class DatabaseInitializer(DataOptions options, IConnection
         {
             // updated_at stays: the entry still matches its workbook row as the reader reads it now, so a later import of the
             // month keeps treating it as untouched in the app.
-            if (marked.Count > 0) connection.Execute("UPDATE entries SET repair = 1 WHERE id IN @ids;", new { ids = marked.Select(e => e.Id) }, transaction);
+            if (marked.Count > 0) connection.Execute("UPDATE entries SET repair = 1 WHERE id IN (SELECT value FROM json_each(@ids));", new { ids = JsonSerializer.Serialize(marked.Select(e => e.Id)) }, transaction);
             connection.Execute("INSERT INTO settings(key, value) VALUES (@key, @value);", new { key, value = marked.Count.ToString(CultureInfo.InvariantCulture) }, transaction);
             transaction.Commit();
         }
@@ -164,6 +172,7 @@ public sealed partial class DatabaseInitializer(DataOptions options, IConnection
             }
         }
         if (problem is null) return;
+        SqliteConnection.ClearAllPools();
         if (problem.Length > 200) problem = problem[..200] + "…";
         throw new DataFileException(
             $"The data file {options.DatabasePath} is damaged ({problem}). Nothing was changed. Restore the newest file from: {options.BackupDirectory}");

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.FileProviders;
+using MPHRegister.Api.Caching;
 using MPHRegister.Api.Configuration;
 using MPHRegister.Api.Hosting;
 using MPHRegister.Api.Middleware;
@@ -26,6 +27,7 @@ public static class ApiModule
                 return new BadRequestObjectResult(new { errors });
             });
         services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options => options.MultipartBodyLengthLimit = Limits.MaxUploadBytes);
+        services.AddSingleton<DashboardCache>();
         services.AddSingleton(_ =>
         {
             using var template = WebFiles().GetFileInfo(BillTemplateFile).CreateReadStream();

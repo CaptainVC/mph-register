@@ -1,11 +1,13 @@
 using MPHRegister.Contracts.Arrivals;
+using MPHRegister.Shared.Helpers;
 
 namespace MPHRegister.Services.Interfaces;
 
 /// <summary>The Aawak register: arrivals at the gate and the inward slips they carry.</summary>
 public interface IArrivalService
 {
-    IReadOnlyList<ArrivalDto> List(string? month);
+    /// <summary>The Aawak month's rows; with no valid month, those of <paramref name="months"/> (or all when it is null).</summary>
+    IReadOnlyList<ArrivalDto> List(string? month, MonthRange? months = null);
 
     IReadOnlyList<ArrivalDto> Recent(int? limit);
 

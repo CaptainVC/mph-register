@@ -17,9 +17,21 @@
 
   const DATA_SELECT_IDS = new Set(["pf-style", "pf-color", "ff-color", "ff-group", "rate-finish"]);
 
+  // The same texts come up again and again (every row of a table), and each miss tries every pattern: answers are kept.
+  const translated = new Map();
   function translateCore(core) {
     if (!core) return core;
     if (EXACT[core]) return EXACT[core];
+    let hi = translated.get(core);
+    if (hi === undefined) {
+      if (translated.size > 20000) translated.clear();
+      hi = translatePatterns(core);
+      translated.set(core, hi);
+    }
+    return hi;
+  }
+
+  function translatePatterns(core) {
     for (const [regex, fn] of PATTERNS) {
       const m = regex.exec(core);
       if (m) return fn(...m);
@@ -127,13 +139,12 @@
     if (comboLi && !comboLi.classList.contains("empty") && !parent.classList.contains("tag")) return;
 
     const cur = node.nodeValue;
+    // English puts back only what Hinglish changed; Hinglish keeps the English of a node it has not seen yet.
     if (lang === "en") {
       if (lastText.has(node)) {
         const en = origText.get(node);
         if (en !== undefined && cur !== en) node.nodeValue = en;
         lastText.delete(node);
-      } else {
-        origText.set(node, cur);
       }
       return;
     }
@@ -164,6 +175,17 @@
   }
 
   function translateElementAttrs(el, lang) {
+    if (lang === "en") {
+      const last = lastAttrs.get(el);
+      if (!last) return;
+      const orig = origAttrs.get(el) || {};
+      for (const attr of Object.keys(last)) {
+        if (attr in orig && el.hasAttribute(attr) && el.getAttribute(attr) !== orig[attr]) el.setAttribute(attr, orig[attr]);
+      }
+      lastAttrs.delete(el);
+      return;
+    }
+    if (!ATTRS.some((attr) => el.hasAttribute(attr))) return;
     if (isIgnoredElement(el)) return;
     let orig = origAttrs.get(el);
     let last = lastAttrs.get(el);
@@ -173,15 +195,6 @@
     for (const attr of ATTRS) {
       if (!el.hasAttribute(attr)) continue;
       const cur = el.getAttribute(attr);
-      if (lang === "en") {
-        if (attr in last) {
-          if (attr in orig && cur !== orig[attr]) el.setAttribute(attr, orig[attr]);
-          delete last[attr];
-        } else {
-          orig[attr] = cur;
-        }
-        continue;
-      }
       if (!(attr in orig) || !(attr in last) || cur !== last[attr]) {
         orig[attr] = cur;
       }
@@ -279,21 +292,32 @@
     if (titleEl) observer.observe(titleEl, { childList: true, characterData: true, subtree: true });
   }
 
+  // The page is walked only when the language really changes (every tab switch and save asks again with the same one,
+  // and the walk visits every hidden screen too). English never translates, so it needs no walk and no observer.
+  let appliedLang = null;
+  // Elements drawn in Hinglish and kept off the page (cached lists) are put back to English when they are shown again.
+  let hiSeen = false;
+
   function applyLanguage(lang) {
     const next = lang === "hi" ? "hi" : "en";
+    syncToggleButton(next);
+    if (next === appliedLang) return;
+    const from = appliedLang;
+    appliedLang = next;
     currentLang = next;
+    if (next === "hi") hiSeen = true;
     document.documentElement.lang = next;
     document.documentElement.dataset.lang = next;
     try { localStorage.setItem("mph-lang", next); } catch { /* private mode */ }
     applying = true;
     try {
-      syncToggleButton(next);
       syncTitle(next);
-      if (document.body) walk(document.body, next);
+      if (document.body && (next === "hi" || from === "hi")) walk(document.body, next);
     } finally {
       observer.takeRecords();
       applying = false;
     }
+    if (next === "hi") startObserver(); else observer.disconnect();
     document.dispatchEvent(new CustomEvent("mph-lang", { detail: { language: next } }));
   }
 
@@ -305,15 +329,11 @@
   window.getLanguage = () => currentLang;
   window.applyLanguage = applyLanguage;
   window.t = t;
-  window.translateUi = (root) => walk(root, currentLang);
+  window.translateUi = (root) => { if (currentLang === "hi" || hiSeen) walk(root, currentLang); };
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => {
-      startObserver();
-      applyLanguage(currentLang);
-    });
+    document.addEventListener("DOMContentLoaded", () => applyLanguage(currentLang));
   } else {
-    startObserver();
     applyLanguage(currentLang);
   }
 })();

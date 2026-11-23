@@ -40,7 +40,12 @@ function setBillMessage(text, kind) {
   if (popup) toast(text);
 }
 
+// What the cached party lists were read from: any change made since (entries, masters, rates, styles, settings) and any
+// list of entries read again change it.
+const billDataStamp = () => [state.entriesCache.generation, state.entriesRevision, state.writes];
+
 function clearBillCache() {
+  billCache.stamp = billDataStamp();
   billCache.generation++;
   billCache.prefetch++;
   billCache.candidates.clear();
@@ -49,23 +54,24 @@ function clearBillCache() {
   billCache.countRequests.clear();
 }
 
+// Coming back to the tab keeps the party lists read before, unless something they were read from changed since.
 async function showBills() {
-  clearBillCache();
+  const stamp = billDataStamp();
+  if (!billCache.stamp || stamp.some((part, i) => part !== billCache.stamp[i])) clearBillCache();
   if (!$("billMonth").value) {
     $("billMonth").value = todayIso().slice(0, 7);
     applyMonthDates();
   }
-  await refreshBillYears();
-  await refreshToBill();
+  await Promise.all([refreshBillYears(), refreshToBill()]);
   // Bills can be imported on the Import Excel tab, so an open Saved bills list is read again.
   if ($("bills-saved").classList.contains("active")) await refreshInvoices();
 }
 
 async function refreshBillYears() {
   const ticket = ++billRequests.years;
-  const [months, invoices] = await Promise.all([api("/api/months"), api("/api/invoices")]);
+  const [months, billMonths] = await Promise.all([api("/api/months"), api("/api/invoices/months")]);
   if (ticket !== billRequests.years) return;
-  billPeriodInput.fill([...months, ...invoices.map((i) => ({ month: i.billMonth }))]);
+  billPeriodInput.fill([...months, ...billMonths.map((m) => ({ month: m.month }))]);
 }
 
 function applyMonthDates() {
@@ -136,7 +142,12 @@ function fetchCandidates(party) {
   if (!billCache.candidates.has(key)) {
     const generation = billCache.generation;
     const request = api(`/api/billing/candidates?party=${encodeURIComponent(party)}&${periodQuery()}`).then((data) => {
-      if (generation === billCache.generation) billCache.ready.set(key, data);
+      if (generation === billCache.generation) {
+        billCache.ready.set(key, data);
+        // The answer already counts the bills of the pre-ticked entries.
+        const ids = data.entries.filter((e) => e.selected).map((e) => e.entryId);
+        if (ids.length && typeof data.count === "number") billCache.counts.set(billCountKey(data.billParty, ids), data.count);
+      }
       return data;
     }, (error) => {
       if (billCache.candidates.get(key) === request) billCache.candidates.delete(key);
@@ -165,21 +176,22 @@ function requestBillCount(party, ids) {
   return billCache.countRequests.get(key);
 }
 
+// One party at a time while the app is idle, so a party picked by hand never waits behind a burst of reads.
 async function prefetchCandidates(parties) {
   const ticket = ++billCache.prefetch;
   const queue = parties.map((p) => p.party);
-  const worker = async () => {
-    while (queue.length && ticket === billCache.prefetch) {
-      try {
-        const candidates = await fetchCandidates(queue.shift());
-        const ids = candidates.entries.filter((e) => e.selected).map((e) => e.entryId);
-        if (ids.length && ticket === billCache.prefetch) await requestBillCount(candidates.billParty, ids);
-      } catch {
-        // The party is loaded again, with its error shown, when it is chosen.
-      }
+  const idle = () => new Promise((resolve) => (window.requestIdleCallback || ((run) => setTimeout(run, 50)))(resolve, { timeout: 1000 }));
+  while (queue.length && ticket === billCache.prefetch) {
+    await idle();
+    if (ticket !== billCache.prefetch) return;
+    try {
+      const candidates = await fetchCandidates(queue.shift());
+      const ids = candidates.entries.filter((e) => e.selected).map((e) => e.entryId);
+      if (ids.length && ticket === billCache.prefetch) await requestBillCount(candidates.billParty, ids);
+    } catch {
+      // The party is loaded again, with its error shown, when it is chosen.
     }
-  };
-  await Promise.all([worker(), worker()]);
+  }
 }
 
 function renderToBillList() {

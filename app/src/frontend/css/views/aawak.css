@@ -23,7 +23,7 @@ table.aawak-table tr.arrival-row:not(.status-linked) td:first-child { box-shadow
 .entry-aawak { margin-top: 8px; font-size: 14px; }
 .entry-aawak:empty { display: none; }
 .entry-aawak .label { font-weight: 700; }
-body:has(#view-aawak.active #aawak-totals.active) { grid-template-columns: minmax(0, 1fr); }
+body[data-screen="aawak"][data-aawak-sub="totals"] { grid-template-columns: minmax(0, 1fr); }
 .arrival-report { max-width: 1480px; margin: 0 auto; padding: 10px 6px 24px; }
 .arrival-report-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
 .arrival-report-heading h1 { font-size: 30px; margin: 2px 0 6px; letter-spacing: -.5px; }

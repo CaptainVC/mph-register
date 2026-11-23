@@ -28,7 +28,7 @@ async function deleteEditingEntry() {
   $("deleteEntry").disabled = true;
   try {
     const result = await api(`/api/entries/${entry.id}`, { method: "DELETE" });
-    state.entriesCache.clear();
+    forgetEntriesOf(entry, result.deleted);
     await resetForm();
     toast(`Deleted ✓ ${slipText(result.deleted)}`, "ok", { id: "undoDelete", label: "Undo", run: () => undoDelete(result.deleted.id) });
     showWarnings(result.notes);
@@ -74,7 +74,7 @@ async function restoreDeleted(item) {
   if (!ok) return null;
   try {
     const entry = await api(`/api/entries/deleted/${item.id}/restore`, { method: "POST" });
-    state.entriesCache.clear();
+    forgetEntriesOf(item, entry);
     setMessage(`Restored ✓ ${slipText(entry)}`, "ok");
     await Promise.all([refreshRecent(), refreshInfo()]);
     if ($("view-register").classList.contains("active")) await renderRegister();
@@ -203,7 +203,7 @@ $("entryForm").addEventListener("submit", async (event) => {
     const saved = wasEditing
       ? await api(`/api/entries/${wasEditing.id}`, { method: "PUT", json: payload })
       : await api("/api/entries", { method: "POST", json: payload });
-    state.entriesCache.clear();
+    forgetEntriesOf(wasEditing, saved);
     await resetForm();
     const what = saved.status === "allZero" ? "all zero (slip number only)" : `${num(saved.than)} THAN ${saved.finish}`;
     setMessage(`${wasEditing ? "Corrected" : "Saved"} ✓ INW. NO. ${saved.inwardNo} — ${saved.party}, ${what}`, "ok");

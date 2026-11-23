@@ -10,18 +10,22 @@ namespace MPHRegister.Services.Entries;
 
 public sealed class EntryReader(IEntryRepository entries, IImportLogRepository imports, IMasterReader masters, IArrivalRepository arrivals, IEntryLinker linker) : IEntryReader
 {
+    private const int WholeTablesAbove = 1000;
+
     public IReadOnlyList<EntryDto> Read(IReadOnlyList<EntryEntity> rows)
     {
         ArgumentNullException.ThrowIfNull(rows);
         if (rows.Count == 0) return [];
-        var dispatches = entries.Dispatches(rows.Select(r => r.Id).ToHashSet());
-        var duplicates = entries.DuplicateInwardNumbers();
+        var ids = rows.Select(r => r.Id).ToHashSet();
+        var scope = MostOfTheRegister(ids.Count) ? null : ids;
+        var dispatches = entries.Dispatches(ids, readWhole: scope is null);
+        var duplicates = entries.DuplicateInwardNumbers(rows.Select(r => r.RegisterMonth).ToHashSet(StringComparer.Ordinal));
         var index = ConfigIndex.For(masters.Config);
-        var marks = imports.LatestImportMarks();
-        var aawak = arrivals.EntryArrivals().ToLookup(a => a.EntryId);
-        var notNeeded = arrivals.NoArrival();
+        var marks = imports.LatestImportMarks(scope);
+        var aawak = arrivals.EntryArrivals(scope).ToLookup(a => a.EntryId);
+        var notNeeded = scope is null ? arrivals.NoArrival() : arrivals.NoArrival(scope);
         var checkFrom = masters.Config.Aawak.CheckSlipsFrom ?? arrivals.EarliestDate();
-        var links = linker.For(rows.Select(r => r.Id).ToHashSet());
+        var links = linker.For(rows);
         return rows.Select(r =>
             {
                 var sent = dispatches.TryGetValue(r.Id, out var d) ? d : [];
@@ -32,6 +36,19 @@ public sealed class EntryReader(IEntryRepository entries, IImportLogRepository i
             })
             .ToList();
     }
+
+    public IReadOnlyList<EntryDto> ReadForBilling(IReadOnlyList<EntryEntity> rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        if (rows.Count == 0) return [];
+        var ids = rows.Select(r => r.Id).ToHashSet();
+        var dispatches = entries.Dispatches(ids, readWhole: MostOfTheRegister(ids.Count));
+        var index = ConfigIndex.For(masters.Config);
+        return rows.Select(r => EntryMapper.ToDto(r, dispatches.TryGetValue(r.Id, out var d) ? d : [], duplicateNumber: false, index.Party(r.Party)?.NoBillNeeded ?? false)).ToList();
+    }
+
+    // Most of the register (every year): reading the lookups whole is quicker than matching thousands of ids.
+    private bool MostOfTheRegister(int rows) => rows > WholeTablesAbove && rows * 2L > entries.Count();
 
     /// <summary>
     /// "No Aawak found" is only said of slips that should have one: not carryovers or all-zero slips, and dated on or after the

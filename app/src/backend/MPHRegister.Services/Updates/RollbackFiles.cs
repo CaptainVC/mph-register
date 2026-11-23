@@ -31,6 +31,8 @@ public static class RollbackFiles
     /// <summary>Copies the data and config file and notes their formats; run before the newer version changes them.</summary>
     public static RollbackPoint CreatePoint(string dataDirectory, string fromVersion, string toVersion, DateTimeOffset now)
     {
+        // A pooled connection of this process would keep the data file open while it is copied (Windows).
+        SqliteConnection.ClearAllPools();
         var folder = Folder(dataDirectory);
         Directory.CreateDirectory(folder);
         TryDelete(Path.Combine(folder, SkippedFile));
@@ -97,6 +99,7 @@ public static class RollbackFiles
 
     private static bool RestoreData(string dataDirectory, string newerVersion, DateTimeOffset now)
     {
+        SqliteConnection.ClearAllPools();
         var folder = Folder(dataDirectory);
         var stamp = now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
         var kept = Path.Combine(folder, $"kept-{stamp}-from-{Safe(newerVersion)}");

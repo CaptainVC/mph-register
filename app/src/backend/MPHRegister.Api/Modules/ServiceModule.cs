@@ -22,6 +22,7 @@ public static class ServiceModule
         services.AddValidatorsFromAssemblyContaining<EntryInputValidator>(ServiceLifetime.Singleton);
         services.AddSingleton<IInvoicePdfService, BrowserPdfService>();
         services.AddSingleton<BillLineSizer>();
+        services.AddSingleton<ZeroSlipCache>();
         services.AddScoped<IEntryLinker, EntryLinker>();
         services.AddScoped<IEntryReader, EntryReader>();
         services.AddScoped<IMasterReader, MasterReader>();

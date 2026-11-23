@@ -1,10 +1,18 @@
 using MPHRegister.Contracts.Billing;
+using MPHRegister.Shared.Helpers;
 
 namespace MPHRegister.Services.Interfaces;
 
 public interface IInvoiceService
 {
-    IReadOnlyList<InvoiceSummary> List(string? month, string? party);
+    /// <summary>The bills of the bill month (with no valid month, of <paramref name="months"/>, or all) and party.</summary>
+    IReadOnlyList<InvoiceSummary> List(string? month, string? party, MonthRange? months = null);
+
+    /// <summary>Every bill month with its number of bills (saved or cancelled), newest first.</summary>
+    IReadOnlyList<BillMonthDto> Months();
+
+    /// <summary>The ids among <paramref name="ids"/> that are not bills.</summary>
+    IReadOnlyList<long> Missing(IReadOnlyCollection<long> ids);
 
     InvoiceDoc Get(long id);
 

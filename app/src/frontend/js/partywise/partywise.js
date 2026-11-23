@@ -46,13 +46,18 @@ $("toggleAllParties").addEventListener("click", () => {
 // Ticking a filter re-uses the rows already loaded; anything else reads them again.
 async function renderPartywise(options) {
   const version = ++partyRenderVersion;
+  partyTableStale = false;
   const months = $("partyViewMonth").values;
   const party = partyFilterCombo.canonical();
   const query = party ? `&party=${encodeURIComponent(party.name)}` : "";
-  const key = `${months}|${query}`;
+  // One month is asked for by name; several are read together (to keep the party order) and cut down here. Only one
+  // financial year is read when the months (or the year picked with no month) are all in it.
+  const years = new Set(months.map(financialYearOf));
+  const year = months.length ? (years.size === 1 ? [...years][0] : "") : partyPeriodFilter.year || "";
+  const scope = months.length === 1 ? `month=${encodeURIComponent(months[0])}` : year ? `fy=${encodeURIComponent(year)}` : "month=";
+  const key = `${months}|${scope}${query}`;
   if (options?.reuse !== true || partywiseLoaded.key !== key) {
-    // One month is asked for by name; several are read together (to keep the party order) and cut down here.
-    const loaded = await api(`/api/partywise?month=${encodeURIComponent(months.length === 1 ? months[0] : "")}${query}`);
+    const loaded = await api(`/api/partywise?${scope}${query}`);
     if (version !== partyRenderVersion) return;
     partywiseLoaded = { key, party: party ? party.name : "", entries: months.length > 1 ? loaded.filter((e) => months.includes(e.registerMonth)) : loaded };
   }
@@ -146,6 +151,7 @@ async function renderPartywise(options) {
   applyPartyVisibility = () => { visibilityUpdaters.forEach((update) => update()); syncToggleAllParties(); };
   syncToggleAllParties();
   $("partyTable").replaceChildren(headerRow(), body);
+  pruneEntryRows();
   setTableEmpty($("partyTable"), entries.length ? "" : all.length ? "No entries match the filters."
     : months.length ? `No entries in ${months.length > 1 ? "these months" : "this month"}.` : partyPeriodFilter.year ? "No entries in this financial year." : "No entries.");
   const partyCountEl = $("partyCount");

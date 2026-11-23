@@ -10,7 +10,9 @@ public interface IMasterReader
 
     IReadOnlyList<PartyDto> Parties();
 
-    PartyDto? Party(string? name);
+    /// <summary>The party with its settings; <paramref name="withCounts"/> false leaves its entry count at 0 (bills never show it, and
+    /// counting reads every entry).</summary>
+    PartyDto? Party(string? name, bool withCounts = true);
 
     IReadOnlyList<FinishDto> Finishes();
 

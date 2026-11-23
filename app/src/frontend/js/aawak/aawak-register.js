@@ -107,7 +107,14 @@ const ARRIVAL_FILTERS = [
   ] },
 ];
 const aawakRowFilter = rowFilters($("aawakFilters"), () => renderAawakRegister({ reuse: true }).catch(showFatal), $("aawakFiltersToggle"), ARRIVAL_FILTERS);
-$("aawakSearch").addEventListener("input", () => renderAawakRegister({ reuse: true }).catch(showFatal));
+// A long table is drawn again once typing pauses, not on every key; a short one at once.
+let aawakSearchTimer = 0;
+$("aawakSearch").addEventListener("input", () => {
+  clearTimeout(aawakSearchTimer);
+  const draw = () => renderAawakRegister({ reuse: true }).catch(showFatal);
+  if (aawakState.rows.length < SEARCH_DELAY_FROM_ROWS) draw();
+  else aawakSearchTimer = setTimeout(draw, 150);
+});
 
 async function fillAawakMonths(month) {
   const months = (await api("/api/arrivals/months")).map((m) => ({ month: m.month, entries: m.arrivals }));
@@ -117,24 +124,41 @@ async function fillAawakMonths(month) {
   } else aawakPeriod.fill(months);
 }
 
+// Each row's search text, worked out once (a saved row is a new object, so it is worked out again).
+const aawakSearchText = new WeakMap();
 function shownArrivals() {
   const tokens = normalize($("aawakSearch").value).split(" ").filter(Boolean);
   const months = $("aawakMonth").values;
   const searched = aawakState.rows.filter((a) => {
     if (!aawakPeriod.matches(a.aawakMonth) || (months.length && !months.includes(a.aawakMonth))) return false;
     if (!tokens.length) return true;
-    const text = normalize([a.number, a.party, a.group, a.transporter, a.inwardText, a.note, ...a.refs, formatDate(a.arrivalDate)].join(" "));
+    let text = aawakSearchText.get(a);
+    if (text === undefined) {
+      text = normalize([a.number, a.party, a.group, a.transporter, a.inwardText, a.note, ...a.refs, formatDate(a.arrivalDate)].join(" "));
+      aawakSearchText.set(a, text);
+    }
     return tokens.every((t) => text.includes(t));
   });
   return aawakRowFilter(searched);
 }
 
+let aawakRenderVersion = 0;
 async function renderAawakRegister({ reuse = false } = {}) {
+  clearTimeout(aawakSearchTimer);
   const months = $("aawakMonth").values;
-  const key = months.join(",") || "all";
+  // One month is asked for by name; several are read together and cut down in shownArrivals. Only one financial year is
+  // read when the months (or the year picked with no month) are all in it.
+  const years = new Set(months.map(financialYearOf));
+  const year = months.length ? (years.size === 1 ? [...years][0] : "") : aawakPeriod.year || "";
+  const path = months.length === 1 ? `/api/arrivals?month=${encodeURIComponent(months[0])}`
+    : year ? `/api/arrivals?fy=${encodeURIComponent(year)}` : "/api/arrivals";
+  const key = `${months.join(",")}|${path}`;
   if (!reuse || aawakState.rowsKey !== key) {
-    // One month is asked for by name; several are read together and cut down in shownArrivals.
-    aawakState.rows = await api(months.length === 1 ? `/api/arrivals?month=${encodeURIComponent(months[0])}` : "/api/arrivals");
+    // Only the newest read draws; a redraw from the rows in hand (a search or filter) meanwhile does not cancel it.
+    const version = ++aawakRenderVersion;
+    const rows = await api(path);
+    if (version !== aawakRenderVersion) return;
+    aawakState.rows = rows;
     aawakState.rowsKey = key;
   }
   const rows = shownArrivals();
@@ -180,6 +204,7 @@ $("aawakRelink").addEventListener("click", async () => {
 function showAawakSubview(sub) {
   document.querySelectorAll(".subtabs[data-group=aawak] .subtab").forEach((b) => b.classList.toggle("active", b.dataset.sub === sub));
   document.querySelectorAll('[id^="aawak-"].subview').forEach((v) => v.classList.toggle("active", v.id === `aawak-${sub}`));
+  document.body.dataset.aawakSub = sub;
 }
 
 // Opened from an inward register's Aawak column: the row opens in the Aawak register; closing it goes back there.

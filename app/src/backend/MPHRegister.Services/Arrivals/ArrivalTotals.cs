@@ -16,11 +16,15 @@ public static class ArrivalTotals
         ArgumentNullException.ThrowIfNull(rows);
         ArgumentNullException.ThrowIfNull(index);
         var sort = order == FirstArrival ? FirstArrival : ByNag;
-        string Key(ArrivalEntity a) => groupSisters ? index.GroupOf(a.Party) : index.Party(a.Party)?.Name ?? a.Party;
+        // Each row's key once: looking it up per party and step grew as parties × arrivals.
+        var keys = new Dictionary<ArrivalEntity, string>(ReferenceEqualityComparer.Instance);
+        foreach (var a in rows) keys.TryAdd(a, groupSisters ? index.GroupOf(a.Party) : index.Party(a.Party)?.Name ?? a.Party);
+        string Key(ArrivalEntity a) => keys[a];
+        var byKey = rows.ToLookup(Key, StringComparer.OrdinalIgnoreCase);
 
         var parties = Lines(rows, Key, sort, key =>
         {
-            var members = rows.Where(a => Same(Key(a), key)).Select(a => index.Party(a.Party)?.Name ?? a.Party).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
+            var members = byKey[key].Select(a => index.Party(a.Party)?.Name ?? a.Party).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
             var isGroup = groupSisters && index.Party(key) is null && members.Count > 0 && !(members.Count == 1 && Same(members[0], key));
             return (isGroup, isGroup ? members : []);
         });
