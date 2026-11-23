@@ -40,6 +40,8 @@ const cases = [
   ["Theme (also in the right-side menu)", "Theme (दाईं ओर के मेन्यू में भी)"],
   ["Language (also in the right-side menu)", "Language (दाईं ओर के मेन्यू में भी)"],
   ["1 entry", "1 Entry"],
+  ["3 months selected", "3 Month चुने गए"],
+  ["No entries in these months.", "इन Months में कोई Entry नहीं है।"],
   ["Set bill dates", "बिल की Dates Set करें"],
   ["Review entries and make bills", "Entries Check करें और बिल बनाएँ"],
   ["Make 3 bills", "3 बिल बनाएँ"],

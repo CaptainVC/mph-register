@@ -106,6 +106,7 @@ async function shownRows(page) {
     await page.locator('#registerFilters [data-filter="importAdded"]').click();
     await page.locator('#registerFilters [data-filter="importUpdated"]').click();
     await chooseDropdown(page.locator("#registerViewMonth"), "2026-10");
+    await chooseDropdown(page.locator("#registerViewMonth"), "2026-11");
     await page.waitForFunction(() => document.querySelectorAll("#registerTable tbody tr").length === 1
       && document.querySelector("#registerTable tbody tr td").textContent === "9");
     assert.match(await page.locator("#registerTable tbody tr").getAttribute("title"), /^Updated by the import of .+ \(Nov 2026\) on .+: LOT N\. filled in \(L9\)$/);
