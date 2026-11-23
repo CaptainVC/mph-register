@@ -126,6 +126,13 @@ function renderSlipPanel(box, preview, { nag, onSuggest, onChoose } = {}) {
     rows.push(el("li", { class: "slip-missing" }, [el("b", { text: String(number) }), " · not in the inward register yet; it links when the office enters it"]));
   }
   for (const choice of preview.choices) {
+    const [only] = choice.entries;
+    if (choice.entries.length === 1) {
+      rows.push(el("li", { class: "slip-missing" }, [el("b", { text: String(choice.inwardNo) }), " · is under ", slipLink(only),
+        ` ${only.party} (${formatDate(only.entryDate)}, ${num(only.nag)} NAG), not this party or a sister firm `,
+        onChoose ? el("button", { type: "button", class: "ghost small", text: "Link this", onclick: () => onChoose(only) }) : ""]));
+      continue;
+    }
     rows.push(el("li", { class: "slip-missing" }, [el("b", { text: String(choice.inwardNo) }), " · more than one slip could be it: ",
       ...choice.entries.flatMap((slip, i) => [i ? ", " : "", slipLink(slip), ` (${slip.party}, ${formatDate(slip.entryDate)}, ${num(slip.nag)} NAG)`,
         onChoose ? el("button", { type: "button", class: "ghost small", text: "Link this", onclick: () => onChoose(slip) }) : ""])]));
