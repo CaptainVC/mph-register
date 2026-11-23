@@ -187,6 +187,8 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
     public IReadOnlyList<DeletedEntryEntity> Deleted() =>
         Query<DeletedEntryEntity>($"SELECT {DeletedColumns} FROM deleted_entries ORDER BY deleted_at DESC, id DESC;");
 
+    public int PurgeDeleted() => Execute("DELETE FROM deleted_entries;");
+
     public DeletedEntryEntity? GetDeleted(long id) =>
         First<DeletedEntryEntity>($"SELECT {DeletedColumns} FROM deleted_entries WHERE id = @id;", new { id });
 

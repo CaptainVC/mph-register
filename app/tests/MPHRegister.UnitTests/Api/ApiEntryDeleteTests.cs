@@ -89,6 +89,27 @@ public sealed class ApiEntryDeleteTests
     }
 
     [Fact]
+    public async Task Purging_removes_every_deleted_entry_for_good_and_leaves_live_ones()
+    {
+        using var factory = new ApiFactory();
+        using var app = await Ready(factory);
+        Assert.Equal(0, (await app.Delete("/api/entries/deleted").Ok()).GetProperty("removed").GetInt32());
+
+        var keep = await NewEntry(app, 1);
+        var first = await NewEntry(app, 2);
+        var second = await NewEntry(app, 3);
+        await Delete(app, first).Ok();
+        await Delete(app, second).Ok();
+        Assert.Equal(2, (await Bin(app)).Count);
+
+        Assert.Equal(2, (await app.Delete("/api/entries/deleted").Ok()).GetProperty("removed").GetInt32());
+        Assert.Empty(await Bin(app));
+        await Restore(app, first).Refused(HttpStatusCode.NotFound);
+        await Restore(app, second).Refused(HttpStatusCode.NotFound);
+        Assert.Equal([keep], (await MonthEntries(app)).Select(e => e.GetProperty("id").GetInt64()));
+    }
+
+    [Fact]
     public async Task Billed_entry_cannot_be_deleted_and_a_cancelled_bill_waits_for_the_entry()
     {
         using var factory = new ApiFactory();

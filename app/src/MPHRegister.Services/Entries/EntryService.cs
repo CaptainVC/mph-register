@@ -77,6 +77,14 @@ public sealed class EntryService(
 
     public IReadOnlyList<DeletedEntryDto> Deleted() => entries.Deleted().Select(ToDto).ToList();
 
+    public PurgeDeletedResult PurgeDeleted()
+    {
+        using var unit = session.Begin();
+        var removed = entries.PurgeDeleted();
+        unit.Commit();
+        return new PurgeDeletedResult(removed);
+    }
+
     public EntryDto Restore(long id)
     {
         using (var unit = session.Begin())

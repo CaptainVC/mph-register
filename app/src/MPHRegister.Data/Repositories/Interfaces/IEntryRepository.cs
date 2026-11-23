@@ -72,6 +72,9 @@ public interface IEntryRepository
 
     DeletedEntryEntity? GetDeleted(long id);
 
+    /// <summary>Removes every deleted entry for good; they can no longer be restored. Returns how many were removed.</summary>
+    int PurgeDeleted();
+
     /// <summary>Deleted entries of <paramref name="month"/> and earlier: a newer workbook may still have their rows.</summary>
     IReadOnlyList<DeletedEntryEntity> DeletedUpTo(string month);
 

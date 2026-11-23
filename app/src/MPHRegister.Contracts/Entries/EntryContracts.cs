@@ -86,5 +86,8 @@ public sealed record DeletedEntryDto(
     string DeletedAt,
     EntryRestoreCheck Restore);
 
+/// <summary>How many deleted entries were removed for good.</summary>
+public sealed record PurgeDeletedResult(int Removed);
+
 /// <summary>The entry just deleted, and notes about what still refers to it.</summary>
 public sealed record DeleteEntryResult(DeletedEntryDto Deleted, IReadOnlyList<string> Notes);
