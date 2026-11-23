@@ -147,7 +147,7 @@ public sealed class ApiBillExportTests
         var id = (await SavedBill(app, 1)).GetProperty("id").GetInt64();
 
         using var none = Form(Workbook(), new { ids = Array.Empty<long>() });
-        Assert.Equal(["Tick the bills to write to Excel."], await app.PostAsync(new Uri("/api/billing/excel/preview", UriKind.Relative), none).Refused());
+        Assert.Equal(["Tick the bills to export to Excel."], await app.PostAsync(new Uri("/api/billing/excel/preview", UriKind.Relative), none).Refused());
 
         using var xls = Form(Workbook(), new { ids = new[] { id } }, "old.xls");
         Assert.Contains("only be written into an .xlsm or .xlsx", (await app.PostAsync(new Uri("/api/billing/excel/export", UriKind.Relative), xls).Refused())[0], StringComparison.Ordinal);

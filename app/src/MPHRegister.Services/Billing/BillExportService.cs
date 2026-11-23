@@ -40,7 +40,7 @@ public sealed class BillExportService(IInvoiceRepository invoices, IBillExportRe
         if (string.Equals(Path.GetExtension(fileName), ".xls", StringComparison.OrdinalIgnoreCase))
             throw new AppValidationException("Bills can only be written into an .xlsm or .xlsx workbook. Save the .xls workbook as .xlsm in Excel first.");
         var ids = (request.Ids ?? []).Distinct().ToList();
-        if (ids.Count == 0) throw new AppValidationException("Tick the bills to write to Excel.");
+        if (ids.Count == 0) throw new AppValidationException("Tick the bills to export to Excel.");
         if (ids.Count > MaxBills) throw new AppValidationException($"At most {MaxBills} bills fit in one bill workbook; tick fewer bills.");
         var docs = ids.Select(id =>
         {
