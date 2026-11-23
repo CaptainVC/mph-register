@@ -327,7 +327,8 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
 
   await page.screenshot({ path: "/tmp/mph-ui-entry.png" });
   await page.click(".tab[data-view=register]");
-  await chooseDropdown(page.locator("#registerViewMonth"), "2026-10");
+  // The Register Month is a multi-select: only tick October if an earlier step has not already.
+  if (!(await page.locator("#registerViewMonth").evaluate((control) => control.values)).includes("2026-10")) await chooseDropdown(page.locator("#registerViewMonth"), "2026-10");
   await page.waitForTimeout(300);
   await page.screenshot({ path: "/tmp/mph-ui-register.png" });
 

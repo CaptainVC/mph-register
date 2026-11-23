@@ -343,6 +343,7 @@ function createCombo(container, getItems, { onPick } = {}) {
 const YES_NO_OPTIONS = [["No", "No"], ["Yes", "Yes"]];
 document.querySelectorAll("[data-dropdown]").forEach((control) => {
   if (control.id === "repair") setupDropdown(control, YES_NO_OPTIONS, "No", { enterOpens: false });
+  else if (control.id === "registerViewMonth") setupDropdown(control, [], "", { multiple: true, summary: monthsSummary });
   else setupDropdown(control);
 });
 const partyCombo = createCombo($("partyCombo"), () => state.masters.parties, {
@@ -1373,6 +1374,17 @@ async function getEntries(month) {
   return state.entriesCache.get(key);
 }
 
+// Several months at once: each month is fetched (and cached) on its own, then put back in register order.
+async function getEntriesOf(months) {
+  if (months.length < 2) return getEntries(months[0] ?? "");
+  const key = months.join(",");
+  if (!state.entriesCache.has(key)) {
+    const lists = await Promise.all(months.map((month) => getEntries(month)));
+    state.entriesCache.set(key, lists.flat().sort((a, b) => a.id - b.id));
+  }
+  return state.entriesCache.get(key);
+}
+
 async function refreshRecent() {
   const recent = await api("/api/entries/recent?limit=30");
   const table = $("recentTable");
@@ -1387,10 +1399,20 @@ async function fillMonthSelect(select, includeAll) {
   else fillMonthOptions(select, months, includeAll);
 }
 
+// What the closed multi-select Month shows for two or more months: the months while few, a count after that.
+function monthsSummary(months) {
+  return months.length <= 2 ? [...months].reverse().map(formatMonth).join(", ") : `${months.length} months selected`;
+}
+
 function fillMonthOptions(select, months, includeAll) {
   const previous = select.value;
   const options = months.map((m) => [m.month, `${formatMonth(m.month)}${m.entries === undefined ? "" : ` (${num(m.entries)})`}`]);
   if (includeAll) options.unshift(["", "All months"]);
+  // A multi-select keeps whichever of its ticked months still exist; none left means all months.
+  if ("values" in select) {
+    setDropdownOptions(select, options, previous);
+    return;
+  }
   const currentMonth = todayIso().slice(0, 7);
   const selected = [previous, currentMonth].find((value) => options.some(([v]) => v === value));
   setDropdownOptions(select, options, selected);
@@ -1413,7 +1435,7 @@ function financialYearMonthFilter(yearSelect, monthSelect, onChange) {
   let months = [];
   const fillMonths = () => {
     const scoped = months.filter((m) => !year || financialYearOf(m.month) === year);
-    if (!scoped.some((m) => m.month === monthSelect.value)) monthSelect.value = "";
+    if (!("values" in monthSelect) && !scoped.some((m) => m.month === monthSelect.value)) monthSelect.value = "";
     fillMonthOptions(monthSelect, scoped, true);
   };
   yearSelect.addEventListener("change", () => {
@@ -1688,10 +1710,11 @@ function registerSearchMatcher(rawSearch) {
 async function renderRegister() {
   const version = ++registerRenderVersion;
   const year = registerPeriodFilter.year;
-  const loaded = await getEntries($("registerViewMonth").value);
+  const months = $("registerViewMonth").values;
+  const loaded = await getEntriesOf(months);
   if (version !== registerRenderVersion) return;
   const entries = loaded.filter((e) => registerPeriodFilter.matches(e.registerMonth));
-  const periodKey = `${$("registerViewMonth").value}|${year}`;
+  const periodKey = `${months}|${year}`;
   if (registerSearchPool.loaded !== loaded || registerSearchPool.key !== periodKey) {
     registerSearchPool = { loaded, key: periodKey, entries, index: null };
   }
@@ -1704,7 +1727,7 @@ async function renderRegister() {
   const table = $("registerTable");
   table.replaceChildren(headerRow(), el("tbody", {}, shown.map(entryRow)));
   setTableEmpty(table, shown.length ? "" : entries.length ? "No entries match the search and filters."
-    : $("registerViewMonth").value ? "No entries in this month." : year ? "No entries in this financial year." : "No entries yet.");
+    : months.length ? `No entries in ${months.length > 1 ? "these months" : "this month"}.` : year ? "No entries in this financial year." : "No entries yet.");
   const countEl = $("registerCount");
   countEl.textContent = `${num(shown.length)} of ${num(entries.length)} entries`;
   countEl.classList.toggle("filtered", shown.length !== entries.length);

@@ -747,6 +747,16 @@ table.mini caption { caption-side: bottom; text-align: center; padding: 20px 12p
 .combo-list li .hint { float: right; margin-left: 16px; font-size: 13.5px; color: var(--muted); white-space: nowrap; }
 .combo-list li.highlight .hint { color: var(--on-accent); opacity: 0.85; }
 .combo-list li.empty { color: var(--muted); cursor: default; }
+/* Multi-select lists (Register month): every row carries a tick box so it is clear several can be chosen. */
+.combo-list[aria-multiselectable] li[role="option"] { display: flex; align-items: center; gap: 10px; font-weight: 400; }
+.combo-list[aria-multiselectable] li[role="option"]::before {
+  content: ""; flex: none; box-sizing: border-box; width: 20px; height: 20px; border: 2px solid var(--input-border); border-radius: 5px;
+  display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; line-height: 1;
+}
+.combo-list[aria-multiselectable] li[aria-selected="true"] { font-weight: 600; }
+.combo-list[aria-multiselectable] li[aria-selected="true"]::before { content: "✓"; background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.combo-list[aria-multiselectable] li.highlight::before { border-color: var(--on-accent); }
+.combo-list[aria-multiselectable] li.highlight[aria-selected="true"]::before { background: var(--on-accent); color: var(--accent); }
 
 /* ---------- New entry ---------- */
 /* Large boxes, clear labels and an always-open dispatch area: made for unhurried typing, not for power users. */

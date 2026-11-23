@@ -4,9 +4,9 @@ let dropdownId = 0;
 let openDropdown = null;
 const dropdownControls = new WeakMap();
 
-function createDropdownList(control, { onPick, searchable = false }) {
+function createDropdownList(control, { onPick, searchable = false, multiple = false }) {
   const id = `dropdown-list-${++dropdownId}`;
-  const list = el("ul", { id, class: "combo-list", role: "listbox", popover: "manual", ...(searchable ? {} : { "data-dropdown-options": "" }) });
+  const list = el("ul", { id, class: "combo-list", role: "listbox", popover: "manual", ...(multiple ? { "aria-multiselectable": "true" } : {}), ...(searchable ? {} : { "data-dropdown-options": "" }) });
   let choices = [];
   let active = -1;
 
@@ -98,7 +98,8 @@ function createDropdownList(control, { onPick, searchable = false }) {
   function pick(index = active, source = "click") {
     const item = choices[index];
     if (!item || item.disabled) return false;
-    close();
+    // A multi-select row (item.keepOpen) leaves the list open so several can be ticked in a row.
+    if (!item.keepOpen) close();
     onPick(item, source);
     return true;
   }
@@ -123,16 +124,28 @@ window.addEventListener("scroll", (event) => {
   if (event.target !== openDropdown?.list) openDropdown?.position();
 }, true);
 
-function setupDropdown(control, options = [], value, { enterOpens = true } = {}) {
+// With `multiple`, the option whose value is "" means "everything" (nothing ticked); every other option is ticked or
+// unticked on click and the list stays open. `control.value` is then the ticked values joined by commas ("" for all),
+// `control.values` the same as an array, and `summary(values)` words the closed control when several are ticked.
+function setupDropdown(control, options = [], value, { enterOpens = true, multiple = false, summary } = {}) {
   control.dataset.dropdown = "";
   if (!control.id) control.id = `dropdown-${dropdownId + 1}`;
   const state = { options, value: "" };
   const label = el("span", { class: "dropdown-value" });
   control.replaceChildren(label);
+  const valuesOf = () => (multiple ? state.value.split(",").filter(Boolean) : [state.value]);
+  const isSelected = (optionValue) => (multiple ? (optionValue === "" ? !state.value : valuesOf().includes(optionValue)) : optionValue === state.value);
   const popup = createDropdownList(control, {
+    multiple,
     onPick: ({ value }) => {
-      if (value === control.value) return;
-      control.value = value;
+      if (multiple) {
+        const picked = valuesOf();
+        control.value = value === "" ? [] : picked.includes(value) ? picked.filter((v) => v !== value) : [...picked, value];
+        if (value !== "") open(1, state.options.findIndex(([v]) => v === value));
+      } else {
+        if (value === control.value) return;
+        control.value = value;
+      }
       control.dispatchEvent(new Event("input", { bubbles: true }));
       control.dispatchEvent(new Event("change", { bubbles: true }));
     },
@@ -141,17 +154,28 @@ function setupDropdown(control, options = [], value, { enterOpens = true } = {})
   Object.defineProperty(control, "value", {
     get: () => state.value,
     set: (next) => {
+      if (multiple) {
+        const wanted = new Set(Array.isArray(next) ? next : String(next).split(","));
+        const chosen = state.options.filter(([v]) => v !== "" && wanted.has(v)).map(([v]) => v);
+        state.value = chosen.join(",");
+        const words = chosen.length === 1 ? state.options.find(([v]) => v === chosen[0])[1] : summary?.(chosen) ?? `${chosen.length} selected`;
+        label.textContent = chosen.length ? words : (state.options.find(([v]) => v === "")?.[1] ?? "");
+        return;
+      }
       const option = state.options.find(([v]) => v === String(next));
       state.value = option?.[0] ?? "";
       label.textContent = option?.[1] ?? "";
     },
   });
+  if (multiple) Object.defineProperty(control, "values", { get: valuesOf });
   control.value = value ?? options[0]?.[0] ?? "";
 
-  function open(direction = 1) {
+  function open(direction = 1, at) {
     typed = "";
-    const selected = state.options.findIndex(([v, , disabled]) => v === control.value && !disabled);
-    popup.show(state.options.map(([value, label, disabled]) => ({ value, label, disabled, selected: value === control.value })), selected);
+    const selected = at ?? state.options.findIndex(([v, , disabled]) => isSelected(v) && !disabled);
+    popup.show(state.options.map(([value, label, disabled]) => ({
+      value, label, disabled, selected: isSelected(value), keepOpen: multiple && value !== "",
+    })), selected);
     if (selected < 0) popup.move(direction, direction > 0 ? -1 : state.options.length);
   }
 

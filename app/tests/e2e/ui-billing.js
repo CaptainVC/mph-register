@@ -376,7 +376,8 @@ const check = (name, ok, detail = "") => (ok ? passed++ : failures.push(`${name}
 
   // Register shows bill number
   await page.click(".tab[data-view=register]");
-  await chooseDropdown(page.locator("#registerViewMonth"), "2026-10");
+  // The Register Month is a multi-select: only tick October if an earlier step has not already.
+  if (!(await page.locator("#registerViewMonth").evaluate((control) => control.values)).includes("2026-10")) await chooseDropdown(page.locator("#registerViewMonth"), "2026-10");
   await page.waitForFunction(() => document.getElementById("registerCount").textContent.startsWith("985"));
   const billCol = await page.$$eval("#registerTable tbody tr", (rows) => rows.filter((r) => [...r.cells].some((c) => c.textContent === "26-27\\JOB\\279")).length);
   check("register shows bill number on billed entries", billCol === 24, String(billCol));
