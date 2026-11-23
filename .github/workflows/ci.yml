@@ -75,7 +75,6 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: true
       MPH_PORT: 5160
       MPH_BASE_URL: http://127.0.0.1:5160
-      MPH_DATA_DIR: ${{ runner.temp }}/mph-register-shard-${{ matrix.shard }}
       MPH_NO_BROWSER: 1
       MPH_BROWSER_CHANNEL: chromium
     steps:
@@ -104,6 +103,8 @@ jobs:
           npx playwright-core install --with-deps chromium
 
       - name: Run shard
+        env:
+          MPH_DATA_DIR: ${{ runner.temp }}/mph-register-shard-${{ matrix.shard }}
         run: sh tests/e2e/run-ci-shard.sh '${{ matrix.shard }}'
 
   # The real Windows app updating itself: 0.0.1 downloads 0.0.2 from a release served on the runner, closes and returns,
