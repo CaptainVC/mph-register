@@ -926,7 +926,7 @@ async function renderFirmForm(fy) {
   const showBills = featureToggle("feature-bills", "Bills", "Bills tab (make and saved bills)", settings.display.showBills !== false);
   const showColors = featureToggle("feature-colors", "Colours", "Masters → Colours subsection", settings.display.showColors !== false);
   const dashboardToggle = featureToggle("feature-dashboard", "Dashboard", "Dashboard tab (income, unbilled work, GST and parties)", settings.display.showDashboard !== false);
-  const aawakToggle = featureToggle("feature-aawak", "AAWAK", "AAWAK tab (goods arriving at the gate)", settings.display.showAawak !== false);
+  const aawakToggle = featureToggle("feature-aawak", "Aawak", "Aawak tab (goods arriving at the gate)", settings.display.showAawak !== false);
 
   const save = el("button", { type: "submit", id: "firm-save", text: "Save settings" });
   const cards = [

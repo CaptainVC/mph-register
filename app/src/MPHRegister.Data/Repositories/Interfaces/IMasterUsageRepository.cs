@@ -11,7 +11,7 @@ public interface IMasterUsageRepository
 
     IReadOnlyList<NameCount> FinishEntryCounts();
 
-    /// <summary>Moves entries, bills and AAWAK rows from one party name to another.</summary>
+    /// <summary>Moves entries, bills and Aawak rows from one party name to another.</summary>
     void RenameParty(string from, string to);
 
     void RenameFinish(string from, string to);

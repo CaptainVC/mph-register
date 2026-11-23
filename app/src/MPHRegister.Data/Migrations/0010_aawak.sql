@@ -1,4 +1,4 @@
--- AAWAK: goods arriving at the gate. One row is one consignment (one party, one lorry wala, one day) and names the inward
+-- Aawak: goods arriving at the gate. One row is one consignment (one party, one lorry wala, one day) and names the inward
 -- slips it carries. Arrivals are linked to inward entries; the lorry walas themselves live in the config file.
 CREATE TABLE arrival_import_batches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,7 +73,7 @@ CREATE TABLE deleted_arrivals (
     deleted_at TEXT NOT NULL
 );
 CREATE INDEX ix_deleted_arrivals_no ON deleted_arrivals(aawak_month, aawak_no, aawak_suffix);
--- What each AAWAK import did to each arrival (the New and Updated filters).
+-- What each Aawak import did to each arrival (the New and Updated filters).
 CREATE TABLE arrival_import_marks (
     batch_id INTEGER NOT NULL REFERENCES arrival_import_batches(id),
     arrival_id INTEGER NOT NULL,
@@ -83,7 +83,7 @@ CREATE TABLE arrival_import_marks (
     PRIMARY KEY (batch_id, arrival_id)
 );
 CREATE INDEX ix_arrival_import_marks_arrival ON arrival_import_marks(arrival_id);
--- Inward slips that never come through the gate (moved inside the factory, re-slipped): the "No AAWAK found" check leaves
+-- Inward slips that never come through the gate (moved inside the factory, re-slipped): the "No Aawak found" check leaves
 -- them out.
 CREATE TABLE entry_no_arrival (
     entry_id INTEGER PRIMARY KEY,

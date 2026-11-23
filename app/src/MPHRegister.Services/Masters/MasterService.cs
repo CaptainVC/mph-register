@@ -365,7 +365,7 @@ public sealed class MasterService(
         if (target is not null && !ReferenceEquals(target, existing) && !(merge && input.Merge))
             errors.Add(existing is null
                 ? $"A lorry wala named \"{target.Name}\" already exists."
-                : $"A lorry wala named \"{target.Name}\" already exists. Tick \"Merge\" to move {existing.Name}'s AAWAK rows to {target.Name}.");
+                : $"A lorry wala named \"{target.Name}\" already exists. Tick \"Merge\" to move {existing.Name}'s Aawak rows to {target.Name}.");
         var spellings = (input.OtherSpellings ?? []).Select(x => x.NormalizeName()).Where(x => x.Length > 0 && !Same(x, name)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         foreach (var spelling in spellings)
         {
@@ -398,7 +398,7 @@ public sealed class MasterService(
         var current = config.Current;
         var transporter = current.Transporters.FirstOrDefault(t => Same(t.Name, name)) ?? throw new NotFoundException($"Lorry wala \"{name.NormalizeName()}\" is not in the list.");
         var used = arrivals.TransporterUsage().FirstOrDefault(u => Same(u.Name, transporter.Name))?.Arrivals ?? 0;
-        if (used > 0) throw new AppValidationException($"\"{transporter.Name}\" is on {used} AAWAK row{(used == 1 ? string.Empty : "s")}. Mark it inactive instead, or rename it to another lorry wala to merge the two.");
+        if (used > 0) throw new AppValidationException($"\"{transporter.Name}\" is on {used} Aawak row{(used == 1 ? string.Empty : "s")}. Mark it inactive instead, or rename it to another lorry wala to merge the two.");
         Change(c => c with { Transporters = c.Transporters.Where(t => !Same(t.Name, transporter.Name)).ToList() });
     }
 

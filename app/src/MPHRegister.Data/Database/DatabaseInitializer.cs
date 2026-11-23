@@ -135,7 +135,7 @@ public sealed partial class DatabaseInitializer(DataOptions options, IConnection
         });
         var added = new List<string>();
         if (parties.Count > 0) added.Add($"{parties.Count} part{(parties.Count == 1 ? "y" : "ies")} used by entries or bills were not in the config file and were added as inactive: {string.Join(", ", parties)}.");
-        if (transporters.Count > 0) added.Add($"{transporters.Count} lorry wala{(transporters.Count == 1 ? string.Empty : "s")} used by AAWAK rows were not in the config file and were added as inactive: {string.Join(", ", transporters)}.");
+        if (transporters.Count > 0) added.Add($"{transporters.Count} lorry wala{(transporters.Count == 1 ? string.Empty : "s")} used by Aawak rows were not in the config file and were added as inactive: {string.Join(", ", transporters)}.");
         if (finishes.Count > 0) added.Add($"{finishes.Count} finish{(finishes.Count == 1 ? string.Empty : "es")} used by entries were not in the config file and were added as inactive: {string.Join(", ", finishes)}.");
         config.AddNotices(added);
     }

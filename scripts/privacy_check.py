@@ -286,7 +286,7 @@ def workbook_strings(path: Path) -> list[str]:
 
 
 def lorry_names(path: Path) -> list[str]:
-    """The names under the "Lorry Wala" header of an AAWAK workbook's sheets (the hidden Details sheet's list)."""
+    """The names under the "Lorry Wala" header of an Aawak workbook's sheets (the hidden Details sheet's list)."""
     try:
         with zipfile.ZipFile(path) as book:
             shared = []
@@ -340,7 +340,7 @@ def refresh_cache(quiet: bool = False) -> None:
             lorries.update(lorry_names(book))
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile("w", dir=CONFIG_DIR, delete=False, encoding="utf-8") as out:
-        out.write("# Lorry-wala names from the AAWAK workbooks, built by scripts/privacy_check.py --refresh; never commit.\n")
+        out.write("# Lorry-wala names from the Aawak workbooks, built by scripts/privacy_check.py --refresh; never commit.\n")
         out.write("\n".join(sorted(lorries)) + "\n")
     os.replace(out.name, NAMES_CACHE_FILE)
     with tempfile.NamedTemporaryFile("w", dir=CONFIG_DIR, delete=False, encoding="utf-8") as out:

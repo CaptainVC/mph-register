@@ -36,6 +36,6 @@ public interface IMasterService
     /// <summary>Adds, edits or renames a lorry wala; renaming to another lorry wala's name with <c>Merge</c> joins the two.</summary>
     TransporterDto SaveTransporter(TransporterInput input);
 
-    /// <summary>Removes a lorry wala that no AAWAK row uses.</summary>
+    /// <summary>Removes a lorry wala that no Aawak row uses.</summary>
     void DeleteTransporter(string? name);
 }

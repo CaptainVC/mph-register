@@ -2,7 +2,7 @@ using MPHRegister.Data.Entities;
 
 namespace MPHRegister.Data.Repositories.Interfaces;
 
-/// <summary>The AAWAK register: arrivals, the slip numbers they name, their links to inward entries and their imports.</summary>
+/// <summary>The Aawak register: arrivals, the slip numbers they name, their links to inward entries and their imports.</summary>
 public interface IArrivalRepository
 {
     IReadOnlyList<ArrivalEntity> List(string? month);
@@ -57,7 +57,7 @@ public interface IArrivalRepository
 
     IReadOnlyList<ArrivalLinkEntity> AllLinks();
 
-    /// <summary>Every link with its arrival's number, for the inward register's AAWAK column.</summary>
+    /// <summary>Every link with its arrival's number, for the inward register's Aawak column.</summary>
     IReadOnlyList<EntryArrivalRow> EntryArrivals();
 
     /// <summary>Replaces the arrival's automatic links; manual ones stay.</summary>

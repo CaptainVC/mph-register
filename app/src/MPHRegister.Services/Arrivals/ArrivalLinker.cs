@@ -7,8 +7,8 @@ using MPHRegister.Shared.Helpers;
 namespace MPHRegister.Services.Arrivals;
 
 /// <summary>
-/// Finds the inward entries an AAWAK row carries. A slip number is looked up among the entries dated within a few days of the
-/// arrival (whatever register month they are in: imported months end on about the 25th, AAWAK months on the last day), and is
+/// Finds the inward entries an Aawak row carries. A slip number is looked up among the entries dated within a few days of the
+/// arrival (whatever register month they are in: imported months end on about the 25th, Aawak months on the last day), and is
 /// linked only when one entry of the same firm or a sister firm is clearly the best. When the numbers can be read more than
 /// one way ("237-24"), the reading whose slips add up to the arrival's NAG wins. Manual links are never changed here.
 /// </summary>

@@ -61,7 +61,7 @@ public sealed class EntryService(
         return Get(id);
     }
 
-    /// <summary>AAWAK rows that name the entry's slip number around its date (typed before the slip) link to it now.</summary>
+    /// <summary>Aawak rows that name the entry's slip number around its date (typed before the slip) link to it now.</summary>
     private void LinkArrivals(long id, int[] numbers, string[] dates)
     {
         using var unit = session.Begin();

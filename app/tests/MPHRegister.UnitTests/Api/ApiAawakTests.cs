@@ -102,12 +102,12 @@ public sealed class ApiAawakTests(ApiFactory factory) : IClassFixture<ApiFactory
     }
 
     [Fact]
-    public async Task AAWAK_NO_is_unique_in_its_month_and_a_deleted_row_comes_back()
+    public async Task Aawak_NO_is_unique_in_its_month_and_a_deleted_row_comes_back()
     {
         var app = await Ready();
         var first = await app.Post("/api/arrivals", Arrival("2026-05-03", "AW LONE", 5, "", no: "5")).Ok();
         var errors = await app.Post("/api/arrivals", Arrival("2026-05-04", "AW LONE", 6, "", no: "5")).Refused();
-        Assert.Contains(errors, e => e.Contains("AAWAK NO 5 is already used in May 2026", StringComparison.Ordinal));
+        Assert.Contains(errors, e => e.Contains("Aawak NO 5 is already used in May 2026", StringComparison.Ordinal));
         var inserted = await app.Post("/api/arrivals", Arrival("2026-05-04", "AW LONE", 6, "", no: "5A")).Ok();
         Assert.Equal("5A", inserted.GetProperty("number").GetString());
 
@@ -132,7 +132,7 @@ public sealed class ApiAawakTests(ApiFactory factory) : IClassFixture<ApiFactory
             new("2", 32, "2026-04-02", "AW LONE", 20, "LORRY THREE", "32 CARRIER"),
             new("3", 33, "2026-04-03", "AW LONE", 30, "LORRY ONE"),
         ];
-        var path = AawakWorkbook.Write(folder.File("AAWAK--APR.-26-27.xlsx"), rows, parties, lorries);
+        var path = AawakWorkbook.Write(folder.File("Aawak--APR.-26-27.xlsx"), rows, parties, lorries);
 
         var check = await Import(app, path, commit: false);
         Assert.False(check.GetProperty("imported").GetBoolean());
@@ -152,10 +152,10 @@ public sealed class ApiAawakTests(ApiFactory factory) : IClassFixture<ApiFactory
         var again = await Import(app, path, commit: true);
         Assert.Contains(again.GetProperty("errors").EnumerateArray(), e => e.GetProperty("message").GetString()!.Contains("already imported", StringComparison.Ordinal));
 
-        // In the app: AAWAK 1's NAG is corrected. In the workbook: AAWAK 1 and 2 change, AAWAK 3 is taken out.
+        // In the app: Aawak 1's NAG is corrected. In the workbook: Aawak 1 and 2 change, Aawak 3 is taken out.
         var first = month[0];
         await app.Put($"/api/arrivals/{first.GetProperty("id").GetInt64()}", Arrival("2026-04-02", "AW LONE", 11, "31", no: "1")).Ok();
-        var newer = AawakWorkbook.Write(folder.File("AAWAK--APR.-26-27 (2).xlsx"),
+        var newer = AawakWorkbook.Write(folder.File("Aawak--APR.-26-27 (2).xlsx"),
             [rows[0] with { Nag = 12 }, rows[1] with { Nag = 25 }], parties, lorries);
         var update = await Import(app, newer, commit: true);
         Assert.Equal(1, update.GetProperty("updated").GetInt32());

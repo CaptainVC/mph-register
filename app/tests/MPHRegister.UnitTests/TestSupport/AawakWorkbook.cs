@@ -5,16 +5,16 @@ using System.Text;
 
 namespace MPHRegister.UnitTests.TestSupport;
 
-/// <summary>A row of a made-up AAWAK register. <c>No</c> is the AAWAK NO ("12" or "12A"); the date is ISO.</summary>
+/// <summary>A row of a made-up Aawak register. <c>No</c> is the Aawak NO ("12" or "12A"); the date is ISO.</summary>
 internal sealed record AawakSheetRow(string No, int Inward, string Date, string Party, int Nag, string Lorry, string Comments = "");
 
 /// <summary>
-/// Writes a small .xlsx laid out like the gate's AAWAK workbook: a Main sheet (with a stray empty "Column1" and a last row
+/// Writes a small .xlsx laid out like the gate's Aawak workbook: a Main sheet (with a stray empty "Column1" and a last row
 /// holding only the next number and a date) and a Details sheet with the party list (active, party group) and the lorry walas.
 /// </summary>
 internal static class AawakWorkbook
 {
-    private static readonly string[] Headers = ["AAWAK NO", "INW NO", "DATE", "PARTY", "Party Group", "NAG", "LORRY WALA", "COMMENTS", "Column1"];
+    private static readonly string[] Headers = ["Aawak NO", "INW NO", "DATE", "PARTY", "Party Group", "NAG", "LORRY WALA", "COMMENTS", "Column1"];
 
     public static string Write(string path, IEnumerable<AawakSheetRow> rows, IEnumerable<(string Party, bool Active, string Group)>? parties = null,
         IEnumerable<(string Name, bool Active)>? lorries = null, string salt = "")

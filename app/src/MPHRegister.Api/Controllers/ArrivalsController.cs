@@ -4,7 +4,7 @@ using MPHRegister.Services.Interfaces;
 
 namespace MPHRegister.Api.Controllers;
 
-/// <summary>The AAWAK register: goods arriving at the gate, and the inward slips each arrival carries.</summary>
+/// <summary>The Aawak register: goods arriving at the gate, and the inward slips each arrival carries.</summary>
 [Route("api/arrivals")]
 public sealed class ArrivalsController(IArrivalService arrivals) : ApiControllerBase
 {
@@ -29,7 +29,7 @@ public sealed class ArrivalsController(IArrivalService arrivals) : ApiController
     [HttpPut("{id:long}")]
     public ActionResult<ArrivalDto> Update(long id, [FromBody] ArrivalInput input) => arrivals.Update(id, input);
 
-    /// <summary>Deletes an AAWAK row; it is kept so it can be restored.</summary>
+    /// <summary>Deletes an Aawak row; it is kept so it can be restored.</summary>
     [HttpDelete("{id:long}")]
     public ActionResult<DeleteArrivalResult> Delete(long id) => arrivals.Delete(id);
 
@@ -57,7 +57,7 @@ public sealed class ArrivalsController(IArrivalService arrivals) : ApiController
     [HttpGet("candidates")]
     public ActionResult<IReadOnlyList<ArrivalCandidateDto>> Candidates([FromQuery] string? date, [FromQuery] string? party) => Ok(arrivals.Candidates(date, party));
 
-    /// <summary>Marks an inward slip as never coming through the gate, so it is not listed as having no AAWAK row.</summary>
+    /// <summary>Marks an inward slip as never coming through the gate, so it is not listed as having no Aawak row.</summary>
     [HttpPut("no-arrival/{entryId:long}")]
     public IActionResult MarkNoArrival(long entryId, [FromBody] NoArrivalInput input)
     {
@@ -72,7 +72,7 @@ public sealed class ArrivalsController(IArrivalService arrivals) : ApiController
         return NoContent();
     }
 
-    /// <summary>Looks again for the slips of every AAWAK row (of one month, or all).</summary>
+    /// <summary>Looks again for the slips of every Aawak row (of one month, or all).</summary>
     [HttpPost("relink")]
     public ActionResult<RelinkResult> Relink([FromQuery] string? month) => arrivals.Relink(month);
 

@@ -288,12 +288,12 @@ public static partial class ConfigNormalizer
         var from = (a.CheckSlipsFrom ?? string.Empty).Trim();
         if (from.Length > 0 && !Dates.TryParseIso(from, out _))
         {
-            notices.Add($"AAWAK: \"{from}\" is not a date (yyyy-MM-dd); slips are checked from the first AAWAK row instead.");
+            notices.Add($"Aawak: \"{from}\" is not a date (yyyy-MM-dd); slips are checked from the first Aawak row instead.");
             from = string.Empty;
         }
         return a with
         {
-            LinkWindowDays = Clamp(a.LinkWindowDays, 0, 15, "AAWAK days between an arrival and its slips", notices),
+            LinkWindowDays = Clamp(a.LinkWindowDays, 0, 15, "Aawak days between an arrival and its slips", notices),
             CheckSlipsFrom = from.Length > 0 ? from : null,
         };
     }

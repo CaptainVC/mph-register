@@ -53,7 +53,7 @@ public sealed class ConfigIndex
     /// <summary>The lorry wala with this name or other spelling.</summary>
     public TransporterConfig? Transporter(string? name) => Find(transporters, name);
 
-    /// <summary>The party's sister-firm group, or the party itself when it has none (how AAWAK totals group parties).</summary>
+    /// <summary>The party's sister-firm group, or the party itself when it has none (how Aawak totals group parties).</summary>
     public string GroupOf(string party)
     {
         var found = Party(party);

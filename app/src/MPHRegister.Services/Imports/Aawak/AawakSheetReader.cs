@@ -4,7 +4,7 @@ using MPHRegister.Shared.Helpers;
 
 namespace MPHRegister.Services.Imports.Aawak;
 
-/// <summary>One AAWAK row as the workbook has it. <c>Date</c> is ISO; <c>InwardNo</c> is column INW NO (0 when blank).</summary>
+/// <summary>One Aawak row as the workbook has it. <c>Date</c> is ISO; <c>InwardNo</c> is column INW NO (0 when blank).</summary>
 public sealed record AawakRow(int Row, int Number, string Suffix, int InwardNo, string Date, string Party, int Nag, string Transporter, string Comments)
 {
     public string Key => AawakNumber.Format(Number, Suffix);
@@ -19,7 +19,7 @@ public sealed record AawakDetails(IReadOnlyDictionary<string, (bool Active, stri
 public sealed record AawakSheet(IReadOnlyList<AawakRow> Rows, AawakDetails Details, IReadOnlyList<ImportIssue> Warnings, IReadOnlyList<ImportIssue> Errors);
 
 /// <summary>
-/// Reads an AAWAK workbook: the Main sheet (AAWAK NO, INW NO, DATE, PARTY, NAG, LORRY WALA, COMMENTS; other columns such as
+/// Reads an Aawak workbook: the Main sheet (Aawak NO, INW NO, DATE, PARTY, NAG, LORRY WALA, COMMENTS; other columns such as
 /// Party Group or a stray "Column1" are not needed) and, when present, the hidden Details sheet's party and lorry-wala lists.
 /// Rows without a party are skipped (the month's last row often holds only the next number and date).
 /// </summary>
@@ -28,7 +28,7 @@ public static class AawakSheetReader
     public const string SheetName = "Main";
     public const string DetailsSheet = "Details";
 
-    private static readonly string[] RequiredHeaders = ["AAWAK NO", "INW NO", "DATE", "PARTY", "NAG", "LORRY WALA"];
+    private static readonly string[] RequiredHeaders = ["Aawak NO", "INW NO", "DATE", "PARTY", "NAG", "LORRY WALA"];
 
     public static AawakSheet Read(string filePath)
     {
@@ -55,7 +55,7 @@ public static class AawakSheetReader
         var missing = RequiredHeaders.Where(h => !headers.ContainsKey(h)).ToList();
         if (missing.Count > 0)
         {
-            errors.Add(new ImportIssue(1, $"Missing columns: {string.Join(", ", missing)}. Is this an AAWAK workbook?"));
+            errors.Add(new ImportIssue(1, $"Missing columns: {string.Join(", ", missing)}. Is this an Aawak workbook?"));
             return new AawakSheet([], AawakDetails.Empty, warnings, errors);
         }
 
@@ -68,8 +68,8 @@ public static class AawakSheetReader
             if (parsed is not null) rows.Add(parsed);
         }
         foreach (var group in rows.GroupBy(x => x.Key, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1))
-            errors.Add(new ImportIssue(group.First().Row, $"AAWAK NO {group.Key} is on rows {string.Join(", ", group.Select(x => x.Row))}."));
-        if (rows.Count == 0 && errors.Count == 0) errors.Add(new ImportIssue(0, "No AAWAK rows with a party were found."));
+            errors.Add(new ImportIssue(group.First().Row, $"Aawak NO {group.Key} is on rows {string.Join(", ", group.Select(x => x.Row))}."));
+        if (rows.Count == 0 && errors.Count == 0) errors.Add(new ImportIssue(0, "No Aawak rows with a party were found."));
         return new AawakSheet(rows, ReadDetails(filePath), warnings, errors);
     }
 
@@ -87,9 +87,9 @@ public static class AawakSheetReader
         }
 
         var errorCount = errors.Count;
-        var numberText = ExcelCells.Text(cell("AAWAK NO"));
+        var numberText = ExcelCells.Text(cell("Aawak NO"));
         if (!AawakNumber.TryParse(numberText, out var number, out var suffix))
-            errors.Add(new ImportIssue(row, numberText.Length == 0 ? "AAWAK NO is blank." : $"AAWAK NO \"{numberText}\" is not a number (with at most one letter, like 217A)."));
+            errors.Add(new ImportIssue(row, numberText.Length == 0 ? "Aawak NO is blank." : $"Aawak NO \"{numberText}\" is not a number (with at most one letter, like 217A)."));
         var (inward, inwardError) = ExcelCells.WholeNumber(cell("INW NO"), "INW NO");
         if (inwardError is not null) warnings.Add(new ImportIssue(row, $"{inwardError} It is left out; COMMENTS are still read."));
         var date = ExcelCells.Date(cell("DATE"));

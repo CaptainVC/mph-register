@@ -43,7 +43,7 @@ public static class ArrivalStatus
     public const string NotLinked = "notLinked";
 }
 
-/// <param name="Number">AAWAK NO as written ("217A").</param>
+/// <param name="Number">Aawak NO as written ("217A").</param>
 /// <param name="Group">The party's sister-firm group, or the party itself.</param>
 /// <param name="Refs">The slip numbers the arrival names.</param>
 /// <param name="Missing">Named numbers with no inward entry found (yet).</param>
@@ -142,7 +142,7 @@ public sealed record SlipWithoutArrivalDto(long EntryId, string RegisterMonth, i
 /// <summary>A slip on more than one arrival whose NAG adds up to more than the slip has.</summary>
 public sealed record OverlinkedSlipDto(long EntryId, string RegisterMonth, int InwardNo, string EntryDate, string Party, int Nag, int ArrivedNag, IReadOnlyList<long> ArrivalIds, IReadOnlyList<string> Numbers);
 
-/// <param name="CheckSlipsFrom">Slips dated before this day are not checked for an AAWAK row (null: no AAWAK rows yet).</param>
+/// <param name="CheckSlipsFrom">Slips dated before this day are not checked for an Aawak row (null: no Aawak rows yet).</param>
 public sealed record ArrivalCheckDto(
     string From,
     string To,
@@ -158,8 +158,8 @@ public sealed record GroupProposal(string Party, string Group, string CurrentGro
 public sealed record ArrivalLinkSummary(int Linked, int NagDiffers, int PartlyLinked, int NotLinked);
 
 /// <summary>
-/// The check (or result) of importing an AAWAK workbook. Into a month that already has rows it is an update: rows are matched
-/// by AAWAK NO, what changed in the workbook since the last import is applied and what was changed in the app is kept.
+/// The check (or result) of importing an Aawak workbook. Into a month that already has rows it is an update: rows are matched
+/// by Aawak NO, what changed in the workbook since the last import is applied and what was changed in the app is kept.
 /// </summary>
 public sealed record AawakImportReport(
     bool Imported,

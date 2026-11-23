@@ -41,7 +41,7 @@ public sealed record AppConfig
 
     public IReadOnlyList<PartyConfig> Parties { get; init; } = [];
 
-    /// <summary>The lorry walas of the AAWAK (gate arrival) register.</summary>
+    /// <summary>The lorry walas of the Aawak (gate arrival) register.</summary>
     public IReadOnlyList<TransporterConfig> Transporters { get; init; } = [];
 
     public AawakSettings Aawak { get; init; } = new();
@@ -218,11 +218,11 @@ public sealed record DisplaySettings
     /// <summary>Show the Dashboard screen (income, unbilled work, GST and parties).</summary>
     public bool ShowDashboard { get; init; } = true;
 
-    /// <summary>Show the AAWAK screen (goods arriving at the gate).</summary>
+    /// <summary>Show the Aawak screen (goods arriving at the gate).</summary>
     public bool ShowAawak { get; init; } = true;
 }
 
-/// <summary>How AAWAK rows are matched with inward slips.</summary>
+/// <summary>How Aawak rows are matched with inward slips.</summary>
 public sealed record AawakSettings
 {
     public const int DefaultLinkWindowDays = 3;
@@ -231,13 +231,13 @@ public sealed record AawakSettings
     public int LinkWindowDays { get; init; } = DefaultLinkWindowDays;
 
     /// <summary>
-    /// Inward slips dated from this day (ISO) on should have an AAWAK row; earlier ones are not checked. Null checks from the
-    /// first AAWAK row in the data file.
+    /// Inward slips dated from this day (ISO) on should have an Aawak row; earlier ones are not checked. Null checks from the
+    /// first Aawak row in the data file.
     /// </summary>
     public string? CheckSlipsFrom { get; init; }
 }
 
-/// <summary>Someone who brings goods to the gate (a LORRY WALA of the AAWAK register).</summary>
+/// <summary>Someone who brings goods to the gate (a LORRY WALA of the Aawak register).</summary>
 public sealed record TransporterConfig
 {
     public string Name { get; init; } = string.Empty;

@@ -1,6 +1,6 @@
 namespace MPHRegister.Data.Entities;
 
-/// <summary>One AAWAK row: a consignment that came in at the gate.</summary>
+/// <summary>One Aawak row: a consignment that came in at the gate.</summary>
 public sealed record ArrivalEntity
 {
     public long Id { get; init; }
@@ -62,7 +62,7 @@ public sealed record ArrivalRefEntity
     public int InwardNo { get; init; }
 }
 
-/// <summary>What the AAWAK screens need of an inward entry.</summary>
+/// <summary>What the Aawak screens need of an inward entry.</summary>
 public sealed record SlipEntity
 {
     public long Id { get; init; }

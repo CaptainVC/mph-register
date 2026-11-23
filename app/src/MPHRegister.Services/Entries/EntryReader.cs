@@ -32,8 +32,8 @@ public sealed class EntryReader(IEntryRepository entries, IImportLogRepository i
     }
 
     /// <summary>
-    /// "No AAWAK found" is only said of slips that should have one: not carryovers or all-zero slips, and dated on or after the
-    /// day AAWAK rows are kept from (the first AAWAK row, unless the config file says otherwise).
+    /// "No Aawak found" is only said of slips that should have one: not carryovers or all-zero slips, and dated on or after the
+    /// day Aawak rows are kept from (the first Aawak row, unless the config file says otherwise).
     /// </summary>
     private static string AawakState(EntryEntity row, int dispatches, int found, bool notNeeded, string? checkFrom)
     {

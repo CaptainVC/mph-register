@@ -10,7 +10,7 @@ public static class ArrivalTotals
     public const string ByNag = "nag";
     public const string FirstArrival = "first";
 
-    /// <param name="rows">The period's arrivals in date order (then AAWAK NO), as the workbook lists them.</param>
+    /// <param name="rows">The period's arrivals in date order (then Aawak NO), as the workbook lists them.</param>
     public static ArrivalTotalsDto Compute(IReadOnlyList<ArrivalEntity> rows, ConfigIndex index, bool groupSisters, string? order, string from, string to)
     {
         ArgumentNullException.ThrowIfNull(rows);

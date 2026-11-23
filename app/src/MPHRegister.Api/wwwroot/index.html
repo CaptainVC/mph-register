@@ -16,7 +16,7 @@
       <button class="tab active" data-view="entry" role="tab">New Entry</button>
       <button class="tab" data-view="register" role="tab">Register</button>
       <button class="tab" data-view="partywise" role="tab">Party-wise</button>
-      <button class="tab" data-view="aawak" role="tab" title="Goods arriving at the gate">AAWAK</button>
+      <button class="tab" data-view="aawak" role="tab" title="Goods arriving at the gate">Aawak</button>
       <button class="tab" data-view="bills" role="tab">Bills</button>
       <button class="tab" data-view="dashboard" role="tab">Dashboard</button>
       <button class="tab" data-view="masters" role="tab">Masters</button>
@@ -128,11 +128,11 @@
       <div class="table-wrap fill"><table class="register" id="registerTable"></table></div>
     </section>
 
-    <!-- ===== AAWAK (goods arriving at the gate) ===== -->
+    <!-- ===== Aawak (goods arriving at the gate) ===== -->
     <section id="view-aawak" class="view fit">
       <nav class="subtabs" data-group="aawak">
-        <button class="subtab active" data-sub="new">New AAWAK</button>
-        <button class="subtab" data-sub="register">AAWAK register</button>
+        <button class="subtab active" data-sub="new">New Aawak</button>
+        <button class="subtab" data-sub="register">Aawak register</button>
         <button class="subtab" data-sub="totals">Totals</button>
         <button class="subtab" data-sub="check">Check</button>
       </nav>
@@ -140,11 +140,11 @@
       <div id="aawak-new" class="subview scroll active">
         <form id="arrivalForm" class="card entry-card" autocomplete="off" novalidate>
           <div class="card-head">
-            <h1 id="arrivalFormTitle">New AAWAK</h1>
+            <h1 id="arrivalFormTitle">New Aawak</h1>
           </div>
           <p class="entry-help">One row per consignment: the party, the lorry wala, the NAG and the inward slips it brought. Press Enter to go to the next box; Enter on NOTE saves.</p>
           <div class="entry-grid">
-            <div class="field c1"><label for="arrivalNo">AAWAK NO</label><input id="arrivalNo" type="text" inputmode="numeric" title="Leave as it is for the next number; a letter after it (217A) for a row put in later"></div>
+            <div class="field c1"><label for="arrivalNo">Aawak NO</label><input id="arrivalNo" type="text" inputmode="numeric" title="Leave as it is for the next number; a letter after it (217A) for a row put in later"></div>
             <div class="field c2"><label for="arrivalDate">DATE</label><input id="arrivalDate" type="date" required></div>
             <div class="field c5"><label for="arrivalParty">PARTY</label>
               <div class="combo" id="arrivalPartyCombo"><input id="arrivalParty" type="text" placeholder="Type to search party" required></div>
@@ -159,7 +159,7 @@
           </div>
           <div id="arrivalSlips" class="aawak-slips" aria-live="polite"></div>
           <div class="actions entry-actions">
-            <button type="submit" id="arrivalSave">Save AAWAK (Enter)</button>
+            <button type="submit" id="arrivalSave">Save Aawak (Enter)</button>
             <div id="arrivalMessage" class="message" role="status" aria-live="polite"></div>
           </div>
         </form>
@@ -178,8 +178,8 @@
               <div class="search-box"><input id="aawakSearch" type="search" placeholder="Party, lorry wala, INW NO, note…"></div>
             </div>
             <div class="field month-field"><label for="aawakStatus">Show</label><button type="button" id="aawakStatus" data-dropdown></button></div>
-            <button type="button" id="aawakRelink" class="secondary panel-btn" title="Look again for the inward slips of every AAWAK row of this month">Link again</button>
-            <button type="button" id="openDeletedArrivals" class="secondary panel-btn" title="AAWAK rows deleted in the app; restore one from here">Deleted rows</button>
+            <button type="button" id="aawakRelink" class="secondary panel-btn" title="Look again for the inward slips of every Aawak row of this month">Link again</button>
+            <button type="button" id="openDeletedArrivals" class="secondary panel-btn" title="Aawak rows deleted in the app; restore one from here">Deleted rows</button>
             <div class="panel-count-wrap"><span id="aawakCount" class="count-pill"></span></div>
           </div>
           <div id="aawakTotals" class="totals-strip" aria-label="Summary totals"></div>
@@ -189,7 +189,7 @@
 
       <div id="aawak-totals" class="subview scroll">
         <div class="card">
-          <h1>AAWAK totals</h1>
+          <h1>Aawak totals</h1>
           <p class="muted">NAG per party and per lorry wala for any days (the workbook's Total sheet). Sister firms are added up under their group.</p>
           <div class="import-form">
             <div class="field"><label for="totalsPeriod">Period</label><button type="button" id="totalsPeriod" data-dropdown></button></div>
@@ -206,8 +206,8 @@
 
       <div id="aawak-check" class="subview scroll">
         <div class="card">
-          <h1>Check AAWAK against the inward register</h1>
-          <p class="muted">AAWAK rows whose slips were not found or whose NAG differs, and inward slips with no AAWAK row.</p>
+          <h1>Check Aawak against the inward register</h1>
+          <p class="muted">Aawak rows whose slips were not found or whose NAG differs, and inward slips with no Aawak row.</p>
           <div class="import-form">
             <div class="field"><label for="checkFrom">From</label><input id="checkFrom" type="date"></div>
             <div class="field"><label for="checkTo">To</label><input id="checkTo" type="date"></div>
@@ -405,7 +405,7 @@
 
       <div id="masters-lorry" class="subview fit">
         <div class="toolbar">
-          <p class="muted" style="flex: 1 1 400px">The lorry walas of the AAWAK register. Renaming one to another's name merges the two; other spellings are how the AAWAK import recognises a name written differently.</p>
+          <p class="muted" style="flex: 1 1 400px">The lorry walas of the Aawak register. Renaming one to another's name merges the two; other spellings are how the Aawak import recognises a name written differently.</p>
           <label class="check"><input type="checkbox" id="showInactiveLorry"> Show inactive</label>
           <span id="lorryCount" class="muted"></span>
           <button type="button" id="addLorry">+ Add lorry wala</button>
@@ -441,7 +441,7 @@
       <nav class="subtabs" data-group="import">
         <button class="subtab active" data-sub="inward">Inward register</button>
         <button class="subtab" data-sub="bills">Bills</button>
-        <button class="subtab" data-sub="aawak">AAWAK</button>
+        <button class="subtab" data-sub="aawak">Aawak</button>
       </nav>
 
       <div id="import-inward" class="subview scroll active">
@@ -463,12 +463,12 @@
 
       <div id="import-aawak" class="subview scroll">
         <div class="card">
-          <h1>Import an AAWAK workbook</h1>
-          <p class="muted">Reads the <b>Main</b> sheet of the gate's monthly AAWAK workbook (and its hidden <b>Details</b> lists). Your workbook is never changed. A backup is taken before anything is imported.</p>
-          <p class="muted">Import a newer copy of the same month as often as you like: rows are matched by AAWAK NO, new rows are added, what changed in the workbook is applied and what was changed in the app is kept. Each row is then linked to its inward slips.</p>
+          <h1>Import an Aawak workbook</h1>
+          <p class="muted">Reads the <b>Main</b> sheet of the gate's monthly Aawak workbook (and its hidden <b>Details</b> lists). Your workbook is never changed. A backup is taken before anything is imported.</p>
+          <p class="muted">Import a newer copy of the same month as often as you like: rows are matched by Aawak NO, new rows are added, what changed in the workbook is applied and what was changed in the app is kept. Each row is then linked to its inward slips.</p>
           <div class="import-form">
             <div class="field"><label for="aawakImportFile">Workbook (.xlsm / .xlsx)</label><input id="aawakImportFile" type="file" accept=".xlsm,.xlsx,.xls"></div>
-            <div class="field" style="min-width: 205px"><label for="aawakImportMonth">AAWAK month</label><input id="aawakImportMonth" type="month" title="Read from the file name when left empty"></div>
+            <div class="field" style="min-width: 205px"><label for="aawakImportMonth">Aawak month</label><input id="aawakImportMonth" type="month" title="Read from the file name when left empty"></div>
             <label class="check"><input type="checkbox" id="aawakImportGroups"> Give parties without a sister-firm group the workbook's party group</label>
             <button type="button" id="aawakImportCheck">1. Check file</button>
             <button type="button" id="aawakImportRun" disabled>2. Import</button>

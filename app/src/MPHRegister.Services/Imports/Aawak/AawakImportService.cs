@@ -16,8 +16,8 @@ using MPHRegister.Shared.Json;
 namespace MPHRegister.Services.Imports.Aawak;
 
 /// <summary>
-/// Checks (and with commit saves) a month's AAWAK workbook, as often as the gate clerk sends a newer copy. Rows are matched by
-/// AAWAK NO: new rows are added, what the workbook changed since the last import is applied, what was changed in the app is
+/// Checks (and with commit saves) a month's Aawak workbook, as often as the gate clerk sends a newer copy. Rows are matched by
+/// Aawak NO: new rows are added, what the workbook changed since the last import is applied, what was changed in the app is
 /// kept, rows deleted in the app stay deleted and imported rows the workbook no longer has are removed. Afterwards the rows
 /// are linked to their inward slips.
 /// </summary>
@@ -72,7 +72,7 @@ public sealed class AawakImportService(
         var target = string.IsNullOrWhiteSpace(month) ? RegisterFileName.GuessMonth(fileName) ?? string.Empty : month.Trim();
         var warnings = new List<ImportIssue>();
         var errors = new List<ImportIssue>();
-        if (!Dates.IsValidMonth(target)) errors.Add(new ImportIssue(0, "AAWAK month is missing or invalid. Choose the month of the workbook."));
+        if (!Dates.IsValidMonth(target)) errors.Add(new ImportIssue(0, "Aawak month is missing or invalid. Choose the month of the workbook."));
         var hash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(filePath)));
 
         AawakSheet sheet;
@@ -89,7 +89,7 @@ public sealed class AawakImportService(
         if (errors.Count == 0 && arrivals.FileByHash(hash) is { } previous)
             errors.Add(new ImportIssue(0, $"This exact file was already imported (as \"{previous}\")."));
         foreach (var row in sheet.Rows.Where(r => Dates.IsValidMonth(target) && !r.Date.StartsWith(target, StringComparison.Ordinal)))
-            warnings.Add(new ImportIssue(row.Row, $"DATE {row.Date} is not in the AAWAK month; the row is kept in {target}."));
+            warnings.Add(new ImportIssue(row.Row, $"DATE {row.Date} is not in the Aawak month; the row is kept in {target}."));
 
         var current = config.Current;
         var index = ConfigIndex.For(current);
@@ -99,10 +99,10 @@ public sealed class AawakImportService(
         var existing = errors.Count == 0 ? arrivals.List(target) : [];
         var keys = rows.Select(r => r.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var removals = existing.Where(a => a.ImportBatchId is not null && !keys.Contains(AawakNumber.Format(a.AawakNo, a.AawakSuffix))).ToList();
-        var changes = plans.Where(p => p.Action == Action.Update).Select(p => new ImportIssue(p.Row.Row, $"AAWAK NO {p.Row.Key}: {string.Join("; ", p.Changes)}.")).ToList();
+        var changes = plans.Where(p => p.Action == Action.Update).Select(p => new ImportIssue(p.Row.Row, $"Aawak NO {p.Row.Key}: {string.Join("; ", p.Changes)}.")).ToList();
         var kept = plans.Where(p => p.Action == Action.KeepTyped || p.Conflict)
-            .Select(p => new ImportIssue(p.Row.Row, $"AAWAK NO {p.Row.Key} was typed or changed in the app and differs from the workbook; the app's row is kept.")).ToList();
-        var notInWorkbook = removals.Select(a => new ImportIssue(0, $"AAWAK NO {AawakNumber.Format(a.AawakNo, a.AawakSuffix)} ({a.Party}, {a.ArrivalDate}) {(commit && errors.Count == 0 ? "was" : "will be")} removed: the workbook no longer has it.")).ToList();
+            .Select(p => new ImportIssue(p.Row.Row, $"Aawak NO {p.Row.Key} was typed or changed in the app and differs from the workbook; the app's row is kept.")).ToList();
+        var notInWorkbook = removals.Select(a => new ImportIssue(0, $"Aawak NO {AawakNumber.Format(a.AawakNo, a.AawakSuffix)} ({a.Party}, {a.ArrivalDate}) {(commit && errors.Count == 0 ? "was" : "will be")} removed: the workbook no longer has it.")).ToList();
         var upToDate = errors.Count == 0 && existing.Count > 0 && removals.Count == 0
             && plans.All(p => p.Action is Action.Unchanged or Action.KeepDeleted or Action.KeepTyped);
 

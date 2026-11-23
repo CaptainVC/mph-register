@@ -9,7 +9,7 @@ public static partial class RegisterFileName
     private static readonly string[] MonthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
     /// <summary>
-    /// "INWARD REG.-OCT.-26-27.xlsm" or "AAWAK--NOV.-26-27.xlsm" → 2026-10 / 2026-11, null when the name has no month and
+    /// "INWARD REG.-OCT.-26-27.xlsm" or "Aawak--NOV.-26-27.xlsm" → 2026-10 / 2026-11, null when the name has no month and
     /// financial year. Only the first year counts (one June file is named 26-29).
     /// </summary>
     public static string? GuessMonth(string fileName)
