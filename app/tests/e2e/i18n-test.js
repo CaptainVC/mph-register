@@ -4,7 +4,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const source = fs.readFileSync(path.join(__dirname, "../../src/MPHRegister.Api/wwwroot/i18n.js"), "utf8");
+// The translation scripts, in the order the pages load them.
+const I18N = ["texts-main.js", "texts-masters.js", "texts-messages.js", "patterns.js", "i18n.js"];
+const sources = I18N.map((file) => fs.readFileSync(path.join(__dirname, "../../src/frontend/js/i18n", file), "utf8"));
 const storage = new Map();
 const events = [];
 const context = vm.createContext({
@@ -26,7 +28,7 @@ const context = vm.createContext({
     constructor(type, options) { this.type = type; this.detail = options.detail; }
   },
 });
-vm.runInContext(source, context);
+for (const source of sources) vm.runInContext(source, context);
 const { t, applyLanguage, getLanguage } = context.window;
 assert.equal(getLanguage(), "en");
 

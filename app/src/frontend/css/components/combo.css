@@ -1,0 +1,28 @@
+/* ---------- Combo box ---------- */
+.combo { position: relative; }
+.combo-list {
+  position: fixed; inset: auto; margin: 0; padding: 4px; width: max-content; overflow: auto; overscroll-behavior: contain;
+  list-style: none; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-lg);
+  text-align: start; font-weight: 400; white-space: normal;
+}
+.combo-list li { padding: 8px 12px; font-size: 16px; border-radius: 6px; color: var(--text); cursor: pointer; overflow-wrap: anywhere; }
+.combo-list li[role="option"]:not([aria-disabled]):hover { background: var(--hover); }
+.combo-list li.highlight { background: var(--accent); color: var(--on-accent); }
+.combo-list li.highlight[role="option"]:not([aria-disabled]):hover { background: var(--accent); }
+.combo-list li[aria-disabled="true"] { color: var(--muted); cursor: not-allowed; }
+.combo-list li[aria-selected="true"] { font-weight: 700; }
+.combo-list li .tag { font-size: 13.5px; margin-left: 8px; color: var(--warn); }
+.combo-list li.highlight .tag { color: #ffe9a8; }
+.combo-list li .hint { float: right; margin-left: 16px; font-size: 13.5px; color: var(--muted); white-space: nowrap; }
+.combo-list li.highlight .hint { color: var(--on-accent); opacity: 0.85; }
+.combo-list li.empty { color: var(--muted); cursor: default; }
+/* Multi-select lists (Register month): every row carries a tick box so it is clear several can be chosen. */
+.combo-list[aria-multiselectable] li[role="option"] { display: flex; align-items: center; gap: 10px; font-weight: 400; }
+.combo-list[aria-multiselectable] li[role="option"]::before {
+  content: ""; flex: none; box-sizing: border-box; width: 20px; height: 20px; border: 2px solid var(--input-border); border-radius: 5px;
+  display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; line-height: 1;
+}
+.combo-list[aria-multiselectable] li[aria-selected="true"] { font-weight: 600; }
+.combo-list[aria-multiselectable] li[aria-selected="true"]::before { content: "✓"; background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.combo-list[aria-multiselectable] li.highlight::before { border-color: var(--on-accent); }
+.combo-list[aria-multiselectable] li.highlight[aria-selected="true"]::before { background: var(--on-accent); color: var(--accent); }

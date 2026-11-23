@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MPH Register</title>
+  <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/images/favicon.ico" sizes="any">
+  <script>try { document.documentElement.dataset.theme = localStorage.getItem("mph-theme") || "light"; document.documentElement.dataset.lang = localStorage.getItem("mph-lang") === "hi" ? "hi" : "en"; document.documentElement.lang = document.documentElement.dataset.lang; } catch { }</script>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">MPH Register</div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-view="entry" role="tab">New Entry</button>
+      <button class="tab" data-view="register" role="tab">Register</button>
+      <button class="tab" data-view="partywise" role="tab">Party-wise</button>
+      <button class="tab" data-view="aawak" role="tab" title="Goods arriving at the gate">Aawak</button>
+      <button class="tab" data-view="bills" role="tab">Bills</button>
+      <button class="tab" data-view="dashboard" role="tab">Dashboard</button>
+      <button class="tab" data-view="masters" role="tab">Masters</button>
+      <button class="tab" data-view="import" role="tab">Import Excel</button>
+    </nav>
+    <button type="button" id="menuToggle" class="menu-toggle" aria-haspopup="dialog" aria-expanded="false" aria-controls="sideMenu" title="Open menu">
+      <span class="menu-icon" aria-hidden="true">☰</span>
+      <span>Menu</span>
+    </button>
+  </header>
+
+  <main id="main">
+    <div id="noticeBar" class="notice-bar hidden" role="status"></div>
+    <div id="updateBar" class="notice-bar update-bar hidden" role="status"></div>
+
+    <!-- ===== New entry ===== -->
+    <!-- include views/entry.html -->
+
+    <!-- ===== Register ===== -->
+    <!-- include views/register.html -->
+
+    <!-- ===== Aawak (goods arriving at the gate) ===== -->
+    <!-- include views/aawak.html -->
+
+    <!-- ===== Party-wise ===== -->
+    <!-- include views/partywise.html -->
+
+    <!-- ===== Bills ===== -->
+    <!-- include views/bills.html -->
+
+    <!-- ===== Dashboard: the side panel picks months, parties and a comparison; the screen adds the figures up (see js/dashboard/) ===== -->
+    <!-- include views/dashboard.html -->
+
+    <!-- ===== Masters ===== -->
+    <!-- include views/masters.html -->
+
+    <!-- ===== Settings ===== -->
+    <!-- include views/settings.html -->
+
+    <!-- ===== Import Excel ===== -->
+    <!-- include views/import.html -->
+  </main>
+
+  <footer class="status-bar"><span id="appInfo"></span></footer>
+  <div id="toasts" popover="manual" aria-live="polite"></div>
+
+  <!-- Right-side menu: language, theme and settings -->
+  <!-- include views/side-menu.html -->
+
+  <!-- Edit windows: each slides in from the right with its own title, sections and buttons. -->
+  <!-- include views/dialogs.html -->
+
+  <!-- Classic scripts sharing one global scope, run in this order: a script may use at load time only what the scripts
+       above it (and itself) declare. -->
+  <script src="js/i18n/texts-main.js"></script>
+  <script src="js/i18n/texts-masters.js"></script>
+  <script src="js/i18n/texts-messages.js"></script>
+  <script src="js/i18n/patterns.js"></script>
+  <script src="js/i18n/i18n.js"></script>
+  <script src="js/core/dropdowns.js"></script>
+  <script src="js/core/datepicker.js"></script>
+  <script src="js/core/base.js"></script>
+  <script src="js/core/dialogs.js"></script>
+  <script src="js/entry/entry-form.js"></script>
+  <script src="js/entry/entry-actions.js"></script>
+  <script src="js/register/cells.js"></script>
+  <script src="js/register/send-full.js"></script>
+  <script src="js/register/cell-editor.js"></script>
+  <script src="js/core/periods.js"></script>
+  <script src="js/register/row-filters.js"></script>
+  <script src="js/register/register-view.js"></script>
+  <script src="js/register/search.js"></script>
+  <script src="js/partywise/partywise.js"></script>
+  <script src="js/import/inward-import.js"></script>
+  <script src="js/core/navigation.js"></script>
+  <script src="js/core/preferences.js"></script>
+  <script src="js/updates/updates.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/masters/common.js"></script>
+  <script src="js/masters/parties.js"></script>
+  <script src="js/masters/party-form.js"></script>
+  <script src="js/masters/lists.js"></script>
+  <script src="js/masters/settings.js"></script>
+  <script src="js/bills/bill-period.js"></script>
+  <script src="js/bills/candidates.js"></script>
+  <script src="js/bills/drafts.js"></script>
+  <script src="js/bills/saved-bills.js"></script>
+  <script src="js/bills/invoice-editor.js"></script>
+  <script src="js/bills/excel-export.js"></script>
+  <script src="js/bills/bill-import.js"></script>
+  <script src="js/dashboard/format.js"></script>
+  <script src="js/dashboard/data.js"></script>
+  <script src="js/dashboard/model.js"></script>
+  <script src="js/dashboard/blocks.js"></script>
+  <script src="js/dashboard/charts.js"></script>
+  <script src="js/dashboard/sections-overview.js"></script>
+  <script src="js/dashboard/sections-parties.js"></script>
+  <script src="js/dashboard/sections-work.js"></script>
+  <script src="js/dashboard/panels.js"></script>
+  <script src="js/aawak/arrival-form.js"></script>
+  <script src="js/aawak/aawak-register.js"></script>
+  <script src="js/aawak/totals-and-check.js"></script>
+  <script src="js/aawak/entry-chip.js"></script>
+  <script src="js/aawak/lorry-masters.js"></script>
+  <script src="js/aawak/aawak-import.js"></script>
+</body>
+</html>

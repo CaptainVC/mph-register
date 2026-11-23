@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Aawak totals</title>
+  <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="css/print-aawak.css">
+</head>
+<body>
+  <div class="toolbar" aria-label="Print options">
+    <div><strong>Report preview</strong><span> A4 portrait · Choose “Save as PDF” in the print dialog</span></div>
+    <label id="dailyOption" hidden><input type="checkbox" id="includeDaily"> Include daily breakdown</label>
+    <button type="button" id="printNow" disabled>Print / Save PDF</button>
+    <button type="button" id="closePage">Close</button>
+  </div>
+  <main id="page" aria-busy="true"><p role="status">Preparing your report...</p></main>
+  <script src="js/print/print-aawak.js"></script>
+</body>
+</html>

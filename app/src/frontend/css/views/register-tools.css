@@ -1,0 +1,34 @@
+/* ---------- Columns switch, going to the top or the newest entries, sending several entries in full ---------- */
+/* Which columns a set hides comes from COLUMN_SETS in js/register/cells.js. */
+.colset { display: inline-flex; flex: none; border: 1px solid var(--input-border); border-radius: 8px; overflow: hidden; background: var(--panel); }
+.colset button {
+  height: 42px; padding: 0 12px; border: 0; border-radius: 0; background: var(--panel); color: var(--text); font-size: 15px; font-weight: 600;
+}
+.colset button + button { border-left: 1px solid var(--line); }
+.colset button:hover:not([data-dropdown]) { background: var(--hover); color: var(--heading); border-color: var(--line); }
+.colset button[aria-pressed="true"], .colset button[aria-pressed="true"]:hover:not([data-dropdown]) { background: var(--accent); color: var(--on-accent); }
+/* Party-wise: inside a party the name is already on the dark bar above the rows, so Main and JAWAK leave PARTY out. */
+#partyTable:is(.cols-main, .cols-jawak) :is(thead th, tr[data-entry-id] > td):nth-child(3) { display: none; }
+#partyTable:is(.cols-main, .cols-jawak) :is(thead th, tr[data-entry-id] > td):nth-child(2) { box-shadow: 2px 0 0 var(--line); }
+
+/* Top / Newest sit at the right end of the Register's totals, just above the table, without covering any rows. */
+.totals-row { display: flex; align-items: stretch; }
+.totals-row > .totals-strip { flex: 1 1 auto; min-width: 0; }
+.table-jump { flex: none; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 4px 10px; border-left: 1px solid var(--line-soft); }
+.table-jump button { height: 26px; padding: 0 10px; font-size: 14px; }
+
+.send-pick { display: none; width: 18px; height: 18px; margin: 0 6px 0 0; vertical-align: -3px; accent-color: var(--accent); cursor: pointer; }
+#registerTable.cols-jawak .send-pick { display: inline-block; }
+#registerTable.cols-jawak { --col-inw: 92px; }
+#registerTable.cols-jawak tr:has(.send-pick:checked) > td { background: var(--accent-soft); }
+#registerTable.cols-jawak tr:has(.send-pick:checked) > td:first-child { box-shadow: inset 4px 0 0 var(--accent); }
+.send-bar {
+  flex: none; display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; padding: 8px 14px;
+  background: var(--panel); border: 2px solid var(--accent); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.send-summary { flex: 1 1 260px; font-size: 16px; }
+.send-summary b { color: var(--heading); }
+.send-bar .field { flex-direction: row; align-items: center; gap: 6px; }
+.send-bar .field > label { white-space: nowrap; }
+#sendFullGatePass { width: 130px; }
+#sendFullDate { width: 170px; }

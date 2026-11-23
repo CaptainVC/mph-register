@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <FrontendDir>$(MSBuildThisFileDirectory)..\..\frontend\</FrontendDir>
+    <AssemblyName>MPH Register</AssemblyName>
+    <ApplicationIcon>$(FrontendDir)assets\images\favicon.ico</ApplicationIcon>
+    <RootNamespace>MPHRegister.Api</RootNamespace>
+    <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
+    <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
+    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MPHRegister.Contracts\MPHRegister.Contracts.csproj" />
+    <ProjectReference Include="..\MPHRegister.Data\MPHRegister.Data.csproj" />
+    <ProjectReference Include="..\MPHRegister.Services\MPHRegister.Services.csproj" />
+    <ProjectReference Include="..\MPHRegister.Shared\MPHRegister.Shared.csproj" />
+  </ItemGroup>
+  <!-- The screens (app/src/frontend) are embedded in the exe and served from the virtual wwwroot folder. -->
+  <ItemGroup>
+    <EmbeddedResource Include="$(FrontendDir)**" Link="wwwroot/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="MPHRegister.UnitTests" />
+  </ItemGroup>
+</Project>

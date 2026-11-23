@@ -74,17 +74,17 @@ public sealed class ApiBasicsTests(ApiFactory factory) : IClassFixture<ApiFactor
     public async Task Print_template_is_layout_only_and_the_print_page_fonts_are_served()
     {
         var app = factory.App();
-        var template = await app.Get("/bill-template.json").Ok();
+        var template = await app.Get("/assets/templates/bill-template.json").Ok();
         Assert.Equal(7, template.GetProperty("columnsPx").GetArrayLength());
         Assert.Equal(25, template.GetProperty("lineRows").GetProperty("count").GetInt32());
         Assert.DoesNotContain(template.GetProperty("cells").EnumerateArray(), c => c.TryGetProperty("text", out _));
-        Assert.Contains("print.js", await app.GetStringAsync(new Uri("/print.html", UriKind.Relative)), StringComparison.Ordinal);
-        Assert.Contains("i18n.js", await app.GetStringAsync(new Uri("/print.html", UriKind.Relative)), StringComparison.Ordinal);
-        Assert.Contains("i18n.js", await app.GetStringAsync(new Uri("/", UriKind.Relative)), StringComparison.Ordinal);
-        using var font = await app.Get("/fonts/Carlito-Regular.woff2");
+        Assert.Contains("js/print/print.js", await app.GetStringAsync(new Uri("/print.html", UriKind.Relative)), StringComparison.Ordinal);
+        Assert.Contains("js/i18n/i18n.js", await app.GetStringAsync(new Uri("/print.html", UriKind.Relative)), StringComparison.Ordinal);
+        Assert.Contains("js/i18n/i18n.js", await app.GetStringAsync(new Uri("/", UriKind.Relative)), StringComparison.Ordinal);
+        using var font = await app.Get("/assets/fonts/Carlito-Regular.woff2");
         Assert.Equal(HttpStatusCode.OK, font.StatusCode);
         Assert.Equal("font/woff2", font.Content.Headers.ContentType?.MediaType);
-        Assert.Contains("SIL OPEN FONT LICENSE", (await app.GetStringAsync(new Uri("/fonts/Carlito-OFL.txt", UriKind.Relative))).ToUpperInvariant(), StringComparison.Ordinal);
+        Assert.Contains("SIL OPEN FONT LICENSE", (await app.GetStringAsync(new Uri("/assets/fonts/Carlito-OFL.txt", UriKind.Relative))).ToUpperInvariant(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -92,7 +92,9 @@ public sealed class ApiBasicsTests(ApiFactory factory) : IClassFixture<ApiFactor
     {
         var app = factory.App();
         Assert.Contains("id=\"appDialog\"", await app.GetStringAsync(new Uri("/", UriKind.Relative)), StringComparison.Ordinal);
-        foreach (var script in new[] { "/app.js", "/bills.js", "/masters.js", "/i18n.js", "/print.js" })
+        var scripts = WebPages.Files().Where(f => f.EndsWith(".js", StringComparison.Ordinal)).ToList();
+        Assert.Contains("/js/print/print.js", scripts);
+        foreach (var script in scripts)
         {
             var source = await app.GetStringAsync(new Uri(script, UriKind.Relative));
             Assert.DoesNotMatch(@"(?<!\w)(?:window\.)?(?:alert|confirm|prompt)\s*\(", source);

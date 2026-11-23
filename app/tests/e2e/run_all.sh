@@ -9,7 +9,7 @@ E2E=${0:A:h}
 SEED=$(node $E2E/private-data.js seed) || exit $(( $? == 3 ? 0 : 1 ))
 APP_ROOT=${E2E:h:h}
 ROOT=${APP_ROOT:h}
-API=$APP_ROOT/src/MPHRegister.Api
+API=$APP_ROOT/src/backend/MPHRegister.Api
 export MPH_DLL="$API/bin/Debug/net10.0/MPH Register.dll"
 export NODE_PATH=${NODE_PATH:-/tmp/mph-ui-test/node_modules}
 PY=${MPH_PY:-/tmp/mph-workbook-analysis-env/bin/python}

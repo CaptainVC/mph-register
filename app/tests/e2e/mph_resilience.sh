@@ -4,7 +4,7 @@
 set -u
 export MPH_PORT=5152
 E2E=${0:A:h}
-APP_DLL=${MPH_DLL:-"${E2E:h:h}/src/MPHRegister.Api/bin/Debug/net10.0/MPH Register.dll"}
+APP_DLL=${MPH_DLL:-"${E2E:h:h}/src/backend/MPHRegister.Api/bin/Debug/net10.0/MPH Register.dll"}
 WORKBOOK="$(node $E2E/private-data.js workbooks)/INWARD REG.-OCT.-26-27.xlsm"
 # A party of the October register for the saves (real names come from the private file, see private-data.js).
 PARTY=$(node $E2E/private-data.js parties.bigParty) || exit $(( $? == 3 ? 0 : 1 ))

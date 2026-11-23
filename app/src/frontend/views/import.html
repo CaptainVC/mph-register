@@ -1,0 +1,62 @@
+<section id="view-import" class="view fit">
+  <nav class="subtabs" data-group="import">
+    <button class="subtab active" data-sub="inward">Inward register</button>
+    <button class="subtab" data-sub="bills">Bills</button>
+    <button class="subtab" data-sub="aawak">Aawak</button>
+  </nav>
+
+  <div id="import-inward" class="subview scroll active">
+    <div class="card">
+      <h1>Import an inward register workbook</h1>
+      <p class="muted">Reads the <b>Main</b> sheet of a monthly workbook. Your workbook is never changed. A backup of the data file is taken before anything is imported.</p>
+      <p class="muted">Importing a month that is already in the app updates it: new rows are added, what changed in the workbook since the last import is applied, what was changed in the app is kept, and entries no longer in the workbook are removed (never billed ones). Check file lists every new and updated entry first; after importing, the Register's Last import filters show them.</p>
+      <div class="import-form">
+        <div class="field"><label for="importFile">Workbook (.xlsm / .xlsx)</label><input id="importFile" type="file" accept=".xlsm,.xlsx,.xls"></div>
+        <div class="field"><label for="importFinancialYear">Financial year</label><button type="button" id="importFinancialYear" data-dropdown title="April to March"></button></div>
+        <div class="field" style="min-width: 205px"><label for="importMonth">Register month</label><input id="importMonth" type="month"></div>
+        <button type="button" id="previewImport">1. Check file</button>
+        <button type="button" id="runImport" disabled>2. Import</button>
+        <button type="button" id="cancelImport" class="secondary">Cancel</button>
+      </div>
+    </div>
+    <div id="importResult"></div>
+  </div>
+
+  <div id="import-aawak" class="subview scroll">
+    <div class="card">
+      <h1>Import an Aawak workbook</h1>
+      <p class="muted">Reads the <b>Main</b> sheet of the gate's monthly Aawak workbook (and its hidden <b>Details</b> lists). Your workbook is never changed. A backup is taken before anything is imported.</p>
+      <p class="muted">Import a newer copy of the same month as often as you like: rows are matched by Aawak NO, new rows are added, what changed in the workbook is applied and what was changed in the app is kept. Each row is then linked to its inward slips.</p>
+      <div class="import-form">
+        <div class="field"><label for="aawakImportFile">Workbook (.xlsm / .xlsx)</label><input id="aawakImportFile" type="file" accept=".xlsm,.xlsx,.xls"></div>
+        <div class="field" style="min-width: 205px"><label for="aawakImportMonth">Aawak month</label><input id="aawakImportMonth" type="month" title="Read from the file name when left empty"></div>
+        <label class="check"><input type="checkbox" id="aawakImportGroups"> Give parties without a sister-firm group the workbook's party group</label>
+        <button type="button" id="aawakImportCheck">1. Check file</button>
+        <button type="button" id="aawakImportRun" disabled>2. Import</button>
+      </div>
+    </div>
+    <div id="aawakImportResult"></div>
+  </div>
+
+  <div id="import-bills" class="subview scroll">
+    <div class="card">
+      <h1>Import bills from the Excel bill workbook</h1>
+      <p class="muted">Reads every filled bill on the <b>Main</b> sheet, checks each total, and links bill lines to inward entries so they are not billed again. Your workbook is never changed.</p>
+      <div class="import-form">
+        <div class="field"><label for="billImportFile">Bill workbook (.xlsm / .xlsx)</label><input id="billImportFile" type="file" accept=".xlsm,.xlsx,.xls"></div>
+        <button type="button" id="billImportCheck">1. Check file</button>
+        <button type="button" id="billImportRun" disabled>2. Import</button>
+      </div>
+    </div>
+    <div id="billImportResult"></div>
+    <div class="card">
+      <h1>Re-check links of imported bills</h1>
+      <p class="muted">Matches every bill imported from Excel to the inward register again — after correcting the register or giving sister firms a group in Masters → Parties. The bills and their totals stay as they are; only the inward entries they are linked to change. A backup is made before saving.</p>
+      <div class="import-form">
+        <button type="button" id="relinkCheck">1. Check links</button>
+        <button type="button" id="relinkSave" disabled>2. Save new links</button>
+      </div>
+    </div>
+    <div id="relinkResult"></div>
+  </div>
+</section>

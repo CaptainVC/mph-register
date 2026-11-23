@@ -11,8 +11,8 @@
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\MPHRegister.Api\MPHRegister.Api.csproj" />
-    <ProjectReference Include="..\..\src\MPHRegister.Services\MPHRegister.Services.csproj" />
+    <ProjectReference Include="..\..\src\backend\MPHRegister.Api\MPHRegister.Api.csproj" />
+    <ProjectReference Include="..\..\src\backend\MPHRegister.Services\MPHRegister.Services.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\fixtures\v04-seeded.db" Link="fixtures\v04-seeded.db" CopyToOutputDirectory="PreserveNewest" />

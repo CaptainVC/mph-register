@@ -51,10 +51,10 @@ jobs:
       - name: Unit and API tests
         run: dotnet test MPHRegister.sln --no-build
 
-      # The screens are plain JavaScript embedded in the exe; a syntax error would only show when the app runs.
+      # The screens (src/frontend) are plain JavaScript embedded in the exe; a syntax error would only show when the app runs.
       - name: Screen and end-to-end scripts parse
         if: runner.os == 'Linux'
-        run: for f in src/MPHRegister.Api/wwwroot/*.js tests/e2e/*.js tests/e2e/*.mjs; do node --check "$f" || exit 1; done
+        run: for f in $(find src/frontend -name '*.js') tests/e2e/*.js tests/e2e/*.mjs; do node --check "$f" || exit 1; done
 
       - name: Install browser for register regression
         if: runner.os == 'Linux'
@@ -72,7 +72,7 @@ jobs:
           MPH_NO_BROWSER: 1
           MPH_BROWSER_CHANNEL: chromium
         run: |
-          dotnet "src/MPHRegister.Api/bin/Debug/net10.0/MPH Register.dll" > "$RUNNER_TEMP/mph-register.log" 2>&1 &
+          dotnet "src/backend/MPHRegister.Api/bin/Debug/net10.0/MPH Register.dll" > "$RUNNER_TEMP/mph-register.log" 2>&1 &
           app_pid=$!
           trap 'kill "$app_pid" 2>/dev/null || true' EXIT
           for attempt in {1..40}; do

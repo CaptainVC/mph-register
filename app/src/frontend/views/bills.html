@@ -1,0 +1,91 @@
+<section id="view-bills" class="view fit">
+  <nav class="subtabs" data-group="bills">
+    <button class="subtab active" data-sub="make">Make bills</button>
+    <button class="subtab" data-sub="saved">Saved bills</button>
+  </nav>
+
+  <div id="bills-make" class="subview fit active">
+    <section class="bill-date-card" aria-label="Bill dates">
+      <div class="bill-intro">
+        <h1>Make bills</h1>
+        <p>Review before saving.</p>
+      </div>
+      <div class="bill-date-fields">
+        <div class="field"><label for="billFinancialYear">Financial year</label><button type="button" id="billFinancialYear" data-dropdown title="April to March"></button></div>
+        <div class="field"><label for="billMonth">Bill month</label><input type="month" id="billMonth"></div>
+        <div class="field"><label for="billDate">Bill date</label><input type="date" id="billDate"></div>
+        <div class="field"><label for="periodFrom">Entries from</label><input type="date" id="periodFrom"></div>
+        <div class="field"><label for="periodTo">Entries to</label><input type="date" id="periodTo"></div>
+      </div>
+    </section>
+    <div class="bill-layout">
+      <aside class="party-pick" aria-label="Parties to bill">
+        <div class="party-pick-head">
+          <h2>Parties to bill</h2>
+          <span id="toBillCount" class="count-pill"></span>
+        </div>
+        <label class="sr-only" for="billParty">Find a party</label>
+        <div class="combo" id="billPartyCombo">
+          <input id="billParty" type="text" placeholder="Find a party">
+        </div>
+        <p class="party-pick-hint">Only entries without a bill are shown.</p>
+        <ul id="toBillList" class="pick-list"></ul>
+      </aside>
+      <section class="bill-workspace" aria-label="Bill review">
+        <div class="bill-main" id="billReview">
+          <div id="candidateHead">
+            <div class="bill-empty-state">
+              <span class="bill-empty-icon" aria-hidden="true">←</span>
+              <h2>Who are you billing?</h2>
+              <p>Choose a party from the list to see its entries.</p>
+              <p>Already-sent entries are selected for you. Nothing is saved until you confirm.</p>
+            </div>
+          </div>
+          <div id="candidateTools" class="candidate-tools hidden">
+            <div><h3 id="candidateCount">Entries to bill</h3><p id="candidateHint"></p></div>
+            <div class="candidate-selection-tools">
+              <label class="check"><input type="checkbox" id="candAll" disabled> Select all</label>
+              <button type="button" id="candNone" class="ghost" disabled>Clear selection</button>
+              <button type="button" id="billMoreColumns" class="secondary" aria-pressed="false">More columns</button>
+            </div>
+          </div>
+          <div class="table-wrap" id="candidateWrap"><table class="register" id="candidateTable"></table></div>
+          <div id="draftArea" class="hidden"></div>
+        </div>
+        <footer class="bill-action-dock">
+          <div id="billMessage" class="message" role="status" aria-live="polite"></div>
+          <div class="bill-action-row">
+            <div id="billSelectionSummary" role="status" aria-live="polite">
+              <strong id="billSelectedThan">0 THAN</strong>
+              <span id="billSelectedCount">Choose a party to begin</span>
+            </div>
+            <div class="bill-make-action" id="billMakeAction">
+              <button type="button" id="makeBills" disabled>Make bills</button>
+            </div>
+            <div class="actions hidden" id="draftActions">
+              <button type="button" id="discardBills" class="secondary">Back to entries</button>
+              <button type="button" id="saveBills">Save and number these bills</button>
+            </div>
+          </div>
+        </footer>
+      </section>
+    </div>
+  </div>
+
+  <div id="bills-saved" class="subview fit">
+    <div class="toolbar">
+      <div class="field"><label for="savedFinancialYear">Financial year</label><button type="button" id="savedFinancialYear" data-dropdown title="April to March"></button></div>
+      <div class="field"><label for="savedMonth">Bill month</label><button type="button" id="savedMonth" data-dropdown></button></div>
+      <div class="field grow"><label for="savedSearch">Search</label><input type="search" id="savedSearch" placeholder="Bill no., party, finish…"></div>
+      <button type="button" id="printShown" class="secondary">Print shown bills</button>
+      <button type="button" id="excelShown" class="secondary" title="Export the shown bills into a copy of the Excel bill workbook">Export to Excel…</button>
+      <button type="button" id="cancelSelected" class="danger" disabled>Cancel selected</button>
+      <button type="button" id="undoSelected" class="secondary" disabled>Undo &amp; release numbers</button>
+      <span class="spacer"></span>
+      <span id="savedSelection" class="muted"></span>
+      <span id="savedCount" class="muted"></span>
+    </div>
+    <div id="savedTotals" class="chips"></div>
+    <div class="table-wrap fill"><table class="register" id="invoiceTable"></table></div>
+  </div>
+</section>

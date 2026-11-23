@@ -199,12 +199,12 @@ If he went back over a data format change, the work done between the update and 
 
 | Part | File |
 |---|---|
-| Asking GitHub, downloading and checking the file | [UpdateService.cs](../app/src/MPHRegister.Services/Updates/UpdateService.cs) |
-| Swapping the exe, file names, version numbers | [UpdateFiles.cs](../app/src/MPHRegister.Services/Updates/UpdateFiles.cs) |
-| Restore point, putting data back, the kept copy | [RollbackFiles.cs](../app/src/MPHRegister.Services/Updates/RollbackFiles.cs), [RollbackService.cs](../app/src/MPHRegister.Services/Updates/RollbackService.cs) |
-| Handing over between the processes on Windows | [SelfUpdate.cs](../app/src/MPHRegister.Api/Hosting/SelfUpdate.cs), [Program.cs](../app/src/MPHRegister.Api/Program.cs) |
-| The API (`/api/updates`, `/install`, `/rollback`) | [UpdatesController.cs](../app/src/MPHRegister.Api/Controllers/UpdatesController.cs) |
-| The bar, menu and dialogs | [app.js](../app/src/MPHRegister.Api/wwwroot/app.js) (search for "New versions"), Hinglish in [i18n.js](../app/src/MPHRegister.Api/wwwroot/i18n.js) |
+| Asking GitHub, downloading and checking the file | [UpdateService.cs](../app/src/backend/MPHRegister.Services/Updates/UpdateService.cs) |
+| Swapping the exe, file names, version numbers | [UpdateFiles.cs](../app/src/backend/MPHRegister.Services/Updates/UpdateFiles.cs) |
+| Restore point, putting data back, the kept copy | [RollbackFiles.cs](../app/src/backend/MPHRegister.Services/Updates/RollbackFiles.cs), [RollbackService.cs](../app/src/backend/MPHRegister.Services/Updates/RollbackService.cs) |
+| Handing over between the processes on Windows | [SelfUpdate.cs](../app/src/backend/MPHRegister.Api/Hosting/SelfUpdate.cs), [Program.cs](../app/src/backend/MPHRegister.Api/Program.cs) |
+| The API (`/api/updates`, `/install`, `/rollback`) | [UpdatesController.cs](../app/src/backend/MPHRegister.Api/Controllers/UpdatesController.cs) |
+| The bar, menu and dialogs | [updates.js](../app/src/frontend/js/updates/updates.js), Hinglish in [texts-main.js](../app/src/frontend/js/i18n/texts-main.js) (search for "New versions") |
 | Publishing a release | [release.yml](../.github/workflows/release.yml) |
 
 **Tests**

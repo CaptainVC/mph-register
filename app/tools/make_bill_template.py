@@ -1,4 +1,4 @@
-"""Extract the Excel bill template (one 49-row block, A1:G49) into wwwroot/bill-template.json.
+"""Extract the Excel bill template (one 49-row block, A1:G49) into the screens' assets/templates/bill-template.json.
 
 The app's print page draws bills from this file, so a printed or PDF bill has the same column widths, row heights,
 merges, fonts, borders, fills, alignment and number formats as the bill printed from Excel. The file holds layout only:
@@ -7,7 +7,7 @@ Per-cell styles are the most common style of that cell across all 100 bill block
 on a single bill does not leak into the template. Colours that the workbook's VBA macros paint at run time
 (party/finish font colours, THAN borders, the 2-lakh red fill) are applied by the print page, not stored here.
 
-Usage: python make_bill_template.py "MPH BILL--OCT.-26-27.xlsm" ../src/MPHRegister.Api/wwwroot/bill-template.json
+Usage: python make_bill_template.py "MPH BILL--OCT.-26-27.xlsm" ../src/frontend/assets/templates/bill-template.json
 """
 import collections
 import json
@@ -140,9 +140,24 @@ def main(path, out_path):
         "image": image,
     }
     with open(out_path, "w", encoding="utf-8") as fh:
-        json.dump(template, fh, ensure_ascii=False, indent=1)
+        fh.write(template_json(template))
     print(f"columns px {pixels} = {sum(pixels)} px ({sum(pixels) / 96:.2f} in); rows {sum(rows):.2f} pt; merges {len(merges)}; image {image}")
     print("page", template["page"], "default font", template["defaultFont"])
+
+
+def template_json(template):
+    """One line per top-level value, and one line per merge and per cell, so the file stays short and its diffs readable."""
+    def compact(value):
+        return json.dumps(value, ensure_ascii=False)
+
+    lines = []
+    for key, value in template.items():
+        if isinstance(value, list) and value and isinstance(value[0], dict):
+            items = ",\n".join(f"  {compact(item)}" for item in value)
+            lines.append(f"  {compact(key)}: [\n{items}\n  ]")
+        else:
+            lines.append(f"  {compact(key)}: {compact(value)}")
+    return "{\n" + ",\n".join(lines) + "\n}\n"
 
 
 if __name__ == "__main__":

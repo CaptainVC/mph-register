@@ -234,8 +234,8 @@ public sealed class ApiDashboardTests(DashboardApiFactory factory) : IClassFixtu
         var html = await app.GetStringAsync(new Uri("/", UriKind.Relative));
         Assert.Contains("data-view=\"dashboard\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"view-dashboard\"", html, StringComparison.Ordinal);
-        Assert.Contains("src=\"dashboard.js\"", html, StringComparison.Ordinal);
-        var script = await app.GetStringAsync(new Uri("/dashboard.js", UriKind.Relative));
+        Assert.Contains("src=\"js/dashboard/data.js\"", html, StringComparison.Ordinal);
+        var script = await app.GetStringAsync(new Uri("/js/dashboard/data.js", UriKind.Relative));
         Assert.Contains("/api/dashboard", script, StringComparison.Ordinal);
 
         Assert.True((await app.Get("/api/info").Ok()).GetProperty("showDashboard").GetBoolean());

@@ -1,0 +1,193 @@
+/* ---------- Cards, page headers, toolbars ---------- */
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+.card > * + * { margin-top: 14px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.toolbar { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.toolbar .field { min-width: 170px; }
+.toolbar .grow { flex: 1 1 260px; }
+.toolbar .spacer { flex: 1; }
+.chips { display: flex; gap: 6px 16px; flex-wrap: wrap; font-size: 15.5px; color: var(--muted); align-items: center; }
+.chips b { color: var(--heading); font-variant-numeric: tabular-nums; }
+/* ---------- Register / Party-wise control panel (search + grouped filters + summary KPIs) ---------- */
+.register-panel {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+  overflow: visible;
+}
+.panel-top {
+  display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; padding: 12px 16px;
+}
+.panel-top .field > label { font-size: 14.5px; font-weight: 700; color: var(--heading); }
+.panel-top .month-field { flex: 0 0 215px; }
+.panel-top .search-field { flex: 1 1 220px; max-width: 580px; }
+.panel-top [data-dropdown], .panel-top input { height: 44px; font-size: 16.5px; }
+.panel-btn { height: 44px; font-size: 16px; padding: 0 18px; }
+.search-box { position: relative; display: flex; align-items: center; }
+.search-box input { padding-left: 40px; padding-right: 40px; }
+.search-box input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.search-icon {
+  position: absolute; left: 12px; width: 19px; height: 19px; color: var(--muted); pointer-events: none;
+}
+button.search-clear {
+  position: absolute; right: 6px; width: 32px; height: 32px; padding: 0; border-radius: 6px;
+  border: 0; background: transparent; color: var(--muted); font-size: 22px; line-height: 1; font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+button.search-clear:hover { background: var(--hover); color: var(--heading); }
+.panel-count-wrap { margin-left: auto; display: flex; align-items: center; min-height: 44px; }
+.count-pill {
+  display: inline-flex; align-items: center; height: 38px; padding: 0 16px; border-radius: 19px;
+  background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+  font-size: 15.5px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.count-pill.filtered {
+  background: var(--accent-soft); border-color: var(--accent); color: var(--heading); font-weight: 700;
+}
+
+.filter-toggle { display: inline-flex; align-items: center; gap: 8px; }
+.filter-toggle::after {
+  content: ""; width: 7px; height: 7px; margin-top: -4px; transform: rotate(45deg);
+  border: solid currentColor; border-width: 0 2px 2px 0;
+}
+.filter-toggle[aria-expanded="true"]::after { margin-top: 4px; transform: rotate(-135deg); }
+.filter-toggle-count {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; padding: 0 7px;
+  border-radius: 12px; background: var(--chip-active-bg); color: var(--on-accent);
+  font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+
+/* Row filters; the colour chips double as the legend (Register, Party-wise). Groups wrap as a whole. */
+.filter-bar {
+  display: flex; align-items: flex-end; gap: 8px 10px; flex-wrap: wrap;
+  padding: 10px 14px 11px; background: var(--panel-2);
+  border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft);
+}
+.filter-group { display: inline-flex; flex-direction: column; gap: 5px; min-width: 0; }
+.filter-group + .filter-group { padding-left: 10px; border-left: 1px solid var(--line); }
+.filter-caption {
+  font-size: 13px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  color: var(--muted); line-height: 1; cursor: help;
+}
+.filter-chips { display: inline-flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.filter-split {
+  display: inline-flex; align-items: stretch; height: 38px; border: 1px solid var(--input-border);
+  border-radius: 8px; background: var(--panel); color: var(--text); box-shadow: 0 1px 1px rgb(16 24 40 / .04);
+}
+button.filter-chip, button.filter-trigger { height: auto; border: 0; background: transparent; color: inherit; }
+button.filter-chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 0 5px 0 4px;
+  border-radius: 7px 0 0 7px; font-size: 14.5px; font-weight: 600;
+}
+button.filter-trigger {
+  display: grid; place-items: center; width: 24px; padding: 0; border-radius: 0 7px 7px 0;
+  border-left: 1px solid var(--line); color: var(--muted);
+}
+.filter-trigger::before {
+  content: ""; width: 6px; height: 6px; margin-top: -3px; transform: rotate(45deg);
+  border: solid currentColor; border-width: 0 1.5px 1.5px 0;
+}
+.filter-split[data-zero="true"] .filter-chip { opacity: .58; }
+.filter-split[data-zero="true"] .filter-chip:hover, .filter-split[data-zero="true"] .filter-chip:focus-visible { opacity: 1; }
+.filter-split:is(:focus-within, :hover) { border-color: var(--accent); }
+button.filter-chip:hover, button.filter-trigger:is(:hover, [aria-expanded="true"]) { background: var(--hover); }
+button.filter-chip:focus-visible, button.filter-trigger:focus-visible {
+  outline: 2px solid currentColor; outline-offset: -3px; box-shadow: none;
+}
+.filter-split[data-mode="include"] {
+  background: var(--chip-active-bg); border-color: var(--chip-active-bg); color: var(--on-accent);
+  box-shadow: 0 1px 3px rgb(11 99 197 / .28);
+}
+.filter-split[data-mode="include"] .filter-trigger { color: inherit; border-color: rgb(255 255 255 / .35); }
+.filter-split[data-mode="include"] button:hover,
+.filter-split[data-mode="include"] .filter-trigger[aria-expanded="true"] { background: var(--chip-active-hover); }
+.filter-split[data-mode="exclude"] { background: var(--exclude-bg); border-color: var(--exclude-border); color: var(--exclude-text); }
+.filter-split[data-mode="exclude"] .filter-trigger { color: inherit; border-color: var(--exclude-border); }
+.filter-split[data-mode="exclude"] button:hover,
+.filter-split[data-mode="exclude"] .filter-trigger[aria-expanded="true"] { background: var(--exclude-badge); }
+.filter-minus { visibility: hidden; width: 12px; font-size: 13px; line-height: 1; }
+.filter-split[data-mode="exclude"] .filter-minus { visibility: visible; }
+.chip-count {
+  box-sizing: content-box; display: inline-flex; align-items: center; justify-content: flex-end;
+  min-height: 24px; padding: 0 6px; border-radius: 12px;
+  background: var(--chip-count-bg); color: var(--heading);
+  font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.filter-split[data-mode="include"] .chip-count { background: rgb(255 255 255 / .22); color: var(--on-accent); }
+.filter-split[data-mode="exclude"] .chip-count { background: var(--exclude-badge); color: var(--exclude-text); }
+.swatch { display: inline-block; width: 15px; height: 15px; border: 1px solid var(--input-border); border-radius: 4px; flex: none; }
+.filter-split[data-mode="include"] .swatch { border-color: rgb(255 255 255 / .85); box-shadow: 0 0 0 1px rgb(0 0 0 / .2); }
+.swatch.pending { background: var(--swatch-pending); }
+.swatch.done { background: var(--panel); }
+.swatch.partial { background: var(--swatch-partial); }
+.swatch.over { background: var(--swatch-over); }
+.swatch.carried { background: var(--swatch-carried); }
+.swatch.allZero { background: var(--swatch-all-zero); }
+.swatch.warning { background: var(--err); }
+.swatch.linked { background: var(--ok); }
+.swatch.nagDiffers { background: var(--err); }
+.swatch.partlyLinked, .swatch.notLinked { background: var(--warn); }
+/* Clear and the summary keep their place at the end of the last row whether or not a filter is on, so ticking a chip
+   never adds a row and pushes the table down; a long summary is cut short (its full text is in the tooltip). */
+.filter-actions { flex: 1 1 240px; min-width: 240px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.filter-summary { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--exclude-text); font-size: 14.5px; font-weight: 700; }
+.filter-summary:empty { display: none; }
+.filter-menu {
+  position: fixed; inset: auto; top: var(--menu-top); left: clamp(8px, var(--menu-left), calc(100vw - 272px));
+  width: 264px; max-width: calc(100vw - 16px); max-height: calc(100dvh - var(--menu-top) - 8px);
+  margin: 0; padding: 5px; overflow: auto; border: 1px solid var(--line); border-radius: 9px;
+  background: var(--panel); color: var(--text); box-shadow: var(--shadow-lg);
+}
+.filter-menu.opens-up { top: auto; bottom: var(--menu-bottom); max-height: calc(100dvh - var(--menu-bottom) - 8px); }
+.filter-menu-title { padding: 5px 8px 3px; color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; }
+button.filter-option {
+  display: grid; grid-template-columns: 1fr 16px; text-align: left; width: 100%; height: auto; min-height: 42px;
+  padding: 4px 8px; border: 0; background: transparent; color: var(--text); white-space: normal;
+}
+button.filter-option[aria-checked="true"] { background: var(--accent-soft); color: var(--heading); }
+button.filter-option[aria-checked="true"]::after { content: "✓"; grid-column: 2; grid-row: 1; }
+button.filter-option:hover { background: var(--hover); }
+button.filter-option:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; box-shadow: none; }
+.filter-option-label { font-size: 15px; }
+.filter-option-help { grid-column: 1 / -1; color: var(--muted); font-size: 13px; font-weight: 500; }
+button.filter-clear {
+  margin-left: auto; height: 32px; padding: 0 11px; border-radius: 8px; font-size: 14.5px; font-weight: 700;
+  background: var(--panel); color: var(--err); border: 1px solid var(--err);
+}
+button.filter-clear:hover { background: var(--err-soft); border-color: var(--err); }
+.filter-clear.off { visibility: hidden; pointer-events: none; }
+
+/* Summary KPI strip */
+.totals-strip {
+  display: grid; grid-template-columns: repeat(9, minmax(0, 1fr));
+  border-radius: 0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px);
+  overflow: hidden;
+}
+.totals-strip .stat {
+  display: flex; flex-direction: column; gap: 3px; padding: 9px 12px; min-width: 0;
+  border-right: 1px solid var(--line-soft);
+}
+.totals-strip .stat:last-child { border-right: 0; }
+.totals-strip .stat-label {
+  font-size: 12.5px; font-weight: 700; letter-spacing: .35px; text-transform: uppercase;
+  color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.totals-strip .stat-value {
+  font-size: 19px; font-weight: 700; color: var(--heading);
+  font-variant-numeric: tabular-nums; line-height: 1.25; white-space: nowrap;
+}
+.totals-strip .stat-balance { background: var(--warn-soft); }
+.totals-strip .stat-balance .stat-label,
+.totals-strip .stat-balance .stat-value { color: var(--warn); }
+.totals-strip .stat-warn { background: var(--err-soft); }
+.totals-strip .stat-warn .stat-label,
+.totals-strip .stat-warn .stat-value { color: var(--err); }
+
+@media (max-width: 1120px) {
+  .totals-strip { grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); }
+  .totals-strip .stat { border-bottom: 1px solid var(--line-soft); }
+}
+.notice-bar { background: var(--note-bg); border: 1px solid var(--note-border); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 12px; font-size: 15.5px; display: flex; gap: 12px; align-items: flex-start; }
+.notice-bar.err { background: var(--err-soft); border-color: var(--err); }
+.notice-bar > div { flex: 1; }
+.notice-bar ul { margin: 4px 0 0; padding-left: 20px; }
+.note { background: var(--note-bg); border: 1px solid var(--note-border); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 15.5px; }
