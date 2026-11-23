@@ -26,12 +26,7 @@ public sealed class ApiBillLinkTests(DashboardApiFactory factory) : IClassFixtur
 
     private static object Entry(int inward, string party, int than, string dn = "", string lot = "", string gatePass = "G1") => Setup.Entry(inward, party, than: than, dn: dn, lot: lot, gatePass: gatePass);
 
-    private SqliteConnection Open()
-    {
-        var connection = new SqliteConnection($"Data Source={Path.Combine(factory.DataDirectory, "mph-data.db")};Pooling=False");
-        connection.Open();
-        return connection;
-    }
+    private SqliteConnection Open() => TestDb.Open(factory.DataDirectory);
 
     /// <summary>An October bill of LINK A as the Excel import saved it, with no line linked.</summary>
     private long ExcelBill(params (string Gpn, string Dn, string Lot, int Qty)[] lines) => ExcelBill(900, lines);

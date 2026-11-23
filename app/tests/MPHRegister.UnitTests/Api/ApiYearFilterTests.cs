@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using Dapper;
 using Microsoft.Data.Sqlite;
+using MPHRegister.UnitTests.TestSupport;
 using static MPHRegister.UnitTests.Api.Http;
 
 namespace MPHRegister.UnitTests.Api;
@@ -149,7 +150,7 @@ public sealed class ApiYearFilterTests(ApiFactory factory) : IClassFixture<ApiFa
         var (_, afterEntry) = await Dashboard(app, "/api/dashboard?fy=26-27");
 
         // A change made outside the app (another program on the data file) is seen too: the file's size or write time moves.
-        await using (var outside = new SqliteConnection($"Data Source={Path.Combine(factory.DataDirectory, "mph-data.db")};Pooling=False"))
+        await using (var outside = TestDb.Open(factory.DataDirectory))
             await outside.ExecuteAsync("UPDATE entries SET than = than + 1 WHERE inward_no = 400;");
         Assert.Equal(HttpStatusCode.OK, await Status(app, "/api/dashboard?fy=26-27", afterEntry));
         var (_, afterOutside) = await Dashboard(app, "/api/dashboard?fy=26-27");

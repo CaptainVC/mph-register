@@ -47,15 +47,7 @@ public sealed class ApiEntryDeleteTests
         return Assert.Single((await app.Post("/api/billing/save", new { invoices = new[] { Assert.Single(drafts.EnumerateArray()) } }).Ok()).EnumerateArray());
     }
 
-    private static SqliteConnection Open(ApiFactory factory)
-    {
-        var db = new SqliteConnection(new SqliteConnectionStringBuilder
-        {
-            DataSource = Path.Combine(factory.DataDirectory, "mph-data.db"), Pooling = false,
-        }.ToString());
-        db.Open();
-        return db;
-    }
+    private static SqliteConnection Open(ApiFactory factory) => TestDb.Open(factory.DataDirectory);
 
     [Fact]
     public async Task Deleted_entry_comes_back_whole_under_the_same_id()
