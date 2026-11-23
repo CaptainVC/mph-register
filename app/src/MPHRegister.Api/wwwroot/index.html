@@ -207,20 +207,24 @@
       </div>
 
       <div id="aawak-totals" class="subview scroll">
-        <div class="card">
-          <h1>Aawak totals</h1>
-          <p class="muted">NAG per party and per lorry wala for any days (the workbook's Total sheet). Sister firms are added up under their group.</p>
-          <div class="import-form">
+        <div class="arrival-report">
+          <div class="arrival-report-heading">
+            <div><p class="report-eyebrow">GATE ARRIVALS / REPORT</p><h1>Aawak totals</h1><p class="muted">One period. Every party, lorry wala and day's NAG, accounted for.</p></div>
+            <div class="report-actions">
+              <button type="button" id="statementsPrint" class="secondary" disabled>Print lorry statements</button>
+              <button type="button" id="totalsPrint" disabled>Print / Save PDF</button>
+            </div>
+          </div>
+          <div class="report-filters" role="group" aria-label="Totals report filters">
             <div class="field"><label for="totalsPeriod">Period</label><button type="button" id="totalsPeriod" data-dropdown></button></div>
             <div class="field"><label for="totalsFrom">From</label><input id="totalsFrom" type="date"></div>
             <div class="field"><label for="totalsTo">To</label><input id="totalsTo" type="date"></div>
-            <div class="field"><label for="totalsOrder">Order</label><button type="button" id="totalsOrder" data-dropdown></button></div>
+            <div class="field"><label for="totalsOrder">Sort summaries</label><button type="button" id="totalsOrder" data-dropdown></button></div>
             <label class="check"><input type="checkbox" id="totalsGroup" checked> Group sister firms</label>
-            <button type="button" id="totalsPrint" class="secondary">Print totals</button>
-            <button type="button" id="statementsPrint" class="secondary">Print lorry-wala statements</button>
           </div>
+          <p id="totalsStatus" class="report-status muted" role="status" aria-live="polite"></p>
+          <div id="totalsResult" aria-busy="false"></div>
         </div>
-        <div id="totalsResult"></div>
       </div>
 
       <div id="aawak-check" class="subview scroll">

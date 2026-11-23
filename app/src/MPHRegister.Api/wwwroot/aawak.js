@@ -4,7 +4,7 @@
 // day, with its NAG and the inward slips (INW NO) it carries. Rows are linked to their inward entries on the server; every
 // linked slip is a link to that inward entry, and the inward registers' Aawak column links back here.
 const aawakState = {
-  rows: [], rowsKey: null, recent: [], previewSeq: 0, lastDate: "", lastTransporter: "", editing: null, totals: null, check: null,
+  rows: [], rowsKey: null, recent: [], previewSeq: 0, lastDate: "", lastTransporter: "", editing: null, totals: null, totalsSeq: 0, check: null,
   importReport: null, lorry: [],
 };
 
@@ -655,7 +655,7 @@ const TOTALS_PERIODS = [
   ["thisFy", "This financial year"], ["custom", "Choose dates"],
 ];
 setDropdownOptions($("totalsPeriod"), TOTALS_PERIODS, "thisMonth");
-setDropdownOptions($("totalsOrder"), [["nag", "Most NAG first"], ["first", "As in the workbook (first to arrive first)"]], "nag");
+setDropdownOptions($("totalsOrder"), [["nag", "Most NAG first"], ["first", "First arrival first"]], "nag");
 
 function isoDay(year, month, day) {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -686,50 +686,161 @@ $("totalsOrder").addEventListener("change", () => renderTotalsView().catch(showF
 $("totalsGroup").addEventListener("change", () => renderTotalsView().catch(showFatal));
 
 function totalsQuery() {
-  if (!$("totalsFrom").value || !$("totalsTo").value) [$("totalsFrom").value, $("totalsTo").value] = periodDates($("totalsPeriod").value);
+  if (!$("totalsFrom").value && !$("totalsTo").value && $("totalsPeriod").value !== "custom") {
+    [$("totalsFrom").value, $("totalsTo").value] = periodDates($("totalsPeriod").value);
+  }
   return new URLSearchParams({ from: $("totalsFrom").value, to: $("totalsTo").value, group: String($("totalsGroup").checked), order: $("totalsOrder").value });
 }
 
+function nagShare(nag, total) {
+  return total ? `${(nag / total * 100).toLocaleString("en-IN", { maximumFractionDigits: 1 })}%` : "0%";
+}
+
 function totalsTable(caption, lines, total) {
-  return el("table", { class: "register totals-table" }, [
-    el("thead", {}, [el("tr", {}, [el("th", { text: caption }), el("th", { text: "Rows" }), el("th", { text: "NAG" })])]),
+  return el("table", { class: "totals-table" }, [
+    el("caption", { class: "sr-only", text: caption }),
+    el("thead", {}, [el("tr", {}, ["Name", "Rows", "Share", "NAG"].map((text) => el("th", { scope: "col", text })))]),
     el("tbody", {}, lines.map((l) => el("tr", {}, [
-      el("td", { class: "left", title: l.members.length ? l.members.join(", ") : "" }, [l.name, l.isGroup ? el("span", { class: "muted", text: ` (${l.members.join(", ")})` }) : ""]),
-      el("td", { text: num(l.arrivals) }), el("td", { class: "big", text: num(l.nag) }),
+      el("td", { class: "report-name", "data-no-i18n": "all" }, [el("span", { text: l.name }), l.isGroup ? el("small", { text: l.members.join(", ") }) : ""]),
+      el("td", { text: num(l.arrivals) }),
+      el("td", { class: "report-share" }, [
+        el("span", { text: nagShare(l.nag, total) }),
+        el("span", { class: "report-meter", "aria-hidden": "true" }, [el("span", { style: `width:${total ? l.nag / total * 100 : 0}%` })]),
+      ]),
+      el("td", { class: "report-nag", text: num(l.nag) }),
     ]))),
-    el("tfoot", {}, [el("tr", {}, [el("th", { class: "left", text: "Grand Total" }), el("th", { text: num(lines.reduce((s, l) => s + l.arrivals, 0)) }), el("th", { text: num(total) })])]),
+    el("tfoot", {}, [el("tr", {}, [
+      el("th", { scope: "row", text: "Period total" }), el("th", { text: num(lines.reduce((s, l) => s + l.arrivals, 0)) }),
+      el("th", { text: nagShare(total, total) }), el("th", { text: num(total) }),
+    ])]),
   ]);
 }
 
-async function renderTotalsView() {
-  const totals = await api(`/api/arrivals/totals?${totalsQuery()}`);
-  aawakState.totals = totals;
-  const box = $("totalsResult");
-  if (!totals.arrivals) {
-    box.replaceChildren(el("div", { class: "card" }, [el("p", { class: "muted", text: `No Aawak rows from ${formatDate(totals.from)} to ${formatDate(totals.to)}.` })]));
-    return;
-  }
-  const transporters = totals.transporters.map((t) => t.name);
-  const parties = [...new Set(totals.matrix.map((c) => c.party))].sort();
-  const cell = (t, p) => totals.matrix.find((c) => c.transporter === t && c.party === p)?.nag;
-  box.replaceChildren(
-    el("div", { class: "card" }, [
-      el("h2", { text: `${formatDate(totals.from)} to ${formatDate(totals.to)}: ${num(totals.arrivals)} rows, ${num(totals.nag)} NAG` }),
-      el("div", { class: "totals-pair" }, [totalsTable(totals.groupSisters ? "PARTY / GROUP" : "PARTY", totals.parties, totals.nag), totalsTable("LORRY WALA", totals.transporters, totals.nag)]),
-    ]),
-    el("details", { class: "card" }, [el("summary", { text: "NAG by lorry wala and party" }), el("div", { class: "table-wrap" }, [el("table", { class: "register" }, [
-      el("thead", {}, [el("tr", {}, [el("th", { text: "LORRY WALA" }), ...parties.map((p) => el("th", { text: p }))])]),
-      el("tbody", {}, transporters.map((t) => el("tr", {}, [el("td", { class: "left", text: t }), ...parties.map((p) => el("td", { text: num(cell(t, p) ?? "") }))]))),
-    ])])]),
-    el("details", { class: "card" }, [el("summary", { text: "NAG by day" }), el("table", { class: "register" }, [
-      el("thead", {}, [el("tr", {}, [el("th", { text: "DATE" }), el("th", { text: "Rows" }), el("th", { text: "NAG" })])]),
-      el("tbody", {}, totals.days.map((d) => el("tr", {}, [el("td", { text: formatDate(d.date) }), el("td", { text: num(d.arrivals) }), el("td", { text: num(d.nag) })]))),
+function totalsCard(title, note, lines, nag) {
+  const search = el("input", { type: "search", placeholder: "Find a name...", "aria-label": `Search ${title.replace(/^By /, "")} totals` });
+  const count = el("span", { class: "count-pill", text: num(lines.length) });
+  const table = totalsTable(title, lines, nag);
+  const empty = el("p", { class: "report-no-match muted", role: "status", hidden: "", text: "No matching names. Try a different search." });
+  search.addEventListener("input", () => {
+    const term = search.value.trim().toLocaleLowerCase();
+    let visible = 0;
+    [...table.tBodies[0].rows].forEach((row, i) => {
+      row.hidden = ![lines[i].name, ...lines[i].members].some((name) => name.toLocaleLowerCase().includes(term));
+      if (!row.hidden) visible++;
+    });
+    count.textContent = term ? `${num(visible)} / ${num(lines.length)}` : num(lines.length);
+    empty.hidden = visible > 0;
+  });
+  return el("section", { class: "report-card", "aria-label": title }, [
+    el("div", { class: "report-card-heading" }, [el("h2", { text: title }), count]),
+    el("p", { class: "muted report-card-note", text: note }), search, table, empty,
+  ]);
+}
+
+function renderTotalsReport(totals) {
+  const stats = [
+    ["Total NAG", totals.nag, "Across all arrivals"],
+    ["Aawak rows", totals.arrivals, "Entries in this period"],
+    [totals.groupSisters ? "Parties / groups" : "Parties", totals.parties.length, totals.groupSisters ? "Sister firms combined" : "Each party separately"],
+    ["Lorry walas", totals.transporters.length, `${num(totals.days.length)} arrival days`],
+  ];
+  const daily = totalsTable("NAG by day", totals.days.map((d) => ({ name: formatDate(d.date), members: [], arrivals: d.arrivals, nag: d.nag })), totals.nag);
+  daily.tHead.rows[0].cells[0].textContent = "Date";
+  const transporters = totals.transporters;
+  const parties = totals.parties;
+  const cells = new Map(totals.matrix.map((c) => [JSON.stringify([c.transporter, c.party]), c.nag]));
+  const matrix = el("table", { class: "totals-table report-matrix" }, [
+    el("caption", { class: "sr-only", text: "NAG by lorry wala and party" }),
+    el("thead", {}, [el("tr", {}, [
+      el("th", { scope: "col", text: "Lorry wala" }),
+      ...parties.map((p) => el("th", { scope: "col", text: p.name, "data-no-i18n": "all" })),
+      el("th", { scope: "col", text: "Total NAG" }),
     ])]),
+    el("tbody", {}, transporters.map((t) => el("tr", {}, [
+      el("th", { scope: "row", text: t.name, "data-no-i18n": "all" }),
+      ...parties.map((p) => el("td", { text: cells.has(JSON.stringify([t.name, p.name])) ? num(cells.get(JSON.stringify([t.name, p.name]))) : "\u2014" })),
+      el("td", { class: "report-nag", text: num(t.nag) }),
+    ]))),
+    el("tfoot", {}, [el("tr", {}, [el("th", { scope: "row", text: "Total NAG" }), ...parties.map((p) => el("th", { text: num(p.nag) })), el("th", { text: num(totals.nag) })])]),
+  ]);
+  $("totalsResult").replaceChildren(
+    el("div", { class: "report-stats", "aria-label": "Period summary" }, stats.map(([label, value, hint], i) => el("div", { class: `report-stat${i === 0 ? " report-stat-primary" : ""}` }, [
+      el("span", { text: label }), el("b", { text: num(value) }), el("small", { text: hint }),
+    ]))),
+    el("div", { class: "report-breakdowns" }, [
+      totalsCard(totals.groupSisters ? "By party / group" : "By party", totals.groupSisters ? "Share of period NAG. Search also finds a sister firm's name." : "Share of period NAG. Each party is shown separately.", totals.parties, totals.nag),
+      el("div", { class: "report-side" }, [
+        totalsCard("By lorry wala", "Who brought the goods, and how much.", totals.transporters, totals.nag),
+        el("section", { class: "report-card", "aria-label": "Daily breakdown" }, [
+          el("div", { class: "report-card-heading" }, [el("h2", { text: "Daily breakdown" }), el("span", { class: "count-pill", text: `${num(totals.days.length)} days` })]),
+          el("p", { class: "muted report-card-note", text: "Arrival dates in calendar order." }),
+          el("div", { class: "report-daily", tabindex: "0", role: "region", "aria-label": "Daily NAG totals" }, [daily]),
+        ]),
+      ]),
+    ]),
+    el("details", { class: "report-card report-cross" }, [
+      el("summary", {}, [el("span", { text: "Lorry wala \u00d7 party" }), el("span", { class: "muted", text: "View NAG cross-check" })]),
+      el("p", { class: "muted", text: "Each cell is NAG for one lorry wala and party. A dash means no arrivals. Row and column totals reconcile to the period total." }),
+      el("div", { class: "report-matrix-wrap", tabindex: "0", role: "region", "aria-label": "NAG by lorry wala and party; scroll for more columns" }, [matrix]),
+    ]),
+    el("p", { class: "muted report-footnote", text: "Rows = Aawak entries, not inward slips. Searches only hide summary lines; period totals and the printed report always include all names." }),
   );
 }
 
-$("totalsPrint").addEventListener("click", () => window.open(`print-aawak.html?kind=totals&${totalsQuery()}`, "_blank"));
-$("statementsPrint").addEventListener("click", () => window.open(`print-aawak.html?kind=statements&${totalsQuery()}`, "_blank"));
+async function renderTotalsView() {
+  const seq = ++aawakState.totalsSeq;
+  const query = totalsQuery();
+  const box = $("totalsResult");
+  aawakState.totals = null;
+  $("totalsPrint").disabled = true;
+  $("statementsPrint").disabled = true;
+  box.setAttribute("aria-busy", "false");
+  const from = query.get("from"), to = query.get("to");
+  if (!from || !to || from > to) {
+    $("totalsStatus").textContent = !from || !to ? "Choose both dates to see your totals." : "The From date must be on or before the To date.";
+    box.replaceChildren(el("div", { class: "report-empty", role: "alert", text: "Check the report dates above." }));
+    return;
+  }
+  $("totalsStatus").textContent = "Updating totals...";
+  box.setAttribute("aria-busy", "true");
+  box.replaceChildren(el("div", { class: "report-empty muted", text: "Loading your report..." }));
+  let totals;
+  try {
+    totals = await api(`/api/arrivals/totals?${query}`);
+  } catch (error) {
+    if (seq !== aawakState.totalsSeq) return;
+    box.setAttribute("aria-busy", "false");
+    $("totalsStatus").textContent = `Could not load totals: ${errorText(error)}`;
+    box.replaceChildren(el("div", { class: "report-empty", role: "alert" }, [
+      el("p", { text: "The report could not be loaded. Your data has not been changed." }),
+      el("button", { type: "button", class: "secondary", text: "Try again", onclick: () => renderTotalsView().catch(showFatal) }),
+    ]));
+    return;
+  }
+  if (seq !== aawakState.totalsSeq) return;
+  aawakState.totals = totals;
+  box.setAttribute("aria-busy", "false");
+  $("totalsStatus").replaceChildren(`${formatDate(totals.from)} to ${formatDate(totals.to)} \u00b7 `,
+    el("span", { text: totals.groupSisters ? "Sister firms grouped" : "Individual parties" }), " \u00b7 ",
+    el("span", { text: totals.order === "first" ? "First arrival first" : "Most NAG first" }));
+  if (!totals.arrivals) {
+    box.replaceChildren(el("div", { class: "report-empty" }, [
+      el("h2", { text: "No arrivals in this period" }),
+      el("p", { class: "muted", text: "Try another period or widen the dates. Totals appear here once Aawak entries are available." }),
+    ]));
+    return;
+  }
+  renderTotalsReport(totals);
+  $("totalsPrint").disabled = false;
+  $("statementsPrint").disabled = false;
+}
+
+function printArrivalReport(kind) {
+  const { from, to, groupSisters, order } = aawakState.totals;
+  window.open(`print-aawak.html?${new URLSearchParams({ kind, from, to, group: String(groupSisters), order })}`, "_blank", "noopener");
+}
+$("totalsPrint").addEventListener("click", () => printArrivalReport("totals"));
+$("statementsPrint").addEventListener("click", () => printArrivalReport("statements"));
 
 // ---------- Check ----------
 function checkRange() {
