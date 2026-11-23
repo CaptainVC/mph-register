@@ -148,6 +148,9 @@ class Terms:
         if not text or not isinstance(text, str):
             return
         tokens = re.findall(r"[A-Za-z0-9]+", text.upper())
+        # A standalone missing-name marker contains no private identity; full names still get checked.
+        if tokens == ["UNKNOWN"]:
+            return
         for end in range(2, len(tokens) + 1):
             part = tokens[:end]
             if sum(len(t) for t in part) >= 6 and any(t not in COMMON_WORDS and not t.isdigit() for t in part):

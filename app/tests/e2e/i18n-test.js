@@ -31,6 +31,14 @@ const { t, applyLanguage, getLanguage } = context.window;
 assert.equal(getLanguage(), "en");
 
 const cases = [
+  ["Print / Save PDF", "Print / PDF Save करें"],
+  ["Period total", "अवधि का कुल जोड़"],
+  ["By party / group", "पार्टी / Group के हिसाब से"],
+  ["Sister firms grouped", "Sister Firms Group में"],
+  ["7 arrival days", "7 Aawak वाले दिन"],
+  ["7 days", "7 दिन"],
+  ["Search lorry wala totals", "लॉरी वाले के जोड़ में Search करें"],
+  ["Could not load totals: Network error", "जोड़ नहीं खुला: Network error"],
   ["New Entry", "नई Entry"],
   ["Menu", "मेन्यू"],
   ["Export to Excel…", "Excel में Export करें…"],

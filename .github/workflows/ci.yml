@@ -112,6 +112,7 @@ jobs:
           node tests/e2e/ui-updates.js
           node tests/e2e/ui-rollback.js
           node tests/e2e/ui-aawak.js
+          node tests/e2e/ui-aawak-totals.js
           node tests/e2e/ui-date-picker.js
           node tests/e2e/ui-laptop-layout.js
       - name: Hinglish translations and locale round trips
@@ -179,6 +180,9 @@ jobs:
           fetch-depth: 0
 
       # The generic rules only: the private terms live on the developer's machine (scripts/privacy_check.py).
+      - name: Privacy checker regressions
+        run: python3 -m unittest discover -s scripts -p 'test_privacy_check.py'
+
       - name: Every file holds test data only
         run: python3 scripts/privacy_check.py
 
