@@ -192,7 +192,7 @@ const COL = { inward: 0, party: 2, designNo: 3, repair: 5, than: 6, tp: 7, nag: 
     await page.locator("#partyFilter").fill(SECOND);
     await page.locator("#partyFilter").press("Enter");
     await page.locator("#partyCount", { hasText: `1 entries for ${SECOND}` }).waitFor();
-    await page.locator("#expandAllParties").click();
+    await page.locator("#toggleAllParties", { hasText: "Expand all" }).click();
     const partyRow = page.locator("#partyTable tbody tr[data-entry-id]").first();
     await partyRow.locator("td").nth(COL.than).click();
     await partyRow.locator(".cell-input").fill("20");

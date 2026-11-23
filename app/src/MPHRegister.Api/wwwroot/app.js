@@ -1903,13 +1903,24 @@ const collapsedFinishes = new Set();
 // Re-applies open/closed state to the rows on screen; renderPartywise points it at the current table.
 let applyPartyVisibility = () => {};
 let shownParties = [];
-$("expandAllParties").addEventListener("click", () => {
-  for (const name of shownParties) expandedParties.add(name);
-  collapsedFinishes.clear();
-  applyPartyVisibility();
-});
-$("collapseAllParties").addEventListener("click", () => {
-  for (const name of shownParties) expandedParties.delete(name);
+let shownFinishKeys = [];
+// One button: offers "Collapse all" once everything shown is open, otherwise "Expand all".
+const allPartiesOpen = () => shownParties.length > 0 && shownParties.every((name) => expandedParties.has(name))
+  && !shownFinishKeys.some((key) => collapsedFinishes.has(key));
+function syncToggleAllParties() {
+  const button = $("toggleAllParties");
+  const open = allPartiesOpen();
+  button.textContent = open ? "Collapse all" : "Expand all";
+  button.title = open ? "Close every party" : "Open every party and finish";
+  button.disabled = shownParties.length === 0;
+}
+$("toggleAllParties").addEventListener("click", () => {
+  if (allPartiesOpen()) {
+    for (const name of shownParties) expandedParties.delete(name);
+  } else {
+    for (const name of shownParties) expandedParties.add(name);
+    for (const key of shownFinishKeys) collapsedFinishes.delete(key);
+  }
   applyPartyVisibility();
 });
 
@@ -1967,6 +1978,7 @@ async function renderPartywise(options) {
     parties.get(entry.party).push(entry);
   }
   const visibilityUpdaters = [];
+  const finishKeys = [];
   for (const [partyName, partyEntries] of parties) {
     const finishGroups = [];
     const updateVisibility = () => {
@@ -1983,6 +1995,7 @@ async function renderPartywise(options) {
       if (expandedParties.has(partyName)) expandedParties.delete(partyName);
       else expandedParties.add(partyName);
       updateVisibility();
+      syncToggleAllParties();
     });
     body.append(partyRow);
     const finishes = new Map();
@@ -1993,11 +2006,13 @@ async function renderPartywise(options) {
     }
     for (const [finishName, finishEntries] of finishes) {
       const finishKey = JSON.stringify([partyName, finishName]);
+      finishKeys.push(finishKey);
       const allZero = finishName === ALL_ZERO_GROUP;
       const row = groupSummaryRow("subgroup", allZero ? "" : finishName, finishEntries, () => {
         if (collapsedFinishes.has(finishKey)) collapsedFinishes.delete(finishKey);
         else collapsedFinishes.add(finishKey);
         updateVisibility();
+        syncToggleAllParties();
       }, allZero);
       const entryRows = finishEntries.map(entryRow);
       finishGroups.push({ row, entryRows, finishKey });
@@ -2007,7 +2022,9 @@ async function renderPartywise(options) {
     visibilityUpdaters.push(updateVisibility);
   }
   shownParties = [...parties.keys()];
-  applyPartyVisibility = () => visibilityUpdaters.forEach((update) => update());
+  shownFinishKeys = finishKeys;
+  applyPartyVisibility = () => { visibilityUpdaters.forEach((update) => update()); syncToggleAllParties(); };
+  syncToggleAllParties();
   $("partyTable").replaceChildren(headerRow(), body);
   setTableEmpty($("partyTable"), entries.length ? "" : all.length ? "No entries match the filters."
     : month ? "No entries in this month." : partyPeriodFilter.year ? "No entries in this financial year." : "No entries.");
