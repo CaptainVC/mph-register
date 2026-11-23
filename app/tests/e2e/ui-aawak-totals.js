@@ -96,19 +96,48 @@ function fixture(query, rows = source) {
     assert.equal(await parties.locator(".report-name small").first().textContent(), "Save, DEMO TEXTILES 01");
     await page.evaluate(() => window.applyLanguage("en"));
 
-    await result.locator(".report-cross summary").click();
-    const matrix = result.locator(".report-matrix");
+    // The lorry wala x party table is open without any click and fits the page at laptop width.
+    const cross = result.locator(".report-cross");
+    const matrix = cross.locator(".report-matrix");
+    assert.equal(await cross.locator("details, summary").count(), 0);
+    assert.equal(await matrix.isVisible(), true);
     assert.equal(await matrix.locator("tbody tr").count(), 4);
-    assert.equal(await matrix.locator("tfoot th").last().textContent(), number(total));
-    assert.ok((await matrix.locator("tbody").textContent()).includes("\u2014"), "missing combinations show a dash, not a misleading zero");
+    assert.equal(await matrix.locator("tfoot td").last().textContent(), number(total));
+    assert.ok((await matrix.locator("tbody .report-zero").count()) > 0 && (await matrix.locator("tbody .report-zero").first().textContent()).includes("No arrivals"), "missing combinations show a dot, not a misleading zero");
     const reconciles = await matrix.evaluate((t) => {
-      const value = (c) => Number(c.textContent.replaceAll(",", "").replace("\u2014", "0"));
+      const value = (c) => Number(c.textContent.replaceAll(",", "")) || 0;
       const rows = [...t.tBodies[0].rows];
       return rows.every((r) => [...r.cells].slice(1, -1).reduce((s, c) => s + value(c), 0) === value(r.cells[r.cells.length - 1])) &&
-        [...t.tFoot.rows[0].cells].slice(1).every((c, i) => rows.reduce((s, r) => s + value(r.cells[i + 1]), 0) === value(c));
+        [...t.tFoot.rows[0].cells].slice(1, -1).every((c, i) => rows.reduce((s, r) => s + value(r.cells[i + 1]), 0) === value(c));
     });
     assert.ok(reconciles, "each matrix row and column reconciles, not just the grand total");
-    await result.locator(".report-cross summary").click();
+    const wrapFit = await cross.locator(".report-matrix-wrap").evaluate((n) => n.scrollWidth <= n.clientWidth + 1);
+    assert.ok(wrapFit, "the table fits without sideways scrolling at 1440px");
+    const shaded = await matrix.locator(".report-cell").evaluateAll((cells) => new Set(cells.map((c) => c.style.getPropertyValue("--heat"))).size);
+    assert.ok(shaded > 1, "cells are shaded by size");
+
+    // Share view: every row adds up to about 100%, and the switch is reflected for assistive technology.
+    await cross.getByRole("button", { name: "% of lorry wala" }).click();
+    assert.equal(await cross.getByRole("button", { name: "% of lorry wala" }).getAttribute("aria-pressed"), "true");
+    assert.match(await matrix.locator(".report-cell").first().textContent(), /%$/);
+    const rowShares = await matrix.evaluate((t) => [...t.tBodies[0].rows].map((r) => [...r.cells].slice(1, -1).reduce((s, c) => s + (parseFloat(c.textContent) || 0), 0)));
+    assert.ok(rowShares.every((v) => Math.abs(v - 100) < 1), `each row adds up to 100%: ${rowShares}`);
+    await cross.getByRole("button", { name: "NAG", exact: true }).click();
+    assert.equal(await matrix.locator(".report-cell").first().textContent(), number(Number((await matrix.locator(".report-cell").first().textContent()).replaceAll(",", ""))));
+
+    // Search narrows rows for a lorry wala and columns for a party; totals stay for the whole period.
+    const find = cross.getByRole("searchbox");
+    await find.fill("lorry 2");
+    assert.equal(await matrix.locator("tbody tr:visible").count(), 1);
+    assert.equal(await matrix.locator("tfoot td").last().textContent(), number(total));
+    await find.fill("demo textiles 05");
+    assert.equal(await matrix.locator("thead th:visible").count(), 3, "only the matching party column stays");
+    assert.equal(await matrix.locator("tbody tr:visible").count(), 4);
+    await find.fill("no such name");
+    assert.equal(await cross.locator(".report-no-match").isVisible(), true);
+    assert.equal(await matrix.isVisible(), false);
+    await find.fill("");
+    assert.equal(await matrix.locator("tbody tr:visible").count(), 4);
 
     for (const width of [1440, 1280, 768, 390]) {
       await page.setViewportSize({ width, height: width === 1280 ? 640 : 1000 });

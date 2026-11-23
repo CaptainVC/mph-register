@@ -101,21 +101,6 @@ function renderTotalsReport(totals) {
   daily.tHead.rows[0].cells[0].textContent = "Date";
   const transporters = totals.transporters;
   const parties = totals.parties;
-  const cells = new Map(totals.matrix.map((c) => [JSON.stringify([c.transporter, c.party]), c.nag]));
-  const matrix = el("table", { class: "totals-table report-matrix" }, [
-    el("caption", { class: "sr-only", text: "NAG by lorry wala and party" }),
-    el("thead", {}, [el("tr", {}, [
-      el("th", { scope: "col", text: "Lorry wala" }),
-      ...parties.map((p) => el("th", { scope: "col", text: p.name, "data-no-i18n": "all" })),
-      el("th", { scope: "col", text: "Total NAG" }),
-    ])]),
-    el("tbody", {}, transporters.map((t) => el("tr", {}, [
-      el("th", { scope: "row", text: t.name, "data-no-i18n": "all" }),
-      ...parties.map((p) => el("td", { text: cells.has(JSON.stringify([t.name, p.name])) ? num(cells.get(JSON.stringify([t.name, p.name]))) : "\u2014" })),
-      el("td", { class: "report-nag", text: num(t.nag) }),
-    ]))),
-    el("tfoot", {}, [el("tr", {}, [el("th", { scope: "row", text: "Total NAG" }), ...parties.map((p) => el("th", { text: num(p.nag) })), el("th", { text: num(totals.nag) })])]),
-  ]);
   $("totalsResult").replaceChildren(
     el("div", { class: "report-stats", "aria-label": "Period summary" }, stats.map(([label, value, hint], i) => el("div", { class: `report-stat${i === 0 ? " report-stat-primary" : ""}` }, [
       el("span", { text: label }), el("b", { text: num(value) }), el("small", { text: hint }),
@@ -131,11 +116,7 @@ function renderTotalsReport(totals) {
         ]),
       ]),
     ]),
-    el("details", { class: "report-card report-cross" }, [
-      el("summary", {}, [el("span", { text: "Lorry wala \u00d7 party" }), el("span", { class: "muted", text: "View NAG cross-check" })]),
-      el("p", { class: "muted", text: "Each cell is NAG for one lorry wala and party. A dash means no arrivals. Row and column totals reconcile to the period total." }),
-      el("div", { class: "report-matrix-wrap", tabindex: "0", role: "region", "aria-label": "NAG by lorry wala and party; scroll for more columns" }, [matrix]),
-    ]),
+    crossCheckCard(totals),
     el("p", { class: "muted report-footnote", text: "Rows = Aawak entries, not inward slips. Searches only hide summary lines; period totals and the printed report always include all names." }),
   );
 }
