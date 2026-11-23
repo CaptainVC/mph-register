@@ -1524,7 +1524,7 @@ label.dash-pick:hover { background: var(--hover); }
 #excelNotes, #excelProblems { margin: 0; padding-left: 22px; }
 #excelForm .excel-bills { max-height: 300px; overflow: auto; }
 
-/* ---------- AAWAK (gate arrivals) ---------- */
+/* ---------- Aawak (gate arrivals) ---------- */
 a.aawak-link, a.inward-link { color: var(--accent); font-weight: 600; text-decoration: underline; }
 a.aawak-link:hover, a.inward-link:hover { background: var(--accent-soft); }
 .aawak-none { color: var(--warn); font-weight: 600; }

@@ -2,7 +2,7 @@ using MPHRegister.Contracts.Arrivals;
 
 namespace MPHRegister.Services.Interfaces;
 
-/// <summary>The AAWAK register: arrivals at the gate and the inward slips they carry.</summary>
+/// <summary>The Aawak register: arrivals at the gate and the inward slips they carry.</summary>
 public interface IArrivalService
 {
     IReadOnlyList<ArrivalDto> List(string? month);

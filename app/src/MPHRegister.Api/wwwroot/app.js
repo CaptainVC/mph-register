@@ -848,18 +848,18 @@ const COLUMNS = [
   ["MORE JAWAK", (e) => (e.dispatches.length > 3 ? e.dispatches.slice(3).map((d) => `${num(d.qty)}/${d.gatePass}`).join(", ") : "")],
   ["SHORT THAN", (e) => num(e.shortThan ?? "")],
   ["BALANCE", (e) => num(e.balance)],
-  ["AAWAK", (e) => aawakText(e), "left aawak-cell", (td, e) => fillAawakCell(td, e)],
+  ["Aawak", (e) => aawakText(e), "left aawak-cell", (td, e) => fillAawakCell(td, e)],
   ["WARNINGS", (e) => e.warnings.join(" "), "left warning-cell", (td, e) => fillWarningCell(td, e)],
 ];
 
-// The AAWAK column: the AAWAK rows (gate arrivals) the slip came on, each a link to that row; "No AAWAK found" when a slip
-// that should have one has none; "No AAWAK needed" when it was marked so.
-const NO_AAWAK_TEXT = "No AAWAK found";
-const AAWAK_NOT_NEEDED_TEXT = "No AAWAK needed";
+// The Aawak column: the Aawak rows (gate arrivals) the slip came on, each a link to that row; "No Aawak found" when a slip
+// that should have one has none; "No Aawak needed" when it was marked so.
+const NO_Aawak_TEXT = "No Aawak found";
+const Aawak_NOT_NEEDED_TEXT = "No Aawak needed";
 function aawakText(entry) {
   if (entry.aawak?.length) return entry.aawak.map((a) => a.number).join(", ");
-  if (entry.aawakState === "none") return NO_AAWAK_TEXT;
-  return entry.aawakState === "notNeeded" ? AAWAK_NOT_NEEDED_TEXT : "";
+  if (entry.aawakState === "none") return NO_Aawak_TEXT;
+  return entry.aawakState === "notNeeded" ? Aawak_NOT_NEEDED_TEXT : "";
 }
 
 function fillAawakCell(td, entry) {
@@ -872,7 +872,7 @@ function fillAawakCell(td, entry) {
     if (index) td.append(", ");
     td.append(el("a", {
       href: "#", class: "aawak-link", text: arrival.number,
-      title: `Open AAWAK ${arrival.number} of ${formatMonth(arrival.aawakMonth)} (${formatDate(arrival.arrivalDate)}, ${arrival.transporter}, ${num(arrival.nag)} NAG)`,
+      title: `Open Aawak ${arrival.number} of ${formatMonth(arrival.aawakMonth)} (${formatDate(arrival.arrivalDate)}, ${arrival.transporter}, ${num(arrival.nag)} NAG)`,
       onclick: (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -1516,7 +1516,7 @@ const ROW_FILTERS = [
     { key: "carried", label: "Carryover", group: "carried", swatch: true, tip: "Slip repeated from the previous month's register", test: (e) => e.carriedOver },
     { key: "balance", label: "Has balance", group: "balance", tip: "Still to dispatch: BALANCE is above 0, so some stock is still with you", test: (e) => e.balance > 0 },
     { key: "warning", label: "Has warning", group: "warning", swatch: true, tip: "Point at the row to read the warning", test: (e) => e.warnings.length > 0 },
-    { key: "aawakNone", label: "No AAWAK", group: "aawakNone", tip: "No AAWAK row (gate arrival) was found for the slip", test: (e) => e.aawakState === "none" },
+    { key: "aawakNone", label: "No Aawak", group: "aawakNone", tip: "No Aawak row (gate arrival) was found for the slip", test: (e) => e.aawakState === "none" },
   ] },
   { caption: "Last import", help: "What the latest import of each month's inward workbook did: include New or Updated to see those entries", filters: [
     { key: "importAdded", label: "New", tip: "Added as a new row by the latest import of its month's workbook", test: (e) => e.lastImport?.action === "added" },

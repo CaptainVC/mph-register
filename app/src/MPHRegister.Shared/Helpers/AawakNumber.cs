@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace MPHRegister.Shared.Helpers;
 
-/// <summary>An AAWAK NO: a serial within the month and an optional letter for a row put in later ("217A").</summary>
+/// <summary>An Aawak NO: a serial within the month and an optional letter for a row put in later ("217A").</summary>
 public static partial class AawakNumber
 {
     public const int Max = 99_999;

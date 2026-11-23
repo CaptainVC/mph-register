@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 namespace MPHRegister.Shared.Helpers;
 
 /// <summary>
-/// What an AAWAK row's INW NO / COMMENTS say about its inward slips. <c>Readings</c> are the possible lists of slip numbers,
+/// What an Aawak row's INW NO / COMMENTS say about its inward slips. <c>Readings</c> are the possible lists of slip numbers,
 /// the likeliest first: a shortened range end ("237-24") can be read more than one way, and the slips' NAG later decides.
 /// <c>Note</c> is the text that is not numbers (who carried it, the real sender); <c>NumbersText</c> the numbers part as written.
 /// </summary>

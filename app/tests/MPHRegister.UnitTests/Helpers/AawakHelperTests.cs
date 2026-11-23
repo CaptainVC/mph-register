@@ -91,9 +91,9 @@ public sealed class AawakNumberTests
 public sealed class RegisterFileNameTests
 {
     [Theory]
-    [InlineData("AAWAK--NOV.-26-27.xlsm", "2026-11")]
+    [InlineData("Aawak--NOV.-26-27.xlsm", "2026-11")]
     [InlineData("AWAK--JUL.-26-27.xlsm", "2026-07")]
-    [InlineData("AAWAK--FEB.-26-27.xlsm", "2027-02")]
+    [InlineData("Aawak--FEB.-26-27.xlsm", "2027-02")]
     [InlineData("INWARD REG.-JUN.-26-29.xlsm", "2026-06")]
     public void Guesses_the_month_from_the_file_name(string name, string month) => Assert.Equal(month, RegisterFileName.GuessMonth(name));
 

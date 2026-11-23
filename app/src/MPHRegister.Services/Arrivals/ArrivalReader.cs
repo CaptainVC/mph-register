@@ -97,7 +97,7 @@ public sealed class ArrivalReader(IArrivalRepository arrivals, IConfigStore conf
         foreach (var far in live.Where(s => Math.Abs(Dates.ParseIsoOrDefault(s.EntryDate).DayNumber - day0.DayNumber) > 1))
             warnings.Add(string.Create(CultureInfo.InvariantCulture, $"INW NO {far.InwardNo} is dated {far.EntryDate}."));
         if (Dates.TryParseIso(row.ArrivalDate, out var date) && Dates.Month(date) != row.AawakMonth)
-            warnings.Add("The date is not in the AAWAK month.");
+            warnings.Add("The date is not in the Aawak month.");
         if (index.Transporter(row.Transporter) is { Active: false }) warnings.Add($"Lorry wala {row.Transporter} is inactive.");
 
         return new ArrivalDto(row.Id, row.AawakMonth, row.AawakNo, row.AawakSuffix, AawakNumber.Format(row.AawakNo, row.AawakSuffix), row.ArrivalDate,

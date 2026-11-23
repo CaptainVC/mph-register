@@ -58,10 +58,10 @@ public sealed record EntryDto(
     IReadOnlyList<EntryArrivalDto>? Aawak = null,
     string AawakState = "");
 
-/// <summary>An AAWAK row the entry came on.</summary>
+/// <summary>An Aawak row the entry came on.</summary>
 public sealed record EntryArrivalDto(long Id, string AawakMonth, string Number, string ArrivalDate, string Transporter, int Nag);
 
-/// <summary>Whether an entry has its AAWAK row: found, none found, not needed (marked), or not checked (empty).</summary>
+/// <summary>Whether an entry has its Aawak row: found, none found, not needed (marked), or not checked (empty).</summary>
 public static class EntryAawakState
 {
     public const string Found = "found";

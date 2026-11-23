@@ -12,7 +12,7 @@ public sealed class AawakSheetReaderTests : IDisposable
     [Fact]
     public void Reads_the_rows_and_skips_the_last_row_that_holds_only_a_number_and_a_date()
     {
-        var path = AawakWorkbook.Write(folder.File("AAWAK--NOV.-26-27.xlsx"),
+        var path = AawakWorkbook.Write(folder.File("Aawak--NOV.-26-27.xlsx"),
         [
             new("1", 11, "2026-11-01", "AW PARTY", 72, "LORRY ONE", "11-13"),
             new("2", 14, "2026-11-01", "AW OTHER", 40, "LORRY TWO"),
@@ -35,7 +35,7 @@ public sealed class AawakSheetReaderTests : IDisposable
     }
 
     [Fact]
-    public void A_repeated_AAWAK_NO_and_a_bad_NAG_are_errors()
+    public void A_repeated_Aawak_NO_and_a_bad_NAG_are_errors()
     {
         var path = AawakWorkbook.Write(folder.File("bad.xlsx"),
         [
@@ -46,7 +46,7 @@ public sealed class AawakSheetReaderTests : IDisposable
 
         var errors = AawakSheetReader.Read(path).Errors.Select(e => e.Message).ToList();
 
-        Assert.Contains(errors, e => e.Contains("AAWAK NO 1 is on rows 2, 3", StringComparison.Ordinal));
+        Assert.Contains(errors, e => e.Contains("Aawak NO 1 is on rows 2, 3", StringComparison.Ordinal));
         Assert.Contains(errors, e => e.Contains("NAG must be 1 or more", StringComparison.Ordinal));
     }
 

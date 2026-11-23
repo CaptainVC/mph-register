@@ -29,7 +29,7 @@ public sealed class ArrivalService(
     public IReadOnlyList<ArrivalDto> Recent(int? limit) =>
         reader.Read(arrivals.Recent(Math.Clamp(limit ?? Limits.RecentEntriesDefault, 1, Limits.RecentEntriesMax)));
 
-    public ArrivalDto Get(long id) => reader.Read(arrivals.Get(id)) ?? throw new NotFoundException("AAWAK row not found.");
+    public ArrivalDto Get(long id) => reader.Read(arrivals.Get(id)) ?? throw new NotFoundException("Aawak row not found.");
 
     public ArrivalDto Create(ArrivalInput input)
     {
@@ -47,7 +47,7 @@ public sealed class ArrivalService(
     {
         ArgumentNullException.ThrowIfNull(input);
         using var unit = session.Begin();
-        var existing = arrivals.Get(id) ?? throw new NotFoundException("AAWAK row not found.");
+        var existing = arrivals.Get(id) ?? throw new NotFoundException("Aawak row not found.");
         var arrival = Validate(input, existing);
         arrivals.Update(arrival with { Id = id, UpdatedAt = Now() });
         linker.Link(arrivals.Get(id)!);
@@ -58,14 +58,14 @@ public sealed class ArrivalService(
     public DeleteArrivalResult Delete(long id)
     {
         using var unit = session.Begin();
-        var arrival = arrivals.Get(id) ?? throw new NotFoundException("AAWAK row not found.");
+        var arrival = arrivals.Get(id) ?? throw new NotFoundException("Aawak row not found.");
         var linked = arrivals.Links([id]).Select(l => l.EntryId).ToList();
         arrivals.MoveToDeleted(id, Now());
         linker.Shares(linked);
         var deleted = arrivals.GetDeleted(id)!;
         unit.Commit();
         var notes = new List<string>();
-        if (arrival.ImportBatchId is not null) notes.Add("This row came from an AAWAK workbook. Importing a newer copy of that workbook keeps it deleted.");
+        if (arrival.ImportBatchId is not null) notes.Add("This row came from an Aawak workbook. Importing a newer copy of that workbook keeps it deleted.");
         return new DeleteArrivalResult(ToDto(deleted), notes);
     }
 
@@ -75,7 +75,7 @@ public sealed class ArrivalService(
     {
         using (var unit = session.Begin())
         {
-            var deleted = arrivals.GetDeleted(id) ?? throw new NotFoundException("Deleted AAWAK row not found. It may have been restored already.");
+            var deleted = arrivals.GetDeleted(id) ?? throw new NotFoundException("Deleted Aawak row not found. It may have been restored already.");
             var problems = RestoreProblems(deleted);
             if (problems.Count > 0) throw new AppValidationException(problems);
             arrivals.RestoreDeleted(id);
@@ -124,10 +124,10 @@ public sealed class ArrivalService(
     {
         ArgumentNullException.ThrowIfNull(input);
         using var unit = session.Begin();
-        var arrival = arrivals.Get(arrivalId) ?? throw new NotFoundException("AAWAK row not found.");
+        var arrival = arrivals.Get(arrivalId) ?? throw new NotFoundException("Aawak row not found.");
         var slip = arrivals.SlipsByIds([input.EntryId]).FirstOrDefault(s => !s.Deleted) ?? throw new NotFoundException("Inward entry not found.");
         if (input.Nag is { } share && (share < 1 || share > slip.Nag))
-            throw new AppValidationException(string.Create(CultureInfo.InvariantCulture, $"The NAG that came on this AAWAK must be from 1 to the slip's NAG ({slip.Nag})."));
+            throw new AppValidationException(string.Create(CultureInfo.InvariantCulture, $"The NAG that came on this Aawak must be from 1 to the slip's NAG ({slip.Nag})."));
         arrivals.SetLink(new ArrivalLinkEntity { ArrivalId = arrivalId, EntryId = slip.Id, Nag = input.Nag, How = ArrivalLinkHow.Manual, CreatedAt = Now() });
         linker.Link(arrival);
         unit.Commit();
@@ -137,8 +137,8 @@ public sealed class ArrivalService(
     public ArrivalDto RemoveLink(long arrivalId, long entryId)
     {
         using var unit = session.Begin();
-        var arrival = arrivals.Get(arrivalId) ?? throw new NotFoundException("AAWAK row not found.");
-        var link = arrivals.Links([arrivalId]).FirstOrDefault(l => l.EntryId == entryId) ?? throw new NotFoundException("That slip is not linked to this AAWAK row.");
+        var arrival = arrivals.Get(arrivalId) ?? throw new NotFoundException("Aawak row not found.");
+        var link = arrivals.Links([arrivalId]).FirstOrDefault(l => l.EntryId == entryId) ?? throw new NotFoundException("That slip is not linked to this Aawak row.");
         if (link.How != ArrivalLinkHow.Manual)
             throw new AppValidationException("This slip was linked by the number in INW NO. Change INW NO to take it off.");
         arrivals.RemoveLink(arrivalId, entryId);
@@ -233,7 +233,7 @@ public sealed class ArrivalService(
             without, overlinked);
     }
 
-    /// <summary>Slips are checked for an AAWAK row from the configured day, else from the first AAWAK row; null when there is none.</summary>
+    /// <summary>Slips are checked for an Aawak row from the configured day, else from the first Aawak row; null when there is none.</summary>
     private string? CheckSlipsFrom() => config.Current.Aawak.CheckSlipsFrom ?? arrivals.EarliestDate();
 
     private (string From, string To) Period(string? from, string? to)
@@ -267,10 +267,10 @@ public sealed class ArrivalService(
         }
         else if (!AawakNumber.TryParse(input.AawakNo, out number, out suffix))
         {
-            throw new AppValidationException("AAWAK NO must be a number, with at most one letter after it (like 217A).");
+            throw new AppValidationException("Aawak NO must be a number, with at most one letter after it (like 217A).");
         }
         if (arrivals.ByNumber(month, number, suffix) is { } other && other.Id != existing?.Id)
-            throw new AppValidationException($"AAWAK NO {AawakNumber.Format(number, suffix)} is already used in {MonthName(month)} (by {other.Party}, {other.ArrivalDate}).");
+            throw new AppValidationException($"Aawak NO {AawakNumber.Format(number, suffix)} is already used in {MonthName(month)} (by {other.Party}, {other.ArrivalDate}).");
 
         return (existing ?? new ArrivalEntity()) with
         {
@@ -289,9 +289,9 @@ public sealed class ArrivalService(
     private List<string> RestoreProblems(DeletedArrivalEntity deleted)
     {
         var problems = new List<string>();
-        if (arrivals.Get(deleted.Id) is not null) problems.Add("This AAWAK row is already in the register.");
+        if (arrivals.Get(deleted.Id) is not null) problems.Add("This Aawak row is already in the register.");
         if (arrivals.ByNumber(deleted.AawakMonth, deleted.AawakNo, deleted.AawakSuffix) is { } other)
-            problems.Add($"AAWAK NO {AawakNumber.Format(deleted.AawakNo, deleted.AawakSuffix)} of {MonthName(deleted.AawakMonth)} is now used by {other.Party} ({other.ArrivalDate}).");
+            problems.Add($"Aawak NO {AawakNumber.Format(deleted.AawakNo, deleted.AawakSuffix)} of {MonthName(deleted.AawakMonth)} is now used by {other.Party} ({other.ArrivalDate}).");
         var index = ConfigIndex.For(config.Current);
         if (index.Party(deleted.Party) is null) problems.Add($"Party \"{deleted.Party}\" is no longer in the party list. Add it in Masters first.");
         if (index.Transporter(deleted.Transporter) is null) problems.Add($"Lorry wala \"{deleted.Transporter}\" is no longer in the list. Add it in Masters first.");

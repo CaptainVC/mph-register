@@ -169,7 +169,7 @@ public sealed partial class InwardImportService(
         return string.Create(CultureInfo.InvariantCulture, $"INW. NO. {row.InwardNo} of {row.Date} ({row.Party}): {string.Join(", ", parts)}.");
     }
 
-    /// <summary>AAWAK rows naming the imported slips (or linked to entries the import changed or removed) are linked again.</summary>
+    /// <summary>Aawak rows naming the imported slips (or linked to entries the import changed or removed) are linked again.</summary>
     private void LinkArrivals(List<long> entryIds, List<InwardRow> rows)
     {
         if (rows.Count == 0) return;
