@@ -29,6 +29,10 @@ public sealed class EntriesController(IEntryService entries) : ApiControllerBase
     [HttpGet("deleted")]
     public ActionResult<IReadOnlyList<DeletedEntryDto>> Deleted() => Ok(entries.Deleted());
 
+    /// <summary>Removes every deleted entry for good, so none of them can be restored.</summary>
+    [HttpDelete("deleted")]
+    public ActionResult<PurgeDeletedResult> PurgeDeleted() => entries.PurgeDeleted();
+
     /// <summary>Puts a deleted entry back, refused while its INW. NO. or slip is in use again.</summary>
     [HttpPost("deleted/{id:long}/restore")]
     public ActionResult<EntryDto> Restore(long id) => entries.Restore(id);

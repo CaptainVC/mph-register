@@ -710,18 +710,46 @@ function deletedEntryItem(item) {
   ]);
 }
 
+// Returns true when the deleted entries were removed for good.
+async function purgeDeletedEntries(count) {
+  const ok = await showConfirm({
+    title: "Delete all permanently?",
+    message: count === 1 ? "The deleted entry will be removed for good and cannot be restored." : `All ${num(count)} deleted entries will be removed for good and cannot be restored.`,
+    detail: "Importing a workbook again can bring back any of these rows that it still contains.",
+    confirmText: "Delete permanently",
+    cancelText: "Keep them",
+    tone: "danger",
+  });
+  if (!ok) return false;
+  try {
+    const result = await api("/api/entries/deleted", { method: "DELETE" });
+    setMessage(`Permanently deleted ${num(result.removed)} ${result.removed === 1 ? "entry" : "entries"} ✓`, "ok");
+    return true;
+  } catch (error) {
+    await showAlert({ title: "Entries not deleted", message: errorText(error), tone: "danger" });
+    return false;
+  }
+}
+
 async function showDeletedEntries() {
   const dialog = $("deletedDrawer");
   const items = await api("/api/entries/deleted");
   const close = el("button", { type: "button", class: "secondary", text: "Close", onclick: () => closeDrawer(dialog) });
+  const purge = el("button", {
+    type: "button", class: "danger", id: "purgeDeletedEntries", text: "Delete all permanently",
+    title: "Remove every deleted entry for good; none can be restored afterwards",
+    onclick: async () => {
+      if (await purgeDeletedEntries(items.length)) await showDeletedEntries();
+    },
+  });
   drawerForm($("deletedForm"), {
     title: "Deleted entries",
     subtitle: items.length ? `${num(items.length)} deleted` : "",
     body: [
-      el("p", { class: "muted", text: "Entries deleted in the app stay here until they are restored. One can be restored while its INW. NO. and slip are still free." }),
+      el("p", { class: "muted", text: "Entries deleted in the app stay here until they are restored or deleted permanently. One can be restored while its INW. NO. and slip are still free." }),
       items.length ? el("ul", { class: "deleted-list" }, items.map(deletedEntryItem)) : el("p", { class: "deleted-empty", text: "No deleted entries." }),
     ],
-    actions: [close],
+    actions: items.length ? [close, purge] : [close],
     key: "deleted",
   });
   openDrawer(dialog, close);

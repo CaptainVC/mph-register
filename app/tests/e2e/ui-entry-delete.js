@@ -133,8 +133,25 @@ async function waitFor(check, message) {
     await page.locator("#appDialogConfirm").click();
     assert.ok((await call(`/api/entries/${secondId}`)).ok);
 
+    // Deleting everything permanently asks first; cancelling keeps the list, confirming empties it for good.
+    await must(`/api/entries/${firstId}`, "DELETE");
+    await page.locator('[data-view="register"]').click();
+    await page.locator("#openDeletedEntries").click();
+    await page.locator(`#deletedForm .deleted-item[data-id="${firstId}"]`).waitFor();
+    await page.locator("#purgeDeletedEntries").click();
+    await dialogTitled(page, "Delete all permanently?");
+    await page.locator("#appDialogCancel").click();
+    assert.equal((await must("/api/entries/deleted")).length, 1, "cancel keeps the deleted entry");
+    await page.locator("#purgeDeletedEntries").click();
+    await dialogTitled(page, "Delete all permanently?");
+    await page.locator("#appDialogConfirm").click();
+    await page.locator("#deletedForm .deleted-empty").waitFor();
+    assert.equal(await page.locator("#purgeDeletedEntries").count(), 0, "nothing is left to delete");
+    assert.deepEqual(await must("/api/entries/deleted"), []);
+    await page.locator("#deletedForm .drawer-foot button").filter({ hasText: /^Close$/ }).click();
+
     assert.deepEqual(errors, []);
-    console.log("Passed delete, undo, clash-checked restore and billed-entry refusal checks.");
+    console.log("Passed delete, undo, clash-checked restore, billed-entry refusal and permanent delete checks.");
   } finally {
     await browser.close();
   }

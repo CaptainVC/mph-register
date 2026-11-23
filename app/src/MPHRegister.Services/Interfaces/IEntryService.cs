@@ -23,6 +23,9 @@ public interface IEntryService
     /// <summary>Puts a deleted entry back under its own id, after checking nothing clashes with it.</summary>
     EntryDto Restore(long id);
 
+    /// <summary>Permanently removes every deleted entry; none of them can be restored afterwards.</summary>
+    PurgeDeletedResult PurgeDeleted();
+
     IReadOnlyList<EntryDto> PartyWise(string? month, string? party);
 
     IReadOnlyList<MonthSummary> Months();
