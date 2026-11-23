@@ -52,8 +52,7 @@ public sealed class ApiImportTests(ApiFactory factory) : IClassFixture<ApiFactor
 
     private void Sql(string sql)
     {
-        using var connection = new SqliteConnection($"Data Source={Path.Combine(factory.DataDirectory, "mph-data.db")};Pooling=False");
-        connection.Open();
+        using var connection = TestDb.Open(factory.DataDirectory);
         connection.Execute(sql);
     }
 

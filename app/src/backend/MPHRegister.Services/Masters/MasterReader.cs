@@ -23,11 +23,12 @@ public sealed class MasterReader(IConfigStore config, IMasterUsageRepository usa
             .ToList();
     }
 
-    public PartyDto? Party(string? name)
+    public PartyDto? Party(string? name, bool withCounts = true)
     {
         var index = ConfigIndex.For(config.Current);
         var party = index.Party(name);
-        return party is null ? null : PartyMapper.ToDto(party, index, Counts(usage.PartyEntryCounts()).GetValueOrDefault(party.Name));
+        if (party is null) return null;
+        return PartyMapper.ToDto(party, index, withCounts ? Counts(usage.PartyEntryCounts()).GetValueOrDefault(party.Name) : 0);
     }
 
     public IReadOnlyList<FinishDto> Finishes()

@@ -519,8 +519,17 @@ async function main() {
     const container = document.getElementById("bills");
     const notes = [];
     const numbers = [];
-    for (const id of ids) {
-      const doc = await getJson(`/api/invoices/${id}`);
+    // Up to six bills are read at once (a month can be hundreds), then drawn in the order chosen.
+    const docs = new Array(ids.length);
+    let next = 0;
+    const reader = async () => {
+      while (next < ids.length) {
+        const at = next++;
+        docs[at] = await getJson(`/api/invoices/${ids[at]}`);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(6, ids.length) }, reader));
+    for (const doc of docs) {
       numbers.push(doc.invoiceNo);
       const { sheet, rows, slots } = renderBill(template, doc, context);
       if (rows > (doc.firm?.rowsPerInvoice || context.firm.rowsPerInvoice)) notes.push(`${doc.invoiceNo} needs ${rows} rows, more than its ${doc.firm?.rowsPerInvoice} — printed with ${slots} smaller rows.`);

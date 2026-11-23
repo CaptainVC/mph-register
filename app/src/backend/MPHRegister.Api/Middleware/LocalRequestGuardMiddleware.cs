@@ -25,7 +25,9 @@ public sealed class LocalRequestGuardMiddleware(RequestDelegate next)
         var headers = context.Response.Headers;
         headers.XContentTypeOptions = "nosniff";
         headers.XFrameOptions = "DENY";
-        headers.CacheControl = "no-store";
+        // Answers are never kept; the screens' files may be, but are checked with the app on every use (ETag / Last-Modified
+        // answer 304 while unchanged), so an updated app's files are always picked up.
+        headers.CacheControl = context.Request.Path.StartsWithSegments("/api") ? "no-store" : "no-cache";
         headers["Referrer-Policy"] = "no-referrer";
         return next(context);
     }

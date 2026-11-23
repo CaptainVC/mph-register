@@ -6,6 +6,9 @@ public interface IEntryRepository
 {
     IReadOnlyList<EntryEntity> List(string? month);
 
+    /// <summary>Entries of the register months from <paramref name="from"/> to <paramref name="to"/> (yyyy-MM, both included).</summary>
+    IReadOnlyList<EntryEntity> InMonths(string from, string to);
+
     IReadOnlyList<EntryEntity> Recent(int limit);
 
     EntryEntity? Get(long id);
@@ -13,6 +16,9 @@ public interface IEntryRepository
     IReadOnlyList<EntryEntity> ByIds(IReadOnlyCollection<long> ids);
 
     IReadOnlyList<EntryEntity> Unbilled(IReadOnlyList<string> parties, string? uptoMonth);
+
+    /// <summary>The entries among <paramref name="ids"/> that are of one of the parties and still to be billed (what <see cref="Unbilled"/> lists).</summary>
+    IReadOnlyList<EntryEntity> UnbilledByIds(IReadOnlyCollection<long> ids, IReadOnlyList<string> parties);
 
     /// <summary>Unbilled entries with an inward date from <paramref name="from"/> to <paramref name="to"/> (ISO dates, both included).</summary>
     IReadOnlyList<EntryEntity> UnbilledBetween(IReadOnlyList<string> parties, string from, string to);
@@ -90,7 +96,8 @@ public interface IEntryRepository
     /// <summary>Numbers of the cancelled bills that list the entry (they cannot be restored while it is deleted).</summary>
     IReadOnlyList<string> CancelledBillsWith(long id);
 
-    IReadOnlyDictionary<long, List<DispatchEntity>> Dispatches(IReadOnlyCollection<long> entryIds);
+    /// <summary>The dispatches of these entries; <paramref name="readWhole"/> reads the table whole (quicker when they are most entries).</summary>
+    IReadOnlyDictionary<long, List<DispatchEntity>> Dispatches(IReadOnlyCollection<long> entryIds, bool readWhole = false);
 
     long Insert(EntryEntity entry);
 
@@ -98,7 +105,8 @@ public interface IEntryRepository
 
     void ReplaceDispatches(long entryId, IReadOnlyList<DispatchEntity> dispatches);
 
-    IReadOnlySet<(string Month, int InwardNo)> DuplicateInwardNumbers();
+    /// <summary>Inward numbers used by more than one entry (not carryovers) of the same register month, in these months.</summary>
+    IReadOnlySet<(string Month, int InwardNo)> DuplicateInwardNumbers(IReadOnlyCollection<string> months);
 
     string? InwardNumberOwner(string month, int inwardNo, long? excludingId);
 

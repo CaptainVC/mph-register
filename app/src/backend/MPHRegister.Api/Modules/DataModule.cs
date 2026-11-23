@@ -13,6 +13,7 @@ public static class DataModule
         DapperSetup.Configure();
         services.AddSingleton(new DataOptions { DataDirectory = dataDirectory, Source = source });
         services.AddSingleton<IConnectionFactory, SqliteConnectionFactory>();
+        services.AddSingleton<DataRevision>();
         services.AddSingleton<IBackupService, BackupService>();
         services.AddSingleton<IConfigStore, ConfigStore>();
         services.AddSingleton<IDatabaseInitializer, DatabaseInitializer>();

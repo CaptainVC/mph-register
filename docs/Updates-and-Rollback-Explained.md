@@ -152,7 +152,7 @@ copy waits for it to close, swaps the two exes (putting back the data too if nee
 | Someone else's file | It downloads only over HTTPS from the repository's latest release, and only the file named `MPH-Register-win-x64.exe`. |
 | An update while he is typing | Nothing installs by itself; he is asked first and told to save. |
 | The swap fails (antivirus holding the file, etc.) | Each step is retried for up to 30 seconds. If it still fails, the old app is put back and opens as before. |
-| An update that damages data | The app backs up the data every time it starts (newest 30 kept in `backups\`), and the update keeps a separate copy in `rollback\` from just before the new version opened it. |
+| An update that damages data | The app backs up the data every time it starts with a data file changed since its last start-up backup (newest 30 kept in `backups\`), and the update keeps a separate copy in `rollback\` from just before the new version opened it. |
 | Going back loses work | Today's data is always copied to `rollback\kept-…\` before anything is put back. |
 | Another website on his laptop tries to trigger an update | The app only answers requests from his own computer, and installing needs a header that other websites cannot send. |
 

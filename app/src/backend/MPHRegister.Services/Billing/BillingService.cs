@@ -50,13 +50,14 @@ public sealed class BillingService(
     public CandidatesDto Candidates(string? party, string? from, string? to)
     {
         CheckPeriod(from, to);
-        var bill = masters.Party(party);
+        var bill = masters.Party(party, withCounts: false);
         if (bill is null) throw new AppValidationException($"Party \"{party}\" is not in the party list.");
         if (bill.NoBillNeeded)
             return new CandidatesDto(bill.Name, [bill.Name], bill.Style, bill.BillBeforeDispatch, bill.Discount, bill.Gstin, bill.Active,
                 bill.Problems, [], masters.BillRecipients(bill.Name), NoBillNeeded: true);
         var finishes = Resolver(bill);
-        var list = reader.Read(entries.UnbilledBetween([bill.Name], from!, to!)).Select(e =>
+        var read = reader.ReadForBilling(entries.UnbilledBetween([bill.Name], from!, to!));
+        var list = read.Select(e =>
         {
             var finish = finishes.Resolve(e.Finish);
             var state = StateOf(e);
@@ -65,21 +66,24 @@ public sealed class BillingService(
                 e.Dispatches.Select(d => d.Date).Where(d => d is not null).DefaultIfEmpty(null).Max(StringComparer.Ordinal), e.CarriedOver,
                 bill.BillBeforeDispatch || state != DispatchState.None, finishes.Rate(finish));
         }).ToList();
+        // The ticked entries in the same order as CountBills reads them (both lists are the party's unbilled entries in order).
+        var selected = list.Where(c => c.Selected).Select(c => c.EntryId).ToHashSet();
+        int? count = selected.Count == 0 ? null : CountPages(bill, read.Where(e => selected.Contains(e.Id)).ToList());
         return new CandidatesDto(bill.Name, [bill.Name], bill.Style, bill.BillBeforeDispatch, bill.Discount, bill.Gstin, bill.Active,
-            bill.Problems, list, masters.BillRecipients(bill.Name));
+            bill.Problems, list, masters.BillRecipients(bill.Name), Count: count);
     }
 
     public IReadOnlyList<InvoiceDoc> Build(BillRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var bill = masters.Party(request.Party);
+        var bill = masters.Party(request.Party, withCounts: false);
         if (bill is null) throw new AppValidationException($"Party \"{request.Party}\" is not in the party list.");
         if (bill.NoBillNeeded) throw new AppValidationException(NoBillMessage(bill.Name));
         if (!Dates.IsValidMonth(request.Month)) throw new AppValidationException("Choose the bill month.");
         var errors = datesValidator.ErrorsFor(new BillDates(request.BillDate, request.PeriodFrom, request.PeriodTo));
         var wanted = (request.EntryIds ?? []).ToHashSet();
         if (wanted.Count == 0) errors.Add("Tick at least one entry to bill.");
-        var available = reader.Read(entries.Unbilled([bill.Name], null)).Where(e => wanted.Contains(e.Id)).ToList();
+        var available = reader.ReadForBilling(entries.UnbilledByIds(wanted, [bill.Name]));
         if (available.Count != wanted.Count) errors.Add("Some ticked entries are already billed or do not belong to this party. Refresh the list.");
         var entriesFrom = request.EntriesFrom ?? request.PeriodFrom;
         var entriesTo = request.EntriesTo ?? request.PeriodTo;
@@ -106,12 +110,16 @@ public sealed class BillingService(
     public int CountBills(CountBillsRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var bill = masters.Party(request.Party);
+        var bill = masters.Party(request.Party, withCounts: false);
         if (bill is null) throw new AppValidationException($"Party \"{request.Party}\" is not in the party list.");
         if (bill.NoBillNeeded) throw new AppValidationException(NoBillMessage(bill.Name));
         var wanted = (request.EntryIds ?? []).ToHashSet();
         if (wanted.Count == 0) return 0;
-        var available = reader.Read(entries.Unbilled([bill.Name], null)).Where(e => wanted.Contains(e.Id)).ToList();
+        return CountPages(bill, reader.ReadForBilling(entries.UnbilledByIds(wanted, [bill.Name])));
+    }
+
+    private int CountPages(PartyDto bill, IReadOnlyList<EntryDto> available)
+    {
         var firm = settings.Snapshot();
         return PackPages(bill, available, firm, Resolver(bill), bill.Discount ?? 0, TaxModes.Resolve(firm, bill.Gstin, bill.State)).Count;
     }
@@ -132,12 +140,12 @@ public sealed class BillingService(
         var errors = linesValidator.ErrorsFor(new BillLines(doc.Lines));
         if (errors.Count > 0) throw new AppValidationException(errors);
         var ids = doc.Lines.SelectMany(l => l.EntryIds ?? []).ToHashSet();
-        var list = ids.Count == 0 ? [] : reader.Read(entries.ByIds(ids));
+        var list = ids.Count == 0 ? [] : reader.ReadForBilling(entries.ByIds(ids));
         var firm = settings.Snapshot();
-        var party = masters.Party(doc.Party);
+        var party = masters.Party(doc.Party, withCounts: false);
         if (recipient is not null)
         {
-            var next = masters.Party(recipient);
+            var next = masters.Party(recipient, withCounts: false);
             if (doc.Status != InvoiceStatus.Draft || party is null || next is null ||
                 !masters.BillRecipients(party.Name).Contains(next.Name, StringComparer.OrdinalIgnoreCase))
                 throw new AppValidationException("Choose a recipient from the same sister-firm group as this draft.");
@@ -160,16 +168,17 @@ public sealed class BillingService(
         ArgumentNullException.ThrowIfNull(request);
         var docs = (request.Invoices ?? []).Select(Sanitize).ToList();
         if (docs.Count == 0) throw new AppValidationException("Nothing to save.");
-        using var unit = session.Begin();
+        // Everything is checked before the write lock is taken, so other screens keep working meanwhile; inside the
+        // transaction only the entries and the numbers are checked again, as another save may have taken them since.
         var firm = settings.Snapshot();
         var errors = new List<string>();
         var seen = new HashSet<long>();
-        var prepared = new List<(int Index, InvoiceDoc Doc, PartyDto Party, string Fy, IReadOnlyList<EntryDto> Entries)>();
+        var prepared = new List<(int Index, InvoiceDoc Doc, PartyDto Party, string Fy, IReadOnlyList<EntryDto> Entries, HashSet<long> Ids, IReadOnlyList<string> Recipients)>();
         for (var index = 0; index < docs.Count; index++)
         {
             var doc = docs[index];
             var label = docs.Count > 1 ? $"Bill {index + 1}: " : string.Empty;
-            var party = masters.Party(doc.Party);
+            var party = masters.Party(doc.Party, withCounts: false);
             if (party is null)
             {
                 errors.Add($"{label}party \"{doc.Party}\" is not in the party list.");
@@ -185,23 +194,32 @@ public sealed class BillingService(
             }
             var ids = doc.Lines.SelectMany(l => l.EntryIds ?? []).ToList();
             if (ids.Any(id => !seen.Add(id))) errors.Add($"{label}an entry appears on more than one line or bill.");
-            var unbilled = reader.Read(entries.Unbilled(masters.BillRecipients(party.Name), null)).Where(e => ids.Contains(e.Id)).ToList();
-            if (unbilled.Count != ids.Distinct().Count()) errors.Add($"{label}some entries are already billed or belong to another party. Make the bills again.");
-            if (Dates.TryParseIso(doc.BillDate, out var date)) prepared.Add((index, doc, party, FinancialYear.Of(date), unbilled));
+            var wanted = ids.ToHashSet();
+            var recipients = masters.BillRecipients(party.Name);
+            var unbilled = reader.ReadForBilling(entries.UnbilledByIds(wanted, recipients));
+            if (unbilled.Count != wanted.Count) errors.Add($"{label}some entries are already billed or belong to another party. Make the bills again.");
+            if (Dates.TryParseIso(doc.BillDate, out var date)) prepared.Add((index, doc, party, FinancialYear.Of(date), unbilled, wanted, recipients));
         }
         var serials = request.Serials ?? [];
-        var numbers = ResolveNumbers(prepared.Select(p => (p.Fy, p.Index < serials.Count ? serials[p.Index] : null)).ToList(), firm);
-        for (var n = 0; n < numbers.Count; n++)
+        var asks = prepared.Select(p => (p.Fy, p.Index < serials.Count ? serials[p.Index] : null)).ToList();
+        AddNumberProblems(errors, ResolveNumbers(asks, firm), prepared.Select(p => p.Index).ToList(), docs.Count);
+        if (errors.Count > 0) throw new AppValidationException(errors);
+
+        using var unit = session.Begin();
+        foreach (var p in prepared)
         {
-            if (numbers[n].Problem is { } problem) errors.Add(docs.Count > 1 ? $"Bill {prepared[n].Index + 1}: {problem}" : problem);
+            if (entries.UnbilledByIds(p.Ids, p.Recipients).Count != p.Ids.Count)
+                errors.Add($"{(docs.Count > 1 ? $"Bill {p.Index + 1}: " : string.Empty)}some entries are already billed or belong to another party. Make the bills again.");
         }
+        var numbers = ResolveNumbers(asks, firm);
+        AddNumberProblems(errors, numbers, prepared.Select(p => p.Index).ToList(), docs.Count);
         if (errors.Count > 0) throw new AppValidationException(errors);
 
         var now = Dates.Timestamp(clock.GetLocalNow());
         var saved = new List<long>();
         for (var n = 0; n < prepared.Count; n++)
         {
-            var (_, doc, party, fy, list) = prepared[n];
+            var (_, doc, party, fy, list, _, _) = prepared[n];
             var finished = BillCalculator.Complete(WithRecipient(doc, party, firm), party, list, firm, sizer);
             var (_, serial, number, _) = numbers[n];
             var id = invoices.Insert(InvoiceMapper.ToEntity(finished with { InvoiceNo = number, Status = InvoiceStatus.Saved, Source = InvoiceSource.App }, fy, serial, now));
@@ -211,6 +229,14 @@ public sealed class BillingService(
         }
         unit.Commit();
         return saved.Select(invoiceService.Get).ToList();
+    }
+
+    private static void AddNumberProblems(List<string> errors, List<BillNumberDto> numbers, List<int> indexes, int bills)
+    {
+        for (var n = 0; n < numbers.Count; n++)
+        {
+            if (numbers[n].Problem is { } problem) errors.Add(bills > 1 ? $"Bill {indexes[n] + 1}: {problem}" : problem);
+        }
     }
 
     public IReadOnlyList<BillNumberDto> Numbers(BillNumbersRequest request)

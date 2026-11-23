@@ -36,39 +36,40 @@ public sealed partial class DashboardService(IDashboardRepository data, IMasterR
 
     public DashboardDto Get(string? fy, string? month, string? party)
     {
-        using var snapshot = session.Begin(deferred: true);
         var today = Dates.Today(clock);
         var currentFy = FinancialYear.Of(today);
-        var years = Years(data.EarliestDate(), today);
+        var asOf = Dates.Iso(today);
+        var requested = party.NormalizeName();
+        bool Matches(string name) => string.Equals(requested, name.NormalizeName(), StringComparison.OrdinalIgnoreCase);
+        var (years, allBills, priorBills, allEntries, billDates, recentBills, finishRows) = Snapshot(() =>
+        {
+            var years = Years(data.EarliestDate(), today);
+            var (start, end, through) = Span(fy is not null && years.Contains(fy) ? fy : currentFy, currentFy, today);
+            var bills = data.Bills(Dates.Iso(start), Dates.Iso(through));
+            return (years, bills, data.Bills(Dates.Iso(start.AddYears(-1)), Dates.Iso(end.AddYears(-1))), data.Entries(asOf), data.LatestBillDates(asOf),
+                data.Bills(Dates.Iso(today.AddYears(-1)), asOf),
+                data.Finishes(Dates.Iso(start), Dates.Iso(through), requested.Length == 0 ? null : bills.Where(b => Matches(b.Party)).Select(b => b.Party).Distinct().ToList()));
+        });
         var chosenFy = fy is not null && years.Contains(fy) ? fy : currentFy;
-        var start = YearStart(chosenFy);
-        var end = start.AddYears(1).AddDays(-1);
+        var (start, end, _) = Span(chosenFy, currentFy, today);
         var isCurrent = chosenFy == currentFy;
         var months = Enumerable.Range(0, 12).Select(i => start.AddMonths(i))
             .Where(m => !isCurrent || m <= today)
             .Select(Dates.Month)
             .ToList();
 
-        var through = isCurrent ? today : end;
-        var asOf = Dates.Iso(today);
-        var allBills = data.Bills(Dates.Iso(start), Dates.Iso(through));
-        var priorBills = data.Bills(Dates.Iso(start.AddYears(-1)), Dates.Iso(end.AddYears(-1)));
-        var allEntries = data.Entries(asOf);
-        var billDates = data.LatestBillDates(asOf);
         var lastBill = billDates.Select(b => b.LastBill).Max();
         var lastInward = allEntries.Count == 0 ? null : allEntries[^1].EntryDate;
         var config = masters.Config;
         var partyOptions = config.Parties.Select(p => p.Name).Concat(allEntries.Select(e => e.Party)).Concat(billDates.Select(b => b.Party))
             .Select(p => p.NormalizeName()).Where(p => p.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
-        var requested = party.NormalizeName();
-        bool Matches(string name) => string.Equals(requested, name.NormalizeName(), StringComparison.OrdinalIgnoreCase);
         var chosenParty = requested.Length == 0 ? null : partyOptions.Find(Matches) ?? requested;
         var bills = chosenParty is null ? allBills : allBills.Where(b => Matches(b.Party)).ToList();
         var lastYearBills = chosenParty is null ? priorBills : priorBills.Where(b => Matches(b.Party)).ToList();
         var entries = chosenParty is null ? allEntries : allEntries.Where(e => Matches(e.Party)).ToList();
         var scopedLastBill = chosenParty is null ? lastBill : billDates.Where(b => Matches(b.Party)).Select(b => b.LastBill).Max();
-        var valuer = new Valuer(masters, data.Bills(Dates.Iso(today.AddYears(-1)), asOf));
+        var valuer = new Valuer(masters, recentBills);
 
         var chosenMonth = month is not null && months.Contains(month) ? month : DefaultMonth(months, allBills, isCurrent, today);
         var monthly = Monthly(months, bills, lastYearBills, entries);
@@ -91,7 +92,7 @@ public sealed partial class DashboardService(IDashboardRepository data, IMasterR
             unbilled,
             unbilledParties,
             PartiesOf(bills, overall?.YearTaxable ?? year.Taxable),
-            FinishesOf(data.Finishes(Dates.Iso(start), Dates.Iso(through), chosenParty is null ? null : bills.Select(b => b.Party).Distinct().ToList())),
+            FinishesOf(finishRows),
             Quiet(entries, today, lastInward),
             RepairsOf(entries, start, end),
             ThisMonth(entries, allEntries, valuer, today, lastInward),
@@ -101,6 +102,24 @@ public sealed partial class DashboardService(IDashboardRepository data, IMasterR
             chosenParty,
             partyOptions,
             overall);
+    }
+
+    /// <summary>
+    /// The SELECTs run in one read transaction, so they see one moment of the data, and it ends before the figures are worked
+    /// out: a save waiting for the read lock (and every reader queued behind it) waits only for the reading.
+    /// </summary>
+    private T Snapshot<T>(Func<T> read)
+    {
+        using var snapshot = session.Begin(deferred: true);
+        return read();
+    }
+
+    /// <summary>The financial year's first and last day, and the day its bills are counted up to (today for this year).</summary>
+    private static (DateOnly Start, DateOnly End, DateOnly Through) Span(string fy, string currentFy, DateOnly today)
+    {
+        var start = YearStart(fy);
+        var end = start.AddYears(1).AddDays(-1);
+        return (start, end, fy == currentFy ? today : end);
     }
 
     /// <summary>Every financial year from the first bill or entry up to today, newest first.</summary>

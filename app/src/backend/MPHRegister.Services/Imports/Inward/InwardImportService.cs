@@ -118,6 +118,8 @@ public sealed partial class InwardImportService(
             imported = true;
             AddInactive(addedParties, addedFinishes);
             LinkArrivals(marks.Select(m => m.EntryId).Concat(plan.Removals.Select(r => r.Id)).ToList(), rows);
+            // A month of new rows: SQLite's query statistics are brought up to date.
+            session.Optimize();
         }
 
         var notInWorkbook = plan.Removals.Select(e => (Entry: e, Note: imported ? "was removed" : "will be removed"))

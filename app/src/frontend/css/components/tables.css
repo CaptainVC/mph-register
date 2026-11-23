@@ -8,7 +8,7 @@ table.register th {
 }
 table.register td { padding: 8px 10px; border-bottom: 1px solid var(--line-soft); border-right: 1px solid var(--line-soft); text-align: center; white-space: nowrap; }
 table.register td.wrap { white-space: normal; min-width: 150px; max-width: 300px; }
-table.register tbody tr { cursor: pointer; transition: background .1s; }
+table.register tbody tr { cursor: pointer; }
 table.register tbody tr[data-entry-id] { cursor: default; }
 table.register tbody tr:hover td { background: var(--hover); }
 table.register tbody tr.selected td { background: var(--selected); }

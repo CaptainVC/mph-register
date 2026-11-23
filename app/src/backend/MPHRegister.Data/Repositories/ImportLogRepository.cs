@@ -30,16 +30,19 @@ public sealed class ImportLogRepository(IDbSession session) : RepositoryBase(ses
             rows);
     }
 
-    public IReadOnlyDictionary<long, ImportMarkEntity> LatestImportMarks()
+    public IReadOnlyDictionary<long, ImportMarkEntity> LatestImportMarks(IReadOnlyCollection<long>? entryIds)
     {
         var marks = new Dictionary<long, ImportMarkEntity>();
+        if (entryIds is { Count: 0 }) return marks;
         var rows = Query<ImportMarkEntity>(
-            """
+            $"""
             SELECT ie.entry_id, ie.action, ie.changes, b.id AS batch_id, b.file_name, b.imported_at, b.register_month
             FROM import_batch_entries ie JOIN import_batches b ON b.id = ie.batch_id
             WHERE b.id IN (SELECT MAX(id) FROM import_batches GROUP BY register_month)
+              {(entryIds is null ? string.Empty : "AND ie.entry_id IN (SELECT value FROM json_each(@entryIds))")}
             ORDER BY b.id;
-            """);
+            """,
+            new { entryIds = entryIds is null ? null : Json(entryIds) });
         foreach (var mark in rows) marks[mark.EntryId] = mark;
         return marks;
     }

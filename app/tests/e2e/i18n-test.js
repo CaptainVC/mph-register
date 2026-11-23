@@ -23,7 +23,7 @@ const context = vm.createContext({
     getItem: (key) => storage.get(key) ?? null,
     setItem: (key, value) => storage.set(key, value),
   },
-  MutationObserver: class { takeRecords() {} },
+  MutationObserver: class { takeRecords() {} observe() {} disconnect() {} },
   CustomEvent: class {
     constructor(type, options) { this.type = type; this.detail = options.detail; }
   },

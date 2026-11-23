@@ -148,11 +148,27 @@ function rowFilters(container, onChange, toggle, definitions = ROW_FILTERS) {
       for (const [group, filters] of included) if (group !== skipGroup && !filters.some((f) => f.test(entry))) return false;
       return true;
     };
-    for (const { filter, group, chip, button, count, select } of chips) {
-      const n = entries.reduce((acc, e) => acc + (filter.test(e) && passesIncludes(e, group) ? 1 : 0), 0);
+    // One pass over the entries counts every chip: all its matches, and those that also pass the other groups' includes.
+    const totals = new Array(chips.length).fill(0);
+    const counts = new Array(chips.length).fill(0);
+    for (const e of entries) {
+      let failed = null;
+      for (const [group, filters] of included) {
+        if (filters.some((f) => f.test(e))) continue;
+        failed ??= new Set();
+        failed.add(group);
+      }
+      for (let i = 0; i < chips.length; i++) {
+        if (!chips[i].filter.test(e)) continue;
+        totals[i]++;
+        if (!failed || (failed.size === 1 && failed.has(chips[i].group))) counts[i]++;
+      }
+    }
+    chips.forEach(({ filter, chip, button, count, select }, i) => {
+      const n = counts[i];
       const mode = modes.get(filter.key) || "any";
       count.textContent = num(n);
-      count.style.minWidth = `${num(entries.reduce((acc, e) => acc + (filter.test(e) ? 1 : 0), 0)).length}ch`;
+      count.style.minWidth = `${num(totals[i]).length}ch`;
       if (chip.dataset.mode !== mode) {
         chip.dataset.mode = mode;
         button.setAttribute("aria-pressed", String(mode !== "any"));
@@ -161,7 +177,7 @@ function rowFilters(container, onChange, toggle, definitions = ROW_FILTERS) {
         select(mode);
       }
       chip.dataset.zero = String(mode === "any" && n === 0);
-    }
+    });
     const nextSummary = excluded.length ? `Excluding: ${excluded.map((filter) => filter.label).join(", ")}` : "";
     if (summaryText !== nextSummary) {
       summaryText = nextSummary;
@@ -174,6 +190,8 @@ function rowFilters(container, onChange, toggle, definitions = ROW_FILTERS) {
     return modes.size ? entries.filter((e) => passesIncludes(e) && !excluded.some((filter) => filter.test(e))) : entries;
   };
   apply.clear = () => modes.clear();
+  // Which filters are set, so a screen can tell when nothing changed since it was drawn.
+  apply.signature = () => [...modes].map(([key, mode]) => `${key}:${mode}`).join(",");
   // Shows only the rows matching these filters (with the filter bar open, so it is clear why).
   apply.only = (keys) => {
     modes.clear();

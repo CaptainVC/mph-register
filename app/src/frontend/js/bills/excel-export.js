@@ -26,7 +26,7 @@ function openExcelExport(bills) {
   const rows = excelState.bills.map((b) => {
     const tick = el("input", { type: "checkbox", "data-id": String(b.id), "data-instant": "", "aria-label": `Write ${b.invoiceNo}` });
     tick.checked = b.source !== "excel";
-    tick.addEventListener("change", () => checkExcelWorkbook());
+    tick.addEventListener("change", checkExcelWorkbookSoon);
     return el("tr", {}, [el("td", {}, [tick]), el("td", { class: "inward", text: b.invoiceNo }), el("td", { text: dotDate(b.billDate) }),
       el("td", { class: "left", text: b.partyName }), el("td", { class: "money", text: rupees(b.total) }),
       el("td", { text: b.source === "excel" ? "Excel" : "App" }), excelCell(b)]);
@@ -35,7 +35,7 @@ function openExcelExport(bills) {
   all.checked = rows.length > 0 && excelState.bills.every((b) => b.source !== "excel");
   all.addEventListener("change", () => {
     form.querySelectorAll("#excelBills tbody input[type=checkbox]").forEach((tick) => { tick.checked = all.checked; });
-    checkExcelWorkbook();
+    checkExcelWorkbookSoon();
   });
   const table = el("table", { class: "register", id: "excelBills" }, [
     el("thead", {}, [el("tr", {}, [el("th", {}, [all]), ...["BILL NO.", "DATE", "PARTY", "TOTAL", "FROM", "EXCEL"].map((h) => el("th", { text: h }))])]),
@@ -83,7 +83,17 @@ function sayExcel(text, kind) {
   message.className = `form-message message ${kind || ""}`;
 }
 
+// Each check uploads and reads the whole workbook, so ticking several bills in a row checks once, after the last tick.
+let excelCheckTimer = 0;
+function checkExcelWorkbookSoon() {
+  ++excelState.ticket;
+  $("excelDownload").disabled = true;
+  clearTimeout(excelCheckTimer);
+  excelCheckTimer = setTimeout(() => checkExcelWorkbook(), 400);
+}
+
 async function checkExcelWorkbook() {
+  clearTimeout(excelCheckTimer);
   const ticket = ++excelState.ticket;
   $("excelDownload").disabled = true;
   if (!$("excelFile")?.files[0]) return;

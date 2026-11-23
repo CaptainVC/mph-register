@@ -146,3 +146,10 @@ public sealed record InvoiceEntryClaim
 
     public bool Missing { get; init; }
 }
+
+public sealed record BillMonthCount
+{
+    public string Month { get; init; } = string.Empty;
+
+    public int Bills { get; init; }
+}

@@ -48,6 +48,8 @@ const invoice = (id, month, extra = {}) => ({
         (!query.get("month") || e.registerMonth === query.get("month")) && (!query.get("party") || e.party === query.get("party"))) });
     });
     await page.route("**/api/invoices", (route) => route.fulfill({ json: invoices }));
+    await page.route("**/api/invoices/months", (route) => route.fulfill({ json: [...new Set(invoices.map((i) => i.billMonth))].sort().reverse()
+      .map((month) => ({ month, bills: invoices.filter((i) => i.billMonth === month).length })) }));
     await page.route("**/api/billing/parties?*", (route) => route.fulfill({ json: [{ party: "TEST PARTY", entries: 1, nettThan: 10, notDispatched: 1 }] }));
     await page.route("**/api/billing/candidates?*", (route) => route.fulfill({ json: {
       billParty: "TEST PARTY", sourceParties: ["TEST PARTY"], active: true, billBeforeDispatch: true,

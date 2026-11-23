@@ -14,28 +14,29 @@ public sealed partial class DashboardService
 {
     public DashboardFactsDto Facts()
     {
-        using var snapshot = session.Begin(deferred: true);
         var today = Dates.Today(clock);
         var asOf = Dates.Iso(today);
-        var start = YearStart(FinancialYear.Of(Dates.TryParseIso(data.EarliestDate(), out var earliest) && earliest < today ? earliest : today));
+        var read = Snapshot(() =>
+        {
+            var start = YearStart(FinancialYear.Of(Dates.TryParseIso(data.EarliestDate(), out var earliest) && earliest < today ? earliest : today));
+            return (Start: start, FirstMonth: data.EarliestRegisterMonth(), Bills: data.Bills(Dates.Iso(start), asOf), Lines: data.FinishMonths(asOf),
+                Entries: data.Entries(asOf), Sent: data.SentPieces(asOf), BillDates: data.LatestBillDates(asOf), Recent: data.Bills(Dates.Iso(today.AddYears(-1)), asOf));
+        });
+        var start = read.Start;
         var months = new List<string>();
         for (var month = start; month <= today; month = month.AddMonths(1)) months.Add(Dates.Month(month));
         var monthIndex = months.Select((m, i) => (m, i)).ToDictionary(x => x.m, x => x.i, StringComparer.Ordinal);
         int? MonthOf(string date) => date.Length >= 7 && monthIndex.TryGetValue(date[..7], out var i) ? i : null;
         // The register starts at its first register month: older entries are only the unfinished work it carried in, so they are
         // not cloth received in their own month, and that work counts in the first month recorded.
-        var recordedFrom = data.EarliestRegisterMonth() is { } first && monthIndex.TryGetValue(first, out var firstIndex) ? firstIndex : 0;
+        var recordedFrom = read.FirstMonth is { } first && monthIndex.TryGetValue(first, out var firstIndex) ? firstIndex : 0;
         int? InwardMonth(string date) => MonthOf(date) is { } i && i >= recordedFrom ? i : null;
         int OpenMonth(string date) => Math.Max(MonthOf(date) ?? 0, recordedFrom);
 
-        var bills = data.Bills(Dates.Iso(start), asOf);
-        var lines = data.FinishMonths(asOf);
-        var entries = data.Entries(asOf);
-        var sent = data.SentPieces(asOf);
-        var billDates = data.LatestBillDates(asOf);
+        var (bills, lines, entries, sent, billDates) = (read.Bills, read.Lines, read.Entries, read.Sent, read.BillDates);
         var config = masters.Config;
         var index = ConfigIndex.For(config);
-        var valuer = new Valuer(masters, data.Bills(Dates.Iso(today.AddYears(-1)), asOf));
+        var valuer = new Valuer(masters, read.Recent);
         var parties = new NameIndex(config.Parties.Select(p => p.Name).Concat(entries.Select(e => e.Party)).Concat(bills.Select(b => b.Party))
             .Concat(billDates.Select(b => b.Party)).Concat(lines.Select(l => l.Party)).Concat(sent.Select(s => s.Party)));
         string FinishName(string finish) => index.Finish(finish)?.Name ?? finish;

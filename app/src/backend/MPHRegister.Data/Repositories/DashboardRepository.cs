@@ -24,11 +24,11 @@ public sealed class DashboardRepository(IDbSession session) : RepositoryBase(ses
         SELECT l.finish AS finish, COALESCE(SUM(l.qty), 0) AS than, COALESCE(SUM(l.amount), 0) AS amount
         FROM invoice_lines l JOIN invoices i ON i.id = l.invoice_id
         WHERE i.status = 'saved' AND l.kind = 'priced' AND i.bill_date BETWEEN @from AND @to
-        {(billParties is null ? "" : "AND i.party IN @billParties")}
+        {(billParties is null ? "" : "AND i.party IN (SELECT value FROM json_each(@billParties))")}
         GROUP BY l.finish COLLATE NOCASE
         ORDER BY amount DESC;
         """,
-        new { from, to, billParties });
+        new { from, to, billParties = billParties is null ? null : Json(billParties) });
     }
 
     public IReadOnlyList<DashboardFinishMonthRow> FinishMonths(string asOf) => Query<DashboardFinishMonthRow>(

@@ -89,6 +89,7 @@ public sealed class BillImportService(
             log.AddBillImport(new BillImportEntity { FileName = fileName, Sha256 = hash, ImportedAt = now, InvoiceCount = finished.Count });
             unit.Commit();
             imported = true;
+            session.Optimize();
             SaveParties(added, filled);
         }
         return new BillImportReport(imported, fileName, finished.Count, finished.Sum(f => f.Doc.Total), finished.Sum(f => f.Doc.Lines.Sum(l => l.EntryIds?.Count ?? 0)),
@@ -119,7 +120,7 @@ public sealed class BillImportService(
         var stored = invoices.Saved(InvoiceSource.Excel.ToDbValue()).Select(i => new StoredBill(i, invoices.Lines(i.Id))).ToList();
         var rows = entries.List(null);
         // The order of Unbilled, so a re-check right after an import finds the same links.
-        var all = reader.Read(rows).Where(e => e.NettThan > 0)
+        var all = reader.ReadForBilling(rows).Where(e => e.NettThan > 0)
             .OrderBy(e => e.RegisterMonth, StringComparer.Ordinal).ThenByDescending(e => e.CarriedOver).ThenBy(e => e.InwardNo).ThenBy(e => e.Id).ToList();
         var elsewhere = rows.Where(r => r.Elsewhere is not null).Select(r => r.Id).ToHashSet();
         var onApp = entries.OnAppBills();
@@ -194,15 +195,15 @@ public sealed class BillImportService(
         var taken = new HashSet<long>();
         var from = docs.Min(d => Dates.ParseIsoOrDefault(d.Doc.PeriodFrom)).AddDays(-110);
         var to = docs.Max(d => Dates.ParseIsoOrDefault(d.Doc.PeriodTo)).AddDays(10);
-        var everyone = reader.Read(entries.UnbilledAnyParty(Dates.Iso(from), Dates.Iso(to)));
+        var everyone = reader.ReadForBilling(entries.UnbilledAnyParty(Dates.Iso(from), Dates.Iso(to)));
         foreach (var group in LinkGroups(docs.Select(d => d.Doc.Party)))
         {
             var members = docs.Where(d => group.Parties.Contains(d.Doc.Party))
                 .OrderBy(d => d.Bill.Fy, StringComparer.Ordinal).ThenBy(d => d.Bill.Serial).ToList();
             var maxMonth = members.Max(d => d.Doc.BillDate[..7]);
             var upto = Dates.Month(Dates.ParseIsoOrDefault(maxMonth + "-01").AddMonths(1));
-            var pool = reader.Read(entries.Unbilled(group.PoolParties.ToList(), upto)).Where(e => !taken.Contains(e.Id)).ToList();
-            var billed = reader.Read(entries.Billed(group.PoolParties.ToList(), upto));
+            var pool = reader.ReadForBilling(entries.Unbilled(group.PoolParties.ToList(), upto)).Where(e => !taken.Contains(e.Id)).ToList();
+            var billed = reader.ReadForBilling(entries.Billed(group.PoolParties.ToList(), upto));
             var others = everyone.Where(e => !group.PoolParties.Contains(e.Party) && !taken.Contains(e.Id)).ToList();
             var bills = members.Select(d => ToLinkBill(group, d.Doc.InvoiceNo!, d.Doc.Party, d.Doc.PartyName, d.Doc.PeriodFrom, d.Doc.PeriodTo, d.Doc.Lines)).ToList();
             var outcome = BillLinker.Link(bills, pool, billed, onApp, others);
@@ -270,7 +271,7 @@ public sealed class BillImportService(
         var groups = new Dictionary<string, LinkGroup>(StringComparer.OrdinalIgnoreCase);
         foreach (var party in billParties.Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            var billParty = masters.Party(party);
+            var billParty = masters.Party(party, withCounts: false);
             var key = billParty is { SisterGroup.Length: > 0 } ? $"group:{billParty.SisterGroup}" : $"party:{party}";
             if (!groups.TryGetValue(key, out var group)) groups[key] = group = new LinkGroup();
             group.Parties.Add(party);
@@ -320,7 +321,7 @@ public sealed class BillImportService(
         foreach (var name in sheet.Bills.Select(b => b.PartyText).Distinct(StringComparer.OrdinalIgnoreCase))
         {
             var details = sheet.Parties.GetValueOrDefault(name) ?? new SheetParty(name, string.Empty, string.Empty, string.Empty, null, false, "black", new Dictionary<string, decimal>());
-            var party = masters.Party(name);
+            var party = masters.Party(name, withCounts: false);
             if (party is null)
             {
                 added.Add(details);

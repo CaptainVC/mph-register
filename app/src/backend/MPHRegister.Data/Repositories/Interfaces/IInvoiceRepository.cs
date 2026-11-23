@@ -4,7 +4,14 @@ namespace MPHRegister.Data.Repositories.Interfaces;
 
 public interface IInvoiceRepository
 {
-    IReadOnlyList<InvoiceSummaryRow> List(string? month, string? party);
+    /// <summary>Bills of the month (or of the bill months from <paramref name="fromMonth"/> to <paramref name="toMonth"/>) and party; null means any.</summary>
+    IReadOnlyList<InvoiceSummaryRow> List(string? month, string? party, string? fromMonth = null, string? toMonth = null);
+
+    /// <summary>Every bill month with its number of bills (saved or cancelled), newest first.</summary>
+    IReadOnlyList<BillMonthCount> Months();
+
+    /// <summary>The ids among <paramref name="ids"/> that are bills.</summary>
+    IReadOnlySet<long> ExistingIds(IReadOnlyCollection<long> ids);
 
     InvoiceEntity? Get(long id);
 

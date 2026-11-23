@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using SQLitePCL;
 
 namespace MPHRegister.Data.Database;
 
@@ -10,6 +11,12 @@ public interface IDbSession : IDisposable
     SqliteTransaction? Transaction { get; }
 
     IUnitOfWork Begin(bool deferred = false);
+
+    /// <summary>Runs a statement; outside a transaction, a statement that changed rows counts as a new data revision.</summary>
+    T Run<T>(Func<T> statement);
+
+    /// <summary>Lets SQLite refresh its query statistics (after an import); run outside a transaction.</summary>
+    void Optimize();
 }
 
 public interface IUnitOfWork : IDisposable
@@ -17,7 +24,7 @@ public interface IUnitOfWork : IDisposable
     void Commit();
 }
 
-public sealed class DbSession(IConnectionFactory factory) : IDbSession
+public sealed class DbSession(IConnectionFactory factory, DataRevision revision) : IDbSession
 {
     private SqliteConnection? connection;
 
@@ -28,8 +35,32 @@ public sealed class DbSession(IConnectionFactory factory) : IDbSession
     public IUnitOfWork Begin(bool deferred = false)
     {
         if (Transaction is not null) return new NestedUnit();
+        var before = Changes();
         Transaction = Connection.BeginTransaction(deferred);
-        return new Unit(this);
+        return new Unit(this, before);
+    }
+
+    public T Run<T>(Func<T> statement)
+    {
+        ArgumentNullException.ThrowIfNull(statement);
+        if (Transaction is not null) return statement();
+        var before = Changes();
+        try
+        {
+            return statement();
+        }
+        finally
+        {
+            if (Changes() != before) revision.Bump();
+        }
+    }
+
+    public void Optimize()
+    {
+        if (Transaction is not null) return;
+        using var command = Connection.CreateCommand();
+        command.CommandText = "PRAGMA optimize;";
+        command.ExecuteNonQuery();
     }
 
     public void Dispose()
@@ -40,13 +71,23 @@ public sealed class DbSession(IConnectionFactory factory) : IDbSession
         connection = null;
     }
 
-    private sealed class Unit(DbSession session) : IUnitOfWork
+    private void Committed(int changesBefore)
+    {
+        if (Changes() != changesBefore) revision.Bump();
+    }
+
+    // Rows changed by this connection since it was opened (triggers included), so a read-only unit is not a new revision.
+    private int Changes() => raw.sqlite3_total_changes(Connection.Handle);
+
+    private sealed class Unit(DbSession session, int changesBefore) : IUnitOfWork
     {
         private bool done;
 
         public void Commit()
         {
+            if (done) return;
             session.Transaction?.Commit();
+            session.Committed(changesBefore);
             Finish();
         }
 

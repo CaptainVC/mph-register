@@ -24,6 +24,9 @@ public sealed class ArrivalRepository(IDbSession session) : RepositoryBase(sessi
         ? Query<ArrivalEntity>($"SELECT {Columns} FROM arrivals a {Order};")
         : Query<ArrivalEntity>($"SELECT {Columns} FROM arrivals a WHERE a.aawak_month = @month {Order};", new { month });
 
+    public IReadOnlyList<ArrivalEntity> InMonths(string from, string to) =>
+        Query<ArrivalEntity>($"SELECT {Columns} FROM arrivals a WHERE a.aawak_month BETWEEN @from AND @to {Order};", new { from, to });
+
     public IReadOnlyList<ArrivalEntity> Between(string from, string to) =>
         Query<ArrivalEntity>($"SELECT {Columns} FROM arrivals a WHERE a.arrival_date BETWEEN @from AND @to ORDER BY a.arrival_date, a.aawak_month, a.aawak_no, a.aawak_suffix, a.id;", new { from, to });
 
@@ -34,7 +37,7 @@ public sealed class ArrivalRepository(IDbSession session) : RepositoryBase(sessi
 
     public IReadOnlyList<ArrivalEntity> ByIds(IReadOnlyCollection<long> ids) => ids.Count == 0
         ? []
-        : Query<ArrivalEntity>($"SELECT {Columns} FROM arrivals a WHERE a.id IN @ids {Order};", new { ids });
+        : Query<ArrivalEntity>($"SELECT {Columns} FROM arrivals a WHERE a.id IN (SELECT value FROM json_each(@ids)) {Order};", new { ids = Json(ids) });
 
     public ArrivalEntity? ByNumber(string month, int number, string suffix) => First<ArrivalEntity>(
         $"SELECT {Columns} FROM arrivals a WHERE a.aawak_month = @month AND a.aawak_no = @number AND a.aawak_suffix = @suffix COLLATE NOCASE;",
@@ -124,7 +127,7 @@ public sealed class ArrivalRepository(IDbSession session) : RepositoryBase(sessi
     public IReadOnlyDictionary<long, IReadOnlyList<int>> Refs(IReadOnlyCollection<long> arrivalIds)
     {
         if (arrivalIds.Count == 0) return new Dictionary<long, IReadOnlyList<int>>();
-        return Query<ArrivalRefEntity>("SELECT arrival_id, inward_no FROM arrival_refs WHERE arrival_id IN @arrivalIds ORDER BY arrival_id, inward_no;", new { arrivalIds })
+        return Query<ArrivalRefEntity>("SELECT arrival_id, inward_no FROM arrival_refs WHERE arrival_id IN (SELECT value FROM json_each(@arrivalIds)) ORDER BY arrival_id, inward_no;", new { arrivalIds = Json(arrivalIds) })
             .GroupBy(r => r.ArrivalId)
             .ToDictionary(g => g.Key, g => (IReadOnlyList<int>)g.Select(r => r.InwardNo).ToList());
     }
@@ -142,27 +145,34 @@ public sealed class ArrivalRepository(IDbSession session) : RepositoryBase(sessi
         : Query<long>(
             """
             SELECT DISTINCT a.id FROM arrivals a JOIN arrival_refs r ON r.arrival_id = a.id
-            WHERE r.inward_no IN @numbers AND a.arrival_date BETWEEN @from AND @to ORDER BY a.id;
+            WHERE r.inward_no IN (SELECT value FROM json_each(@numbers)) AND a.arrival_date BETWEEN @from AND @to ORDER BY a.id;
             """,
-            new { numbers, from, to });
+            new { numbers = Json(numbers), from, to });
 
     public IReadOnlyList<ArrivalLinkEntity> Links(IReadOnlyCollection<long> arrivalIds) => arrivalIds.Count == 0
         ? []
-        : Query<ArrivalLinkEntity>("SELECT arrival_id, entry_id, nag, how, created_at FROM arrival_entries WHERE arrival_id IN @arrivalIds;", new { arrivalIds });
+        : Query<ArrivalLinkEntity>("SELECT arrival_id, entry_id, nag, how, created_at FROM arrival_entries WHERE arrival_id IN (SELECT value FROM json_each(@arrivalIds));", new { arrivalIds = Json(arrivalIds) });
 
     public IReadOnlyList<ArrivalLinkEntity> LinksOfEntries(IReadOnlyCollection<long> entryIds) => entryIds.Count == 0
         ? []
-        : Query<ArrivalLinkEntity>("SELECT arrival_id, entry_id, nag, how, created_at FROM arrival_entries WHERE entry_id IN @entryIds;", new { entryIds });
+        : Query<ArrivalLinkEntity>("SELECT arrival_id, entry_id, nag, how, created_at FROM arrival_entries WHERE entry_id IN (SELECT value FROM json_each(@entryIds));", new { entryIds = Json(entryIds) });
 
     public IReadOnlyList<ArrivalLinkEntity> AllLinks() =>
         Query<ArrivalLinkEntity>("SELECT arrival_id, entry_id, nag, how, created_at FROM arrival_entries;");
 
-    public IReadOnlyList<EntryArrivalRow> EntryArrivals() => Query<EntryArrivalRow>(
-        """
-        SELECT l.entry_id, a.id AS arrival_id, a.aawak_month, a.aawak_no, a.aawak_suffix, a.arrival_date, a.transporter, COALESCE(l.nag, a.nag) AS nag
-        FROM arrival_entries l JOIN arrivals a ON a.id = l.arrival_id
-        ORDER BY a.arrival_date, a.aawak_no, a.aawak_suffix;
-        """);
+    public IReadOnlyList<EntryArrivalRow> EntryArrivals(IReadOnlyCollection<long>? entryIds)
+    {
+        if (entryIds is { Count: 0 }) return [];
+        var only = entryIds is null ? string.Empty : "WHERE l.entry_id IN (SELECT value FROM json_each(@entryIds))";
+        return Query<EntryArrivalRow>(
+            $"""
+            SELECT l.entry_id, a.id AS arrival_id, a.aawak_month, a.aawak_no, a.aawak_suffix, a.arrival_date, a.transporter, COALESCE(l.nag, a.nag) AS nag
+            FROM arrival_entries l JOIN arrivals a ON a.id = l.arrival_id
+            {only}
+            ORDER BY a.arrival_date, a.aawak_no, a.aawak_suffix;
+            """,
+            new { entryIds = entryIds is null ? null : Json(entryIds) });
+    }
 
     public void ReplaceAutoLinks(long arrivalId, IReadOnlyCollection<ArrivalLinkEntity> links)
     {
@@ -186,18 +196,18 @@ public sealed class ArrivalRepository(IDbSession session) : RepositoryBase(sessi
     public IReadOnlyList<SlipEntity> Slips(IReadOnlyCollection<int> numbers, string from, string to) => numbers.Count == 0
         ? []
         : Query<SlipEntity>(
-            $"SELECT {SlipColumns} FROM entries e WHERE e.inward_no IN @numbers AND e.carried_over = 0 AND e.entry_date BETWEEN @from AND @to ORDER BY e.inward_no, e.id;",
-            new { numbers, from, to });
+            $"SELECT {SlipColumns} FROM entries e WHERE e.inward_no IN (SELECT value FROM json_each(@numbers)) AND e.carried_over = 0 AND e.entry_date BETWEEN @from AND @to ORDER BY e.inward_no, e.id;",
+            new { numbers = Json(numbers), from, to });
 
     public IReadOnlyList<SlipEntity> SlipsByIds(IReadOnlyCollection<long> ids) => ids.Count == 0
         ? []
         : Query<SlipEntity>(
             $"""
-            SELECT {SlipColumns}, 0 AS deleted FROM entries e WHERE e.id IN @ids
+            SELECT {SlipColumns}, 0 AS deleted FROM entries e WHERE e.id IN (SELECT value FROM json_each(@ids))
             UNION ALL
-            SELECT {SlipColumns}, 1 AS deleted FROM deleted_entries e WHERE e.id IN @ids
+            SELECT {SlipColumns}, 1 AS deleted FROM deleted_entries e WHERE e.id IN (SELECT value FROM json_each(@ids))
             """,
-            new { ids });
+            new { ids = Json(ids) });
 
     public IReadOnlyList<SlipEntity> SlipsBetween(string from, string to) => Query<SlipEntity>(
         $"SELECT {SlipColumns} FROM entries e WHERE e.carried_over = 0 AND e.entry_date BETWEEN @from AND @to ORDER BY e.entry_date, e.inward_no, e.id;",
@@ -218,16 +228,19 @@ public sealed class ArrivalRepository(IDbSession session) : RepositoryBase(sessi
             marks);
     }
 
-    public IReadOnlyDictionary<long, ArrivalImportMarkEntity> LatestMarks()
+    public IReadOnlyDictionary<long, ArrivalImportMarkEntity> LatestMarks(IReadOnlyCollection<long> arrivalIds)
     {
         var marks = new Dictionary<long, ArrivalImportMarkEntity>();
+        if (arrivalIds.Count == 0) return marks;
         foreach (var mark in Query<ArrivalImportMarkEntity>(
             """
             SELECT m.batch_id, m.arrival_id, m.action, m.source_row, m.changes, b.file_name, b.imported_at
             FROM arrival_import_marks m JOIN arrival_import_batches b ON b.id = m.batch_id
             WHERE b.id IN (SELECT MAX(id) FROM arrival_import_batches GROUP BY aawak_month)
+              AND m.arrival_id IN (SELECT value FROM json_each(@arrivalIds))
             ORDER BY b.id;
-            """))
+            """,
+            new { arrivalIds = Json(arrivalIds) }))
         {
             marks[mark.ArrivalId] = mark;
         }
@@ -239,6 +252,11 @@ public sealed class ArrivalRepository(IDbSession session) : RepositoryBase(sessi
 
     public IReadOnlyDictionary<long, NoArrivalEntity> NoArrival() =>
         Query<NoArrivalEntity>("SELECT entry_id, note, created_at FROM entry_no_arrival;").ToDictionary(n => n.EntryId);
+
+    public IReadOnlyDictionary<long, NoArrivalEntity> NoArrival(IReadOnlyCollection<long> entryIds) => entryIds.Count == 0
+        ? new Dictionary<long, NoArrivalEntity>()
+        : Query<NoArrivalEntity>("SELECT entry_id, note, created_at FROM entry_no_arrival WHERE entry_id IN (SELECT value FROM json_each(@entryIds));",
+            new { entryIds = Json(entryIds) }).ToDictionary(n => n.EntryId);
 
     public void SetNoArrival(long entryId, string note, string at) =>
         Execute("INSERT OR REPLACE INTO entry_no_arrival(entry_id, note, created_at) VALUES (@entryId, @note, @at);", new { entryId, note, at });

@@ -3,9 +3,9 @@
 // Business dashboard. One request (/api/dashboard/facts) brings every month's billing, finishes, inward and dispatch per
 // party, plus today's billing queue and stock. The screen adds up whichever months and parties are picked by itself, so
 // changing the selection never waits for the server. The figures are asked for again when the tab is opened, when the window
-// comes back into view and every minute while it is shown; while nothing changed the server answers 304 (not modified), which
+// comes back into view and every five minutes while it is shown; while nothing changed the server answers 304 (not modified), which
 // costs next to nothing. Written in plain words, with big numbers in lakh / crore, in English or Hindi.
-const DASH_REFRESH_MS = 60000;
+const DASH_REFRESH_MS = 300000;
 const DASH_MIN_GAP_MS = 5000;
 const DASH_PREFETCH_MS = 1500;
 const DASH_STORE = "mph-dashboard";

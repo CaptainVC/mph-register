@@ -7,6 +7,9 @@ public interface IArrivalRepository
 {
     IReadOnlyList<ArrivalEntity> List(string? month);
 
+    /// <summary>Arrivals of the Aawak months from <paramref name="from"/> to <paramref name="to"/> (yyyy-MM, both included).</summary>
+    IReadOnlyList<ArrivalEntity> InMonths(string from, string to);
+
     /// <summary>Arrivals dated from <paramref name="from"/> to <paramref name="to"/> (ISO dates, both included).</summary>
     IReadOnlyList<ArrivalEntity> Between(string from, string to);
 
@@ -57,8 +60,8 @@ public interface IArrivalRepository
 
     IReadOnlyList<ArrivalLinkEntity> AllLinks();
 
-    /// <summary>Every link with its arrival's number, for the inward register's Aawak column.</summary>
-    IReadOnlyList<EntryArrivalRow> EntryArrivals();
+    /// <summary>The links of these entries (null: of every entry) with their arrival's number, for the inward register's Aawak column.</summary>
+    IReadOnlyList<EntryArrivalRow> EntryArrivals(IReadOnlyCollection<long>? entryIds);
 
     /// <summary>Replaces the arrival's automatic links; manual ones stay.</summary>
     void ReplaceAutoLinks(long arrivalId, IReadOnlyCollection<ArrivalLinkEntity> links);
@@ -82,11 +85,14 @@ public interface IArrivalRepository
 
     void AddMarks(IReadOnlyCollection<ArrivalImportMarkEntity> marks);
 
-    IReadOnlyDictionary<long, ArrivalImportMarkEntity> LatestMarks();
+    IReadOnlyDictionary<long, ArrivalImportMarkEntity> LatestMarks(IReadOnlyCollection<long> arrivalIds);
 
     string? FileByHash(string sha256);
 
     IReadOnlyDictionary<long, NoArrivalEntity> NoArrival();
+
+    /// <summary>The "no Aawak needed" marks of these entries.</summary>
+    IReadOnlyDictionary<long, NoArrivalEntity> NoArrival(IReadOnlyCollection<long> entryIds);
 
     void SetNoArrival(long entryId, string note, string at);
 

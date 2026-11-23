@@ -1,10 +1,12 @@
 using MPHRegister.Contracts.Entries;
+using MPHRegister.Shared.Helpers;
 
 namespace MPHRegister.Services.Interfaces;
 
 public interface IEntryService
 {
-    IReadOnlyList<EntryDto> List(string? month);
+    /// <summary>The month's entries; with no valid month, those of <paramref name="months"/> (or all when it is null).</summary>
+    IReadOnlyList<EntryDto> List(string? month, MonthRange? months = null);
 
     IReadOnlyList<EntryDto> Recent(int? limit);
 
@@ -29,7 +31,7 @@ public interface IEntryService
     /// <summary>What an all-zero slip of this register month and party would link to with this D.N.</summary>
     IReadOnlyList<EntryLinkDto> LinksFor(string? month, string? party, string? designNo);
 
-    IReadOnlyList<EntryDto> PartyWise(string? month, string? party);
+    IReadOnlyList<EntryDto> PartyWise(string? month, string? party, MonthRange? months = null);
 
     IReadOnlyList<MonthSummary> Months();
 

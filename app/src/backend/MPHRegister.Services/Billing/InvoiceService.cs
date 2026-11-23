@@ -30,12 +30,22 @@ public sealed class InvoiceService(
 {
     private const int MaxNotes = 500;
 
-    public IReadOnlyList<InvoiceSummary> List(string? month, string? party) => invoices
-        .List(Dates.IsValidMonth(month) ? month : null, string.IsNullOrWhiteSpace(party) ? null : party.NormalizeName())
+    public IReadOnlyList<InvoiceSummary> List(string? month, string? party, MonthRange? months = null) => invoices
+        .List(Dates.IsValidMonth(month) ? month : null, string.IsNullOrWhiteSpace(party) ? null : party.NormalizeName(),
+            Dates.IsValidMonth(month) ? null : months?.From, Dates.IsValidMonth(month) ? null : months?.To)
         .Select(r => new InvoiceSummary(r.Id, r.InvoiceNo, r.BillDate, r.BillMonth, r.Party, r.PartyName, r.Than, r.Total,
             r.Status.ToEnum(InvoiceStatus.Saved), r.Source.ToEnum(InvoiceSource.App), r.Finishes ?? string.Empty, r.Entries,
             r.ExportedAt, r.ExportedTo, r.ChangedSinceExport, r.Fy, r.Serial))
         .ToList();
+
+    public IReadOnlyList<BillMonthDto> Months() => invoices.Months().Select(m => new BillMonthDto(m.Month, m.Bills)).ToList();
+
+    public IReadOnlyList<long> Missing(IReadOnlyCollection<long> ids)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        var found = invoices.ExistingIds(ids);
+        return ids.Where(id => !found.Contains(id)).ToList();
+    }
 
     public InvoiceDoc Get(long id)
     {
@@ -83,7 +93,7 @@ public sealed class InvoiceService(
         PartyDto? party = null;
         if (edit.RefreshParty)
         {
-            party = masters.Party(current.Party) ?? throw new AppValidationException($"Party \"{current.Party}\" is no longer in the party list.");
+            party = masters.Party(current.Party, withCounts: false) ?? throw new AppValidationException($"Party \"{current.Party}\" is no longer in the party list.");
             doc = doc with
             {
                 PartyName = party.Name,

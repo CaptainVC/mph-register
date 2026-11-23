@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Dapper;
 using Microsoft.Data.Sqlite;
+using MPHRegister.UnitTests.TestSupport;
 using static MPHRegister.UnitTests.Api.Http;
 
 namespace MPHRegister.UnitTests.Api;
@@ -44,15 +45,7 @@ public sealed class ApiInvoiceRestoreTests
     private static async Task<int> Unbilled(HttpClient app) =>
         (await app.Get($"/api/billing/candidates?party=RESTORE%20A&from={Month}-01&to={Month}-28").Ok()).GetProperty("entries").GetArrayLength();
 
-    private static SqliteConnection Open(ApiFactory factory)
-    {
-        var db = new SqliteConnection(new SqliteConnectionStringBuilder
-        {
-            DataSource = Path.Combine(factory.DataDirectory, "mph-data.db"), Pooling = false,
-        }.ToString());
-        db.Open();
-        return db;
-    }
+    private static SqliteConnection Open(ApiFactory factory) => TestDb.Open(factory.DataDirectory);
 
     [Fact]
     public async Task Cancelled_bill_is_restored_with_its_number_and_entries()

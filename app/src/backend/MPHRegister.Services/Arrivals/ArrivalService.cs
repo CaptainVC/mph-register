@@ -24,7 +24,11 @@ public sealed class ArrivalService(
     IValidator<ArrivalInput> validator,
     TimeProvider clock) : IArrivalService
 {
-    public IReadOnlyList<ArrivalDto> List(string? month) => reader.Read(arrivals.List(Dates.IsValidMonth(month) ? month : null));
+    public IReadOnlyList<ArrivalDto> List(string? month, MonthRange? months = null)
+    {
+        if (Dates.IsValidMonth(month)) return reader.Read(arrivals.List(month));
+        return reader.Read(months is null ? arrivals.List(null) : arrivals.InMonths(months.From, months.To));
+    }
 
     public IReadOnlyList<ArrivalDto> Recent(int? limit) =>
         reader.Read(arrivals.Recent(Math.Clamp(limit ?? Limits.RecentEntriesDefault, 1, Limits.RecentEntriesMax)));

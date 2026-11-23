@@ -11,7 +11,7 @@ trap 'rm -rf "$work"' EXIT
 for target in osx-arm64:mac:"MPH Register" win-x64:windows:"MPH Register.exe"; do
   rid=${target%%:*}; rest=${target#*:}; folder=${rest%%:*}; file=${rest#*:}
   dotnet publish "$root/app/src/backend/MPHRegister.Api" -c Release -r "$rid" --self-contained -nologo -v q \
-    -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -o "$work/$rid"
+    -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=true -p:DebugType=None -o "$work/$rid"
   mkdir -p "$builds/$folder"
   cp "$work/$rid/$file" "$builds/$folder/.$file.new"
   mv -f "$builds/$folder/.$file.new" "$builds/$folder/$file"

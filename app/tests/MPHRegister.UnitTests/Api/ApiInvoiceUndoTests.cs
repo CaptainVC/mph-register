@@ -4,6 +4,7 @@ using Dapper;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 using MPHRegister.Data.Database;
+using MPHRegister.UnitTests.TestSupport;
 using static MPHRegister.UnitTests.Api.Http;
 
 namespace MPHRegister.UnitTests.Api;
@@ -51,15 +52,7 @@ public sealed class ApiInvoiceUndoTests
     private static async Task<int> Next(HttpClient app, string fy = "26-27") =>
         (await app.Get($"/api/settings?fy={fy}").Ok()).GetProperty("nextSerial").GetInt32();
 
-    private static SqliteConnection Open(ApiFactory factory)
-    {
-        var db = new SqliteConnection(new SqliteConnectionStringBuilder
-        {
-            DataSource = Path.Combine(factory.DataDirectory, "mph-data.db"), Pooling = false,
-        }.ToString());
-        db.Open();
-        return db;
-    }
+    private static SqliteConnection Open(ApiFactory factory) => TestDb.Open(factory.DataDirectory);
 
     [Fact]
     public async Task Saved_bill_list_shows_financial_year_and_serial_so_the_screen_can_tell_the_newest_bills()

@@ -9,7 +9,7 @@ namespace MPHRegister.Api.Controllers;
 public sealed class ArrivalsController(IArrivalService arrivals) : ApiControllerBase
 {
     [HttpGet]
-    public ActionResult<IReadOnlyList<ArrivalDto>> List([FromQuery] string? month) => Ok(arrivals.List(month));
+    public ActionResult<IReadOnlyList<ArrivalDto>> List([FromQuery] string? month, [FromQuery] string? fy) => Ok(arrivals.List(month, YearOf(fy)));
 
     [HttpGet("recent")]
     public ActionResult<IReadOnlyList<ArrivalDto>> Recent([FromQuery] int? limit) => Ok(arrivals.Recent(limit));

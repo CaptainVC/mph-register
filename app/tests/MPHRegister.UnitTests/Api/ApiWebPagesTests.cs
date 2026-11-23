@@ -68,6 +68,26 @@ public sealed partial class ApiWebPagesTests(ApiFactory factory) : IClassFixture
     }
 
     [Fact]
+    public async Task Screen_files_are_checked_again_on_every_use_and_answers_are_never_kept()
+    {
+        var app = factory.App();
+        foreach (var path in new[] { "/", "/js/main.js", "/" + ApiModule.BillTemplateFile })
+        {
+            using var first = await app.GetAsync(new Uri(path, UriKind.Relative));
+            Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+            Assert.Equal("no-cache", first.Headers.CacheControl?.ToString());
+            var tag = first.Headers.ETag ?? throw new InvalidOperationException($"{path} has no ETag");
+            Assert.NotNull(first.Content.Headers.LastModified);
+            using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(path, UriKind.Relative));
+            request.Headers.IfNoneMatch.Add(tag);
+            using var again = await app.SendAsync(request);
+            Assert.Equal(HttpStatusCode.NotModified, again.StatusCode);
+        }
+        using var api = await app.GetAsync(new Uri("/api/info", UriKind.Relative));
+        Assert.Equal("no-store", api.Headers.CacheControl?.ToString());
+    }
+
+    [Fact]
     public void Every_screen_file_stays_short()
     {
         var sources = new ManifestEmbeddedFileProvider(typeof(AppOptions).Assembly, "wwwroot");

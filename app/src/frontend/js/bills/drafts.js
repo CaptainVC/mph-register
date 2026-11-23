@@ -358,6 +358,7 @@ function renderDrafts() {
         }), ["new", "New bill"]], select.value);
       };
       markFull();
+      markFull.select = select;
       fullMarkers.add(markFull);
       select.setAttribute("aria-label", `Move row ${index + 1} from Bill ${i + 1}`);
       select.addEventListener("change", () => {
@@ -383,7 +384,11 @@ function renderDrafts() {
         setTitle();
         if (redrawMoves) grid.refresh();
         else grid.renderCalculation();
-        for (const markFull of fullMarkers) markFull();
+        // Menus of rows drawn again are gone from the page: they are dropped instead of piling up.
+        for (const markFull of fullMarkers) {
+          if (markFull.select.isConnected) markFull();
+          else fullMarkers.delete(markFull);
+        }
         if (!area.inert) setBillMessage("", "");
       } catch (error) {
         if (current() && !area.inert) setBillMessage(error.message, "err");

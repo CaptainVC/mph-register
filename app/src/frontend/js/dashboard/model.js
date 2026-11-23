@@ -184,8 +184,32 @@ function joinUnbilled(a, b) {
   };
 }
 
+// A draw asks for the same totals several times (header, panels, sections); each is worked out once per model and pair of
+// sets. The sets are new for each view, so the answers are let go with them.
+const NO_SET = {};
+const dashMemo = new WeakMap();
+function memoFor(name, partySet, monthSet, work) {
+  const model = dashState.model;
+  let byParty = dashMemo.get(monthSet ?? NO_SET);
+  if (!byParty) {
+    byParty = new WeakMap();
+    dashMemo.set(monthSet ?? NO_SET, byParty);
+  }
+  let memo = byParty.get(partySet ?? NO_SET);
+  if (!memo || memo.model !== model) {
+    memo = { model, values: new Map() };
+    byParty.set(partySet ?? NO_SET, memo);
+  }
+  if (!memo.values.has(name)) memo.values.set(name, work());
+  return memo.values.get(name);
+}
+
 /** Open work for the parties in view that came in during the months in view, one row per party. */
 function unbilledFor(partySet, monthSet) {
+  return memoFor("unbilled", partySet, monthSet, () => workOutUnbilled(partySet, monthSet));
+}
+
+function workOutUnbilled(partySet, monthSet) {
   const byParty = new Map();
   for (const u of dashState.model.f.unbilled) {
     if ((partySet && !partySet.has(u.party)) || (monthSet && !monthSet.has(u.month))) continue;
@@ -202,6 +226,10 @@ function unbilledFor(partySet, monthSet) {
 }
 
 function stockFor(partySet, monthSet) {
+  return memoFor("stock", partySet, monthSet, () => workOutStock(partySet, monthSet));
+}
+
+function workOutStock(partySet, monthSet) {
   const rows = dashState.model.f.stock.filter((row) => (!partySet || partySet.has(row.party)) && (!monthSet || monthSet.has(row.month)));
   const add = (a, b) => ({
     entries: a.entries + b.entries, pieces: a.pieces + b.pieces, undispatchedThan: a.undispatchedThan + b.undispatchedThan, partialEntries: a.partialEntries + b.partialEntries,
@@ -211,6 +239,10 @@ function stockFor(partySet, monthSet) {
 
 /** Cloth received this calendar month up to the last inward date entered, and in the same days of the month before. */
 function thisMonthFor(partySet) {
+  return memoFor("thisMonth", partySet, null, () => workOutThisMonth(partySet));
+}
+
+function workOutThisMonth(partySet) {
   const m = dashState.model;
   const t = m.f.thisMonth;
   const now = inwardOf(rollup(m.f.inward, { months: new Set([monthIndexOf(t.month)]), parties: partySet }).get(0));

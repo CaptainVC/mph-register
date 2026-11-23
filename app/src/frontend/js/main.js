@@ -6,9 +6,8 @@ async function start() {
   try {
     await Promise.all([refreshInfo(), loadMasters()]);
     $("importMonth").value = "";
-    await resetForm({ keepDate: false });
+    await Promise.all([resetForm({ keepDate: false }), refreshRecent()]);
     $("party").focus();
-    await refreshRecent();
     requestAnimationFrame(() => document.documentElement.classList.add("ready"));
     renderUpdateMenu();
     announceUpdate(state.info);

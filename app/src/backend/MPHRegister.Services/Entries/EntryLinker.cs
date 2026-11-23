@@ -1,4 +1,5 @@
 using MPHRegister.Contracts.Entries;
+using MPHRegister.Data.Database;
 using MPHRegister.Data.Entities;
 using MPHRegister.Data.Repositories.Interfaces;
 using MPHRegister.Services.Interfaces;
@@ -13,23 +14,25 @@ namespace MPHRegister.Services.Entries;
 /// under another party is flagged, as it is most likely a typing mistake. Nothing is stored: a corrected D.N. or entry
 /// changes the link by itself.
 /// </summary>
-public sealed class EntryLinker(IEntryRepository entries, IMasterReader masters) : IEntryLinker
+public sealed class EntryLinker(IEntryRepository entries, IMasterReader masters, IDbSession session, DataRevision revision, ZeroSlipCache cache) : IEntryLinker
 {
-    public IReadOnlyDictionary<long, IReadOnlyList<EntryLinkDto>> For(IReadOnlyCollection<long> entryIds)
+    public IReadOnlyDictionary<long, IReadOnlyList<EntryLinkDto>> For(IReadOnlyList<EntryEntity> rows)
     {
-        var zeroSlips = entries.ZeroSlipsNamingInward()
-            .Select(slip => (Slip: slip, Numbers: InwardReference.Numbers(slip.DesignNo)))
-            .Where(z => z.Numbers.Count > 0)
-            .ToList();
-        if (zeroSlips.Count == 0) return new Dictionary<long, IReadOnlyList<EntryLinkDto>>();
+        ArgumentNullException.ThrowIfNull(rows);
+        var none = new Dictionary<long, IReadOnlyList<EntryLinkDto>>();
+        if (rows.Count == 0) return none;
+        var wanted = rows.Select(r => r.Id).ToHashSet();
+        var numbers = rows.Select(r => r.InwardNo).ToHashSet();
+        // Only the zero slips among the rows, or naming the number of one of them, can give the rows a link.
+        var zeroSlips = ZeroSlips().Where(z => wanted.Contains(z.Slip.Id) || z.Numbers.Any(numbers.Contains)).ToList();
+        if (zeroSlips.Count == 0) return none;
 
-        var wanted = entryIds as IReadOnlySet<long> ?? entryIds.ToHashSet();
         var candidates = entries.SlipsWithNumbers(zeroSlips.SelectMany(z => z.Numbers).ToHashSet()).ToLookup(c => c.InwardNo);
         var index = ConfigIndex.For(masters.Config);
         var links = new Dictionary<long, List<EntryLinkDto>>();
-        foreach (var (slip, numbers) in zeroSlips)
+        foreach (var (slip, slipNumbers) in zeroSlips)
         {
-            foreach (var number in numbers)
+            foreach (var number in slipNumbers)
             {
                 var earlier = Resolve(slip.RegisterMonth, slip.Party, number, candidates[number], index);
                 if (wanted.Contains(slip.Id)) Add(links, slip.Id, earlier);
@@ -40,6 +43,21 @@ public sealed class EntryLinker(IEntryRepository entries, IMasterReader masters)
             }
         }
         return links.ToDictionary(l => l.Key, l => (IReadOnlyList<EntryLinkDto>)l.Value);
+    }
+
+    /// <summary>Every all-zero slip whose D.N. names an inward number (a full scan), kept until the data changes.</summary>
+    private IReadOnlyList<ZeroSlip> ZeroSlips()
+    {
+        // Inside a transaction the rows may hold changes not committed yet, so they are read afresh and not kept.
+        var inTransaction = session.Transaction is not null;
+        var stamp = revision.Stamp();
+        if (!inTransaction && cache.Get(stamp) is { } kept) return kept;
+        var found = entries.ZeroSlipsNamingInward()
+            .Select(slip => new ZeroSlip(slip, InwardReference.Numbers(slip.DesignNo)))
+            .Where(z => z.Numbers.Count > 0)
+            .ToList();
+        if (!inTransaction) cache.Set(stamp, found);
+        return found;
     }
 
     public IReadOnlyList<EntryLinkDto> Preview(string registerMonth, string party, string? designNo)
@@ -68,5 +86,32 @@ public sealed class EntryLinker(IEntryRepository entries, IMasterReader masters)
     {
         if (!links.TryGetValue(id, out var list)) links[id] = list = [];
         list.Add(link);
+    }
+}
+
+public sealed record ZeroSlip(LinkSlipEntity Slip, IReadOnlyList<int> Numbers);
+
+/// <summary>The last list of all-zero slips naming an inward number, with the data stamp it was read under.</summary>
+public sealed class ZeroSlipCache
+{
+    private readonly Lock gate = new();
+    private string? stamp;
+    private IReadOnlyList<ZeroSlip> slips = [];
+
+    public IReadOnlyList<ZeroSlip>? Get(string current)
+    {
+        lock (gate)
+        {
+            return current == stamp ? slips : null;
+        }
+    }
+
+    public void Set(string current, IReadOnlyList<ZeroSlip> list)
+    {
+        lock (gate)
+        {
+            stamp = current;
+            slips = list;
+        }
     }
 }

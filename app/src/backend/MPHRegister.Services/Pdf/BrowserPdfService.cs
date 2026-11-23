@@ -16,10 +16,19 @@ public sealed class BrowserPdfService : IInvoicePdfService, IDisposable
     private const string ReadyCheck = "document.body && document.body.dataset.ready === '1' ? 'ready' : (document.getElementById('status')?.textContent || '')";
     private readonly Lazy<string?> browser = new(FindBrowser);
     private readonly SemaphoreSlim oneAtATime = new(1, 1);
+    private readonly Lock gate = new();
+    private Task cleaning = Task.CompletedTask;
 
     public bool IsAvailable => browser.Value is not null;
 
-    public void Dispose() => oneAtATime.Dispose();
+    public void Dispose()
+    {
+        // Lets a browser still closing in the background finish, so none is left running when the app stops.
+        Task pending;
+        lock (gate) pending = cleaning;
+        pending.Wait(TimeSpan.FromSeconds(10));
+        oneAtATime.Dispose();
+    }
 
     public async Task<byte[]> RenderAsync(Uri printPage, CancellationToken cancellationToken)
     {
@@ -84,10 +93,18 @@ public sealed class BrowserPdfService : IInvoicePdfService, IDisposable
         }
         finally
         {
-            Stop(process);
-            if (profile is not null) TryDelete(profile);
+            // The PDF goes back at once: the browser stops and its profile goes in the background, and the next PDF need not wait.
             oneAtATime.Release();
+            var cleanup = CleanUpAsync(process, profile);
+            lock (gate) cleaning = cleaning.IsCompleted ? cleanup : Task.WhenAll(cleaning, cleanup);
         }
+    }
+
+    private static async Task CleanUpAsync(Process? process, DirectoryInfo? profile)
+    {
+        await Task.Yield();
+        if (process is not null) await StopAsync(process);
+        if (profile is not null) await TryDeleteAsync(profile);
     }
 
     private static Process Start(string executable, string profile)
@@ -134,21 +151,34 @@ public sealed class BrowserPdfService : IInvoicePdfService, IDisposable
         }
     }
 
-    private static void Stop(Process? process)
+    private static async Task StopAsync(Process process)
     {
-        if (process is null) return;
         try
         {
-            if (!process.WaitForExit(2000)) process.Kill(entireProcessTree: true);
-            process.WaitForExit(5000);
+            if (!await ExitsWithin(process, TimeSpan.FromSeconds(2))) process.Kill(entireProcessTree: true);
+            await ExitsWithin(process, TimeSpan.FromSeconds(5));
         }
-        catch (InvalidOperationException)
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
-            // Process already exited.
+            // Process already exited, or could not be stopped (it ends with its last window).
         }
         finally
         {
             process.Dispose();
+        }
+    }
+
+    private static async Task<bool> ExitsWithin(Process process, TimeSpan time)
+    {
+        using var wait = new CancellationTokenSource(time);
+        try
+        {
+            await process.WaitForExitAsync(wait.Token);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
         }
     }
 
@@ -181,7 +211,7 @@ public sealed class BrowserPdfService : IInvoicePdfService, IDisposable
         return candidates.FirstOrDefault(File.Exists);
     }
 
-    private static void TryDelete(DirectoryInfo directory)
+    private static async Task TryDeleteAsync(DirectoryInfo directory)
     {
         for (var attempt = 0; attempt < 10; attempt++)
         {
@@ -193,7 +223,8 @@ public sealed class BrowserPdfService : IInvoicePdfService, IDisposable
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                Thread.Sleep(300);
+                // The browser's helper processes may still hold the profile for a moment.
+                await Task.Delay(300);
             }
         }
     }

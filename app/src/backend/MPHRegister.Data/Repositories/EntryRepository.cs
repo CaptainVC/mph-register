@@ -6,8 +6,6 @@ namespace MPHRegister.Data.Repositories;
 
 public sealed class EntryRepository(IDbSession session) : RepositoryBase(session), IEntryRepository
 {
-    private const int InListLimit = 500;
-
     private const string Select = """
         SELECT e.id, e.register_month, e.inward_no, e.entry_date, e.party, e.design_no, e.lot_no, e.repair, e.than, e.tp,
             e.two_part, e.finish, e.short_than, e.carried_over, e.import_batch_id, e.source_row, e.created_at, e.updated_at,
@@ -16,6 +14,8 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
             (SELECT note FROM billed_elsewhere b WHERE b.entry_id = e.id) AS elsewhere
         FROM entries e
         """;
+
+    private const string InParties = "e.party COLLATE NOCASE IN (SELECT value COLLATE NOCASE FROM json_each(@parties))";
 
     private const string NotBilled = """
         NOT EXISTS (SELECT 1 FROM invoice_entries ie JOIN invoices i ON i.id = ie.invoice_id WHERE ie.entry_id = e.id AND i.status = 'saved')
@@ -26,6 +26,9 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
         ? Query<EntryEntity>($"{Select} ORDER BY e.id;")
         : Query<EntryEntity>($"{Select} WHERE e.register_month = @month ORDER BY e.id;", new { month });
 
+    public IReadOnlyList<EntryEntity> InMonths(string from, string to) =>
+        Query<EntryEntity>($"{Select} WHERE e.register_month BETWEEN @from AND @to ORDER BY e.id;", new { from, to });
+
     public IReadOnlyList<EntryEntity> Recent(int limit) =>
         Query<EntryEntity>($"{Select} WHERE e.import_batch_id IS NULL ORDER BY e.id DESC LIMIT @limit;", new { limit });
 
@@ -33,27 +36,37 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
 
     public IReadOnlyList<EntryEntity> ByIds(IReadOnlyCollection<long> ids) => ids.Count == 0
         ? []
-        : Query<EntryEntity>($"{Select} WHERE e.id IN @ids ORDER BY e.id;", new { ids });
+        : Query<EntryEntity>($"{Select} WHERE e.id IN (SELECT value FROM json_each(@ids)) ORDER BY e.id;", new { ids = Json(ids) });
 
     public IReadOnlyList<EntryEntity> Unbilled(IReadOnlyList<string> parties, string? uptoMonth) => Query<EntryEntity>(
         $"""
         {Select}
-        WHERE e.party COLLATE NOCASE IN @parties AND e.repair = 0 AND e.than > 0
-          AND (@uptoMonth IS NULL OR e.register_month <= @uptoMonth)
+        WHERE {InParties} AND e.repair = 0 AND e.than > 0
+          {(uptoMonth is null ? "" : "AND e.register_month <= @uptoMonth")}
           AND {NotBilled}
         ORDER BY e.register_month, e.carried_over DESC, e.inward_no, e.id;
         """,
-        new { parties, uptoMonth });
+        new { parties = Json(parties), uptoMonth });
+
+    public IReadOnlyList<EntryEntity> UnbilledByIds(IReadOnlyCollection<long> ids, IReadOnlyList<string> parties) => ids.Count == 0
+        ? []
+        : Query<EntryEntity>(
+            $"""
+            {Select}
+            WHERE e.id IN (SELECT value FROM json_each(@ids)) AND {InParties} AND e.repair = 0 AND e.than > 0 AND {NotBilled}
+            ORDER BY e.register_month, e.carried_over DESC, e.inward_no, e.id;
+            """,
+            new { ids = Json(ids), parties = Json(parties) });
 
     public IReadOnlyList<EntryEntity> UnbilledBetween(IReadOnlyList<string> parties, string from, string to) => Query<EntryEntity>(
         $"""
         {Select}
-        WHERE e.party COLLATE NOCASE IN @parties AND e.repair = 0 AND e.than > 0
+        WHERE {InParties} AND e.repair = 0 AND e.than > 0
           AND e.entry_date BETWEEN @from AND @to
           AND {NotBilled}
         ORDER BY e.register_month, e.carried_over DESC, e.inward_no, e.id;
         """,
-        new { parties, from, to });
+        new { parties = Json(parties), from, to });
 
     public IReadOnlyList<EntryEntity> UnbilledAnyParty(string from, string to) => Query<EntryEntity>(
         $"""
@@ -72,11 +85,11 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
     public IReadOnlyList<EntryEntity> Billed(IReadOnlyList<string> parties, string? uptoMonth) => Query<EntryEntity>(
         $"""
         {Select}
-        WHERE e.party COLLATE NOCASE IN @parties AND (@uptoMonth IS NULL OR e.register_month <= @uptoMonth)
+        WHERE {InParties} {(uptoMonth is null ? "" : "AND e.register_month <= @uptoMonth")}
           AND NOT ({NotBilled})
         ORDER BY e.id;
         """,
-        new { parties, uptoMonth });
+        new { parties = Json(parties), uptoMonth });
 
     public EntryEntity? FindEarlier(string party, string entryDate, int inwardNo, string beforeMonth) => First<EntryEntity>(
         $"""
@@ -222,18 +235,18 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
         """,
         new { id });
 
-    public IReadOnlyDictionary<long, List<DispatchEntity>> Dispatches(IReadOnlyCollection<long> entryIds)
+    public IReadOnlyDictionary<long, List<DispatchEntity>> Dispatches(IReadOnlyCollection<long> entryIds, bool readWhole = false)
     {
         var result = new Dictionary<long, List<DispatchEntity>>();
         if (entryIds.Count == 0) return result;
         const string Columns = "SELECT entry_id, seq, qty, gate_pass, dispatch_date, date_text FROM dispatches";
-        var rows = entryIds.Count <= InListLimit
-            ? Query<DispatchEntity>($"{Columns} WHERE entry_id IN @entryIds ORDER BY entry_id, seq;", new { entryIds })
-            : Query<DispatchEntity>($"{Columns} ORDER BY entry_id, seq;");
-        var wanted = entryIds as IReadOnlySet<long> ?? entryIds.ToHashSet();
+        var rows = readWhole
+            ? Query<DispatchEntity>($"{Columns} ORDER BY entry_id, seq;")
+            : Query<DispatchEntity>($"{Columns} WHERE entry_id IN (SELECT value FROM json_each(@entryIds)) ORDER BY entry_id, seq;", new { entryIds = Json(entryIds) });
+        var wanted = readWhole ? entryIds as IReadOnlySet<long> ?? entryIds.ToHashSet() : null;
         foreach (var row in rows)
         {
-            if (!wanted.Contains(row.EntryId)) continue;
+            if (wanted?.Contains(row.EntryId) == false) continue;
             if (!result.TryGetValue(row.EntryId, out var list)) result[row.EntryId] = list = [];
             list.Add(row);
         }
@@ -275,11 +288,15 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
         }
     }
 
-    public IReadOnlySet<(string Month, int InwardNo)> DuplicateInwardNumbers() => Query<InwardKey>(
-        """
-        SELECT register_month, inward_no FROM entries WHERE carried_over = 0 AND inward_no > 0
-        GROUP BY register_month, inward_no HAVING COUNT(*) > 1;
-        """).Select(k => (k.RegisterMonth, k.InwardNo)).ToHashSet();
+    public IReadOnlySet<(string Month, int InwardNo)> DuplicateInwardNumbers(IReadOnlyCollection<string> months) => months.Count == 0
+        ? new HashSet<(string, int)>()
+        : Query<InwardKey>(
+            """
+            SELECT register_month, inward_no FROM entries
+            WHERE register_month IN (SELECT value FROM json_each(@months)) AND carried_over = 0 AND inward_no > 0
+            GROUP BY register_month, inward_no HAVING COUNT(*) > 1;
+            """,
+            new { months = Json(months) }).Select(k => (k.RegisterMonth, k.InwardNo)).ToHashSet();
 
     public string? InwardNumberOwner(string month, int inwardNo, long? excludingId) => First<string>(
         """
@@ -291,7 +308,7 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
     public bool IsCarriedOver(long id) => Scalar<long?>("SELECT carried_over FROM entries WHERE id = @id;", new { id }) == 1;
 
     public int NextInwardNumber(string month) => Scalar<int>(
-        "SELECT COALESCE(MAX(inward_no), 0) + 1 FROM entries WHERE register_month = @month AND carried_over = 0;",
+        "SELECT COALESCE(MAX(inward_no), 0) + 1 FROM entries WHERE register_month = @month AND carried_over = 0 AND inward_no > 0;",
         new { month });
 
     public IReadOnlyList<MonthCount> Months() => Query<MonthCount>(
@@ -319,16 +336,11 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
         ORDER BY e.id;
         """);
 
-    public IReadOnlyList<LinkSlipEntity> SlipsWithNumbers(IReadOnlyCollection<int> numbers)
-    {
-        var found = new List<LinkSlipEntity>();
-        foreach (var chunk in numbers.Distinct().Chunk(InListLimit))
-        {
-            found.AddRange(Query<LinkSlipEntity>(
-                $"{LinkColumns} WHERE e.inward_no IN @chunk AND (e.than > 0 OR e.tp > 0 OR e.two_part > 0) ORDER BY e.id;", new { chunk }));
-        }
-        return found;
-    }
+    public IReadOnlyList<LinkSlipEntity> SlipsWithNumbers(IReadOnlyCollection<int> numbers) => numbers.Count == 0
+        ? []
+        : Query<LinkSlipEntity>(
+            $"{LinkColumns} WHERE e.inward_no IN (SELECT value FROM json_each(@numbers)) AND (e.than > 0 OR e.tp > 0 OR e.two_part > 0) ORDER BY e.id;",
+            new { numbers = Json(numbers.Distinct()) });
 
     public IReadOnlyList<string> DistinctParties() => Query<string>("SELECT DISTINCT party FROM entries ORDER BY party;");
 }

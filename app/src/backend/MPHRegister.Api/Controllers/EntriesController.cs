@@ -8,7 +8,7 @@ namespace MPHRegister.Api.Controllers;
 public sealed class EntriesController(IEntryService entries) : ApiControllerBase
 {
     [HttpGet]
-    public ActionResult<IReadOnlyList<EntryDto>> List([FromQuery] string? month) => Ok(entries.List(month));
+    public ActionResult<IReadOnlyList<EntryDto>> List([FromQuery] string? month, [FromQuery] string? fy) => Ok(entries.List(month, YearOf(fy)));
 
     [HttpGet("recent")]
     public ActionResult<IReadOnlyList<EntryDto>> Recent([FromQuery] int? limit) => Ok(entries.Recent(limit));

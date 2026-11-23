@@ -50,7 +50,7 @@ jobs:
       - name: Publish the single-file app
         run: |
           dotnet publish app/src/backend/MPHRegister.Api -c Release -r win-x64 --self-contained -nologo \
-            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -o publish
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=true -p:DebugType=None -o publish
           cp "publish/MPH Register.exe" MPH-Register-win-x64.exe
 
       # The commit titles since the last release (already checked for real data in their pull requests), without PR numbers.

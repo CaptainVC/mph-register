@@ -32,22 +32,24 @@ function registerSearchIndex() {
 }
 
 // Optimal string alignment distance (a swap of two neighbouring letters is one typo); gives up past max.
+// Three rows are reused between calls: this runs for every value in the index on each keystroke.
+let typoRows = [new Int32Array(32), new Int32Array(32), new Int32Array(32)];
 function typoDistance(a, b, max) {
   if (Math.abs(a.length - b.length) > max) return max + 1;
-  let before = null;
-  let previous = Array.from({ length: b.length + 1 }, (_, j) => j);
+  if (typoRows[0].length <= b.length) typoRows = typoRows.map(() => new Int32Array(b.length * 2 + 2));
+  let [before, previous, current] = typoRows;
+  for (let j = 0; j <= b.length; j++) previous[j] = j;
   for (let i = 1; i <= a.length; i++) {
-    const current = [i];
+    current[0] = i;
     let rowBest = i;
     for (let j = 1; j <= b.length; j++) {
       let d = Math.min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-      if (before && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d = Math.min(d, before[j - 2] + 1);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d = Math.min(d, before[j - 2] + 1);
       current[j] = d;
       rowBest = Math.min(rowBest, d);
     }
     if (rowBest > max) return max + 1;
-    before = previous;
-    previous = current;
+    [before, previous, current] = [previous, current, before];
   }
   return previous[b.length];
 }
@@ -86,9 +88,11 @@ function typoRank({ words }, tokens) {
   return 5 + typos;
 }
 
+// One collator for every comparison: localeCompare with options builds a new one each time.
+const NUMERIC_COLLATOR = new Intl.Collator(undefined, { numeric: true });
 function betterSuggestion(a, b) {
   return a.rank - b.rank || b.item.count - a.item.count || a.item.order - b.item.order
-    || a.item.value.localeCompare(b.item.value, undefined, { numeric: true });
+    || NUMERIC_COLLATOR.compare(a.item.value, b.item.value);
 }
 
 function registerSearchSuggestions(text) {
@@ -138,3 +142,10 @@ const registerSearchSuggest = attachSuggestions($("registerSearch"), registerSea
 $("registerSearch").addEventListener("keydown", (event) => {
   if (event.key === "Enter") registerSearchSuggest.close();
 });
+
+// The suggestion index is built while the app is idle after a list loads, so the first key typed does not wait for it.
+function prepareRegisterSearchIndex() {
+  const pool = registerSearchPool;
+  const idle = window.requestIdleCallback || ((run) => setTimeout(run, 200));
+  idle(() => { if (registerSearchPool === pool && !pool.index) registerSearchIndex(); }, { timeout: 4000 });
+}

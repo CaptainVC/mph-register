@@ -161,6 +161,7 @@ public sealed class AawakImportService(
                 unit.Commit();
             }
             imported = true;
+            session.Optimize();
             links = ArrivalReader.Summary(reader.Read(arrivals.List(target)));
         }
 

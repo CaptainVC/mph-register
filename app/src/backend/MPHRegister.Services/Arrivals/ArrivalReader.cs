@@ -22,9 +22,9 @@ public sealed class ArrivalReader(IArrivalRepository arrivals, IConfigStore conf
         var links = arrivals.Links(ids).ToLookup(l => l.ArrivalId);
         var slips = arrivals.SlipsByIds(links.SelectMany(g => g).Select(l => l.EntryId).Distinct().ToList())
             .GroupBy(s => s.Id).ToDictionary(g => g.Key, g => g.OrderBy(s => s.Deleted).First());
-        var marks = arrivals.LatestMarks();
+        var marks = arrivals.LatestMarks(ids);
         var index = ConfigIndex.For(config.Current);
-        var elsewhere = Elsewhere(rows, refs, links, slips);
+        var elsewhere = Elsewhere(rows, refs, links, slips).ToLookup(s => s.InwardNo);
         return rows.Select(r => ToDto(r, refs.GetValueOrDefault(r.Id) ?? [], links[r.Id], slips, marks.GetValueOrDefault(r.Id), index, elsewhere)).ToList();
     }
 
@@ -65,7 +65,7 @@ public sealed class ArrivalReader(IArrivalRepository arrivals, IConfigStore conf
     }
 
     private ArrivalDto ToDto(ArrivalEntity row, IReadOnlyList<int> refs, IEnumerable<ArrivalLinkEntity> links, Dictionary<long, SlipEntity> slips,
-        ArrivalImportMarkEntity? mark, ConfigIndex index, List<SlipEntity> elsewhere)
+        ArrivalImportMarkEntity? mark, ConfigIndex index, ILookup<int, SlipEntity> elsewhere)
     {
         var shown = links.Where(l => slips.ContainsKey(l.EntryId))
             .Select(l => Slip(slips[l.EntryId], l.Nag, l.How == ArrivalLinkHow.Manual, row.Party, index))
@@ -79,7 +79,8 @@ public sealed class ArrivalReader(IArrivalRepository arrivals, IConfigStore conf
         if (status == ArrivalStatus.NagDiffers) warnings.Add(string.Create(CultureInfo.InvariantCulture, $"NAG is {row.Nag} but the slips have {slipsNag}."));
         var day0 = Dates.ParseIsoOrDefault(row.ArrivalDate);
         var window = Math.Max(config.Current.Aawak.LinkWindowDays, NearbyDays);
-        var others = elsewhere.Where(s => missing.Contains(s.InwardNo) && Math.Abs(Dates.ParseIsoOrDefault(s.EntryDate).DayNumber - day0.DayNumber) <= window).ToList();
+        // missing keeps the refs' order (ascending numbers) and each group keeps the query's order, as one filtered list would.
+        var others = missing.SelectMany(n => elsewhere[n]).Where(s => Math.Abs(Dates.ParseIsoOrDefault(s.EntryDate).DayNumber - day0.DayNumber) <= window).ToList();
         var notEntered = missing.Where(n => !others.Any(s => s.InwardNo == n)).ToList();
         if (notEntered.Count > 0)
             warnings.Add($"INW NO {InwardNumbers.Format(notEntered)} {(notEntered.Count == 1 ? "is" : "are")} not in the inward register yet.");

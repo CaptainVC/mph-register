@@ -34,6 +34,8 @@ try
 }
 catch (Exception ex) when (ex is DataFileException or Microsoft.Data.Sqlite.SqliteException or IOException or UnauthorizedAccessException)
 {
+    // Pooled connections keep the file open; the user may now replace it from a backup while this window waits.
+    Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
     await Console.Error.WriteLineAsync(ex.Message);
     await Console.Error.WriteLineAsync("Press Enter to close.");
     Console.ReadLine();
@@ -58,6 +60,9 @@ app.Lifetime.ApplicationStarted.Register(() =>
     if (started.AfterUpdate) SelfUpdate.OpenWindowUnlessPageReturns(options.BaseUri, TimeSpan.FromSeconds(8));
     else LocalHost.OpenWindow(options.BaseUri);
 });
+
+app.Lifetime.ApplicationStopping.Register(Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools);
+app.Lifetime.ApplicationStopped.Register(() => DatabaseShutdown.Close(app.Services.GetRequiredService<IConnectionFactory>()));
 
 var data = app.Services.GetRequiredService<DataOptions>();
 Console.WriteLine($"MPH Register {InfoService.Version} running at {options.BaseUri.AbsoluteUri.TrimEnd('/')}");

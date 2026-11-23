@@ -9,7 +9,7 @@
 button.subtab:hover { background: none; border-color: transparent; color: var(--heading); }
 button.subtab.active, button.subtab.active:hover { border-bottom-color: var(--accent); color: var(--accent); }
 /* The entry list scrolls independently; review and save actions always stay in reach. */
-body:has(#view-bills.active) { grid-template-columns: minmax(0, 1fr); }
+body[data-screen="bills"] { grid-template-columns: minmax(0, 1fr); }
 .bill-date-card {
   display: flex; align-items: center; justify-content: space-between; gap: 16px 24px; padding: 12px 18px;
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);

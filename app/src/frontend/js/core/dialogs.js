@@ -170,9 +170,20 @@ function toast(text, kind = "ok", action = null) {
 }
 
 // ---------- Searchable combo box ----------
+// Each master's name is normalised once (the lists are new objects after every masters load), not on every key.
+const normalizedNames = new WeakMap();
+function normalizedName(item) {
+  let name = normalizedNames.get(item);
+  if (name === undefined) {
+    name = normalize(item.name);
+    normalizedNames.set(item, name);
+  }
+  return name;
+}
+
 function masterSuggestions(getItems, text, current) {
   function rank(item, tokens, joined) {
-    const name = normalize(item.name);
+    const name = normalizedName(item);
     if (!tokens.every((t) => name.includes(t))) return -1;
     if (name === joined) return 0;
     if (name.startsWith(joined)) return 1;
