@@ -1,0 +1,42 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build MPH Register",
+			"type": "process",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"src/backend/MPHRegister.Api/MPHRegister.Api.csproj"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}/app"
+			},
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+		{
+			"label": "Run MPH Register on 5151",
+			"type": "process",
+			"command": "dotnet",
+			"args": [
+				"${workspaceFolder}/app/src/backend/MPHRegister.Api/bin/Debug/net10.0/MPH Register.dll"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}",
+				"env": {
+					"MPH_PORT": "5151",
+					"MPH_NO_BROWSER": "1"
+				}
+			},
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

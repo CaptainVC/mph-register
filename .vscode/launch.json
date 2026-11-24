@@ -1,0 +1,19 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "MPH Register",
+			"type": "coreclr",
+			"request": "launch",
+			"preLaunchTask": "Build MPH Register",
+			"program": "${workspaceFolder}/app/src/backend/MPHRegister.Api/bin/Debug/net10.0/MPH Register.dll",
+			"args": [],
+			"cwd": "${workspaceFolder}/app",
+			"stopAtEntry": false,
+			"console": "integratedTerminal",
+			"env": {
+				"MPH_PORT": "5151"
+			}
+		}
+	]
+}

@@ -35,6 +35,10 @@ node_modules/
 __pycache__/
 *.pyc
 .vscode/
+!.vscode/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
 .idea/
 .vs/
 *.user
