@@ -2,6 +2,7 @@
 
 // A party's entries ready to bill: ticking them and making draft bills.
 
+const STOCK_BILL_TIP = "From stock: the inward date is before the period, but it was still in stock when the period began.";
 let billCountTimer = 0;
 let makingBills = false;
 
@@ -83,7 +84,11 @@ function renderCandidates() {
   $("candidateHead").replaceChildren(head);
   $("candidateTools").classList.remove("hidden");
   $("candidateCount").textContent = `${num(c.entries.length)} entries to bill`;
-  $("candidateHint").textContent = c.billBeforeDispatch ? "Unsent entries are included. Untick any you do not want to bill." : "Sent entries are selected. Tick or untick to change the bill.";
+  const fromStock = c.entries.some((e) => e.fromStock);
+  $("candidateHint").replaceChildren(
+    el("span", { text: c.billBeforeDispatch ? "Unsent entries are included. Untick any you do not want to bill." : "Sent entries are selected. Tick or untick to change the bill." }),
+    ...(fromStock ? [" ", el("span", { text: STOCK_BILL_TIP })] : []),
+  );
 
   const extraColumns = new Set(["REG. MONTH", "BILL AS", "NAG", "JAWAK", "GATE PASS"]);
   const cols = ["INW. NO.", "REG. MONTH", "DATE", "D.N.", "LOT N.", "FINISH", "BILL AS", "RATE", "NETT THAN", "NAG", "JAWAK", "DISPATCH", "GATE PASS"];
@@ -93,7 +98,10 @@ function renderCandidates() {
     box.checked = e.selected;
     const tr = el("tr", { class: e.dispatchState === "none" ? "pending" : e.dispatchState === "partial" ? "partial" : "" }, [
       el("td", {}, [box]), el("td", { class: "inward", text: String(e.inwardNo) }), el("td", { class: "bill-extra-column", text: formatMonth(e.registerMonth) }),
-      el("td", { text: formatDate(e.entryDate) }),
+      el("td", {}, [
+        el("span", { text: formatDate(e.entryDate) }),
+        ...(e.fromStock ? [el("span", { class: "bill-stock-note", text: "From stock", title: STOCK_BILL_TIP })] : []),
+      ]),
       el("td", { text: e.designNo }), el("td", { text: e.lotNo }), el("td", {}, [
         el("span", { text: e.finish }),
         ...(e.billFinish !== e.finish ? [el("span", { class: "bill-finish-note", text: `Bill as ${e.billFinish}` })] : []),

@@ -197,9 +197,19 @@ public sealed class EntryService(
 
     private static string Slip(EntryEntity entry) => $"INW. NO. {entry.InwardNo} of {entry.EntryDate} ({entry.Party})";
 
+    /// <summary>
+    /// The entries of the month (or months), and with them those of earlier months still in stock when the first one began
+    /// (as the register carries them over), grouped by party.
+    /// </summary>
     public IReadOnlyList<EntryDto> PartyWise(string? month, string? party, MonthRange? months = null)
     {
-        IEnumerable<EntryDto> list = List(month, months);
+        var one = Dates.IsValidMonth(month);
+        var first = one ? month : months?.From;
+        IReadOnlyList<EntryEntity> rows;
+        if (one) rows = entries.List(month);
+        else rows = months is null ? entries.List(null) : entries.InMonths(months.From, months.To);
+        if (first is not null) rows = [.. entries.InStockBefore(first), .. rows];
+        IEnumerable<EntryDto> list = reader.Read(rows);
         if (!string.IsNullOrWhiteSpace(party))
             list = list.Where(e => string.Equals(e.Party, party.NormalizeName(), StringComparison.OrdinalIgnoreCase));
         return list

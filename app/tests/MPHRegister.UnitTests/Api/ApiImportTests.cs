@@ -272,7 +272,9 @@ public sealed class ApiImportTests(ApiFactory factory) : IClassFixture<ApiFactor
         var saved = await Month(app, "2027-12");
         Assert.Equal((24, 23, 24), (Inward(saved, 1).GetProperty("than").GetInt32(), Inward(saved, 1).GetProperty("nettThan").GetInt32(), Inward(saved, 2).GetProperty("nettThan").GetInt32()));
         var candidates = await app.Get("/api/billing/candidates?party=IMP%20PARTY&from=2027-12-01&to=2027-12-31").Ok();
-        Assert.Equal([23, 24], candidates.GetProperty("entries").EnumerateArray().OrderBy(e => e.GetProperty("inwardNo").GetInt32()).Select(e => e.GetProperty("nettThan").GetInt32()));
+        // December's own slips (the other tests' earlier IMP PARTY slips still in stock come along too, marked as from stock).
+        Assert.Equal([23, 24], candidates.GetProperty("entries").EnumerateArray().Where(e => !e.GetProperty("fromStock").GetBoolean())
+            .OrderBy(e => e.GetProperty("inwardNo").GetInt32()).Select(e => e.GetProperty("nettThan").GetInt32()));
 
         // Correcting the entry in the Register does not lose it.
         var id = Inward(saved, 1).GetProperty("id").GetInt64();

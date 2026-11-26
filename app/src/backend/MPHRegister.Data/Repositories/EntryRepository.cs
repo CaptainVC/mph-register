@@ -22,12 +22,27 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
         AND NOT EXISTS (SELECT 1 FROM billed_elsewhere b WHERE b.entry_id = e.id)
         """;
 
+    /// <summary>
+    /// Still in stock when the day <paramref name="day"/> (a query parameter holding an ISO date) began: less was dispatched
+    /// before it than came in. A dispatch without a valid date counts as sent before it.
+    /// </summary>
+    private static string InStockOn(string day) => $"""
+        e.than + e.tp + e.two_part > COALESCE((SELECT SUM(d.qty) FROM dispatches d
+            WHERE d.entry_id = e.id AND (d.dispatch_date IS NULL OR d.dispatch_date < {day})), 0)
+        """;
+
+    // An inward date in the bill period, or an earlier slip still in stock when the period began (billed with this period).
+    private static readonly string InBillPeriod = $"(e.entry_date BETWEEN @from AND @to OR (e.entry_date < @from AND {InStockOn("@from")}))";
+
     public IReadOnlyList<EntryEntity> List(string? month) => month is null
         ? Query<EntryEntity>($"{Select} ORDER BY e.id;")
         : Query<EntryEntity>($"{Select} WHERE e.register_month = @month ORDER BY e.id;", new { month });
 
     public IReadOnlyList<EntryEntity> InMonths(string from, string to) =>
         Query<EntryEntity>($"{Select} WHERE e.register_month BETWEEN @from AND @to ORDER BY e.id;", new { from, to });
+
+    public IReadOnlyList<EntryEntity> InStockBefore(string month) => Query<EntryEntity>(
+        $"{Select} WHERE e.register_month < @month AND {InStockOn("@day")} ORDER BY e.id;", new { month, day = month + "-01" });
 
     public IReadOnlyList<EntryEntity> Recent(int limit) =>
         Query<EntryEntity>($"{Select} WHERE e.import_batch_id IS NULL ORDER BY e.id DESC LIMIT @limit;", new { limit });
@@ -62,7 +77,7 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
         $"""
         {Select}
         WHERE {InParties} AND e.repair = 0 AND e.than > e.nett_less
-          AND e.entry_date BETWEEN @from AND @to
+          AND {InBillPeriod}
           AND {NotBilled}
         ORDER BY e.register_month, e.carried_over DESC, e.inward_no, e.id;
         """,
@@ -321,7 +336,7 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
         SELECT e.party AS party, COUNT(*) AS entries, SUM(e.than - e.nett_less) AS nett_than,
             SUM(CASE WHEN NOT EXISTS (SELECT 1 FROM dispatches d WHERE d.entry_id = e.id) THEN 1 ELSE 0 END) AS not_dispatched
         FROM entries e
-        WHERE e.repair = 0 AND e.than > e.nett_less AND e.entry_date BETWEEN @from AND @to AND {NotBilled}
+        WHERE e.repair = 0 AND e.than > e.nett_less AND {InBillPeriod} AND {NotBilled}
         GROUP BY e.party COLLATE NOCASE ORDER BY e.party;
         """,
         new { from, to });

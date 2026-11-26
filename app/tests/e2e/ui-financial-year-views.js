@@ -4,12 +4,13 @@ const { chromium } = require("playwright-core");
 const { chooseDropdown, dropdownValue, dropdownValues, waitForDropdownValues } = require("./dropdown-helpers");
 
 const BASE = process.env.MPH_BASE_URL || "http://127.0.0.1:5152";
+// Every slip is sent in its own month, so none is still in stock when a later month begins (ui-partywise-stock.js covers that).
 const entry = (id, month, extra = {}) => ({
   id, registerMonth: month, inwardNo: id, entryDate: `${month}-15`,
   party: "TEST PARTY", designNo: `DESIGN-${id}`, lotNo: "", repair: false,
   than: id * 10, tp: 0, nag: id * 10, nettThan: id * 10, twoPart: 0, finish: "S2G",
-  dispatched: 0, balance: id * 10, shortThan: null, billedIn: null,
-  status: "pending", carriedOver: false, warnings: [], dispatches: [], ...extra,
+  dispatched: id * 10, balance: 0, shortThan: null, billedIn: null,
+  status: "done", carriedOver: false, warnings: [], dispatches: [{ qty: id * 10, gatePass: `G${id}`, date: `${month}-16`, dateText: null }], ...extra,
 });
 const invoice = (id, month, extra = {}) => ({
   id, billMonth: month, billDate: `${month}-15`, invoiceNo: `BILL-${id}`,

@@ -263,9 +263,12 @@ function fillEntryRow(tr, entry) {
   tr.dataset.entryId = String(entry.id);
   tr.classList.remove(...ENTRY_STATUSES);
   tr.classList.add(entry.status);
-  tr.classList.toggle("carried", entry.carriedOver);
+  const fromStock = stockRows.has(entry);
+  tr.classList.toggle("carried", entry.carriedOver || fromStock);
+  tr.classList.toggle("from-stock", fromStock);
   tr.classList.toggle("has-warning", entry.warnings.length > 0);
   const tips = entry.status === "allZero" ? [ALL_ZERO_TIP, ...entry.warnings] : [...entry.warnings];
+  if (fromStock) tips.unshift(STOCK_TIP);
   const imported = importNote(entry.lastImport);
   if (imported) tips.push(imported);
   tr.title = tips.join("\n");

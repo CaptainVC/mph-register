@@ -20,7 +20,7 @@ const ROW_FILTERS = [
   ] },
   { caption: "Other", help: "Each included condition must match; any excluded condition hides the row", filters: [
     { key: "repair", label: "Repair", group: "repair", tip: "REP. is Yes: NETT THAN is 0 and it is never billed", test: (e) => e.repair },
-    { key: "carried", label: "Carryover", group: "carried", swatch: true, tip: "Slip repeated from the previous month's register", test: (e) => e.carriedOver },
+    { key: "carried", label: "Carryover", group: "carried", swatch: true, tip: "Slip repeated from the previous month's register, or still in stock from an earlier month", test: (e) => e.carriedOver || stockRows.has(e) },
     { key: "balance", label: "Has balance", group: "balance", tip: "Still to dispatch: BALANCE is above 0, so some stock is still with you", test: (e) => e.balance > 0 },
     { key: "warning", label: "Has warning", group: "warning", swatch: true, tip: "Point at the row to read the warning", test: (e) => e.warnings.length > 0 },
     { key: "aawakNone", label: "No Aawak", group: "aawakNone", tip: "No Aawak row (gate arrival) was found for the slip", test: (e) => e.aawakState === "none" },

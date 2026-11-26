@@ -59,9 +59,18 @@ async function renderPartywise(options) {
   if (options?.reuse !== true || partywiseLoaded.key !== key) {
     const loaded = await api(`/api/partywise?${scope}${query}`);
     if (version !== partyRenderVersion) return;
-    partywiseLoaded = { key, party: party ? party.name : "", entries: months.length > 1 ? loaded.filter((e) => months.includes(e.registerMonth)) : loaded };
+    partywiseLoaded = { key, party: party ? party.name : "", entries: loaded };
   }
-  const all = partywiseLoaded.entries.filter((e) => partyPeriodFilter.matches(e.registerMonth));
+  // The months shown (or the financial year's April, with no month picked) bring along the slips of earlier months still in
+  // stock when they began, as the register carries them over. This is worked out again on each draw, as edits change it.
+  const starts = months.length ? [...months].sort() : partyPeriodFilter.year ? [`${partyPeriodFilter.year}-04`] : [];
+  const shownMonth = (e) => (months.length ? months.includes(e.registerMonth) : partyPeriodFilter.matches(e.registerMonth));
+  const all = partywiseLoaded.entries.filter((e) => {
+    const stock = !shownMonth(e) && starts.some((month) => month > e.registerMonth && inStockWhen(e, month));
+    if (stock) stockRows.add(e);
+    else stockRows.delete(e);
+    return stock || shownMonth(e);
+  });
   const entries = partyRowFilter(all);
   const body = el("tbody");
   // All-zero slips have no finish; they close each party in a group of their own instead of "(no finish)".
@@ -79,12 +88,13 @@ async function renderPartywise(options) {
     ];
     const isParty = kind === "group";
     const nameClass = isParty ? "group-name party-name" : (name && !allZero ? "group-name finish-name" : "group-name group-name-empty");
-    const countText = list.length === 1 ? "1 entry" : `${num(list.length)} entries`;
+    const stock = list.filter((e) => stockRows.has(e)).length;
+    const countText = `${list.length === 1 ? "1 entry" : `${num(list.length)} entries`}${stock ? ` · ${num(stock)} from stock` : ""}`;
     const identity = el("span", { class: "group-identity" }, [
       el("span", { class: "group-chevron", "aria-hidden": "true" }),
       el("span", { class: "group-kicker", text: isParty ? "Party" : allZero ? "Slips" : "Finish" }),
       el("span", { class: nameClass, text: allZero ? "All zero" : name || "(no finish)", ...(allZero ? { title: ALL_ZERO_TIP } : {}) }),
-      el("span", { class: "group-count", text: countText }),
+      el("span", { class: "group-count", text: countText, ...(stock ? { title: STOCK_TIP } : {}) }),
     ]);
     const stats = el("span", { class: "group-stats" }, metrics.map(([label, value, tone]) =>
       el("span", { class: `group-stat${tone}` }, [
@@ -158,4 +168,10 @@ async function renderPartywise(options) {
   partyCountEl.textContent = `${entries.length === all.length ? num(all.length) : `${num(entries.length)} of ${num(all.length)}`} entries${party ? ` for ${party.name}` : ""}`;
   partyCountEl.classList.toggle("filtered", entries.length !== all.length || Boolean(party));
   renderTotals($("partyTotals"), entries);
+  const stock = entries.filter((e) => stockRows.has(e)).length;
+  $("partyTotals").classList.toggle("has-stock", stock > 0);
+  if (stock) $("partyTotals").append(el("div", { class: "stat", title: STOCK_TIP }, [
+    el("span", { class: "stat-label" }, ["From stock", el("span", { class: "sr-only", text: ": " })]),
+    el("b", { class: "stat-value", text: num(stock) }),
+  ]));
 }

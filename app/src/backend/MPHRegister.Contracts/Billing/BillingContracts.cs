@@ -4,6 +4,7 @@ using MPHRegister.Shared.Enums;
 
 namespace MPHRegister.Contracts.Billing;
 
+/// <param name="FromStock">The inward date is before the period: the slip was still in stock when the period began, so it is billed with it.</param>
 public sealed record CandidateDto(
     long EntryId,
     string RegisterMonth,
@@ -23,7 +24,8 @@ public sealed record CandidateDto(
     string? LastDispatch,
     bool CarriedOver,
     bool Selected,
-    decimal? Rate);
+    decimal? Rate,
+    bool FromStock);
 
 /// <param name="Count">How many bills the entries ticked to start with make (what <c>POST /api/billing/count</c> answers for them);
 /// null when none is ticked or no bill is needed.</param>

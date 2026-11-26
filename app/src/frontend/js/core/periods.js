@@ -11,6 +11,19 @@ function totalsText(entries) {
   ];
 }
 
+// Still in stock when the month (yyyy-MM) began: less was dispatched before its 1st than came in. A dispatch without a valid
+// date counts as sent before it, as the server counts it.
+function inStockWhen(entry, month) {
+  const start = `${month}-01`;
+  const sent = entry.dispatches.reduce((s, d) => s + (!d.date || d.date < start ? d.qty : 0), 0);
+  return entry.nag + entry.twoPart > sent;
+}
+
+// The Party-wise entries of earlier months shown because they were still in stock when the months shown began. They look
+// like carryovers, as the register repeats them at the top of the next month.
+const stockRows = new WeakSet();
+const STOCK_TIP = "Still in stock from an earlier month";
+
 function renderTotals(node, entries) {
   node.replaceChildren(...totalsText(entries).map(([k, v]) => {
     let tone = "";
