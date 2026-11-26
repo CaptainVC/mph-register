@@ -62,9 +62,10 @@ public sealed class WorkbookReaderTests
         if (!File.Exists(path)) return;
         var sheet = InwardSheetReader.Read(path);
         Assert.Empty(sheet.Errors);
-        // INW. NO. 397 and 398 (ARNOLD TEXTILES) and 414 (SHERWOOD FAB TEX) have LOT N. R but REP. No and no finish.
-        var marked = sheet.Rows.Where(r => r.Row is 398 or 399 or 415).ToList();
-        Assert.Equal([397, 398, 414], marked.Select(r => r.InwardNo));
+        // INW. NO. 397 and 398 have LOT N. R but REP. No and no finish. Rows whose REP. already says Yes (such as 414, corrected in the
+        // workbook) are not marked slips, so the marked ones are picked by what the reader found, not by row number.
+        var marked = sheet.Rows.Where(r => r.RepairFromMark).ToList();
+        Assert.Equal([397, 398], marked.Select(r => r.InwardNo));
         Assert.All(marked, r => Assert.True(r.Repair));
         Assert.All(marked, r => Assert.Contains(sheet.Warnings, w => w.Row == r.Row && w.Message.Contains("marked R (repair)", StringComparison.Ordinal)));
         Assert.DoesNotContain(sheet.Warnings, w => marked.Any(r => r.Row == w.Row) && (w.Message == "FINISH is blank." || w.Message.StartsWith("Sheet NETT THAN", StringComparison.Ordinal)));
