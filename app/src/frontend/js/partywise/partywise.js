@@ -169,6 +169,7 @@ async function renderPartywise(options) {
   partyCountEl.classList.toggle("filtered", entries.length !== all.length || Boolean(party));
   renderTotals($("partyTotals"), entries);
   const stock = entries.filter((e) => stockRows.has(e)).length;
+  $("partyTotals").classList.toggle("has-stock", stock > 0);
   if (stock) $("partyTotals").append(el("div", { class: "stat", title: STOCK_TIP }, [
     el("span", { class: "stat-label" }, ["From stock", el("span", { class: "sr-only", text: ": " })]),
     el("b", { class: "stat-value", text: num(stock) }),
