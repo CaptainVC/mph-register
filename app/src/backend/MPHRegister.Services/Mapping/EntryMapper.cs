@@ -46,9 +46,9 @@ public static class EntryMapper
 
         var billedIn = row.Bill ?? (row.Elsewhere is null ? null : $"Billed outside app: {row.Elsewhere}");
         return new EntryDto(row.Id, row.RegisterMonth, row.InwardNo, row.EntryDate, row.Party, row.DesignNo, row.LotNo, row.Repair,
-            row.Than, row.Tp, nag, row.Finish, row.Repair ? 0 : row.Than, row.TwoPart, row.ShortThan, row.CarriedOver,
+            row.Than, row.Tp, nag, row.Finish, row.NettThan, row.TwoPart, row.ShortThan, row.CarriedOver,
             row.ImportBatchId is not null, row.SourceRow, dispatches, dispatched, available - dispatched, status, warnings, billedIn, noBillNeeded,
             lastImport is null ? null : new ImportMarkDto(lastImport.Action, lastImport.FileName, lastImport.ImportedAt, lastImport.RegisterMonth, lastImport.Changes),
-            aawak ?? [], aawakState, ImportUpdatedAt: importUpdatedAt);
+            aawak ?? [], aawakState, ImportUpdatedAt: importUpdatedAt, NettLess: row.NettLess);
     }
 }

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using MPHRegister.Data.Entities;
 using MPHRegister.Shared.Helpers;
 using MPHRegister.Shared.Json;
@@ -20,10 +21,19 @@ public sealed record SourceValues(
     int? ShortThan,
     IReadOnlyList<InwardDispatch> Dispatches)
 {
+    /// <summary>THAN the row's NETT THAN charges less than THAN; rows kept before it was read say 0.</summary>
+    public int NettLess { get; init; }
+
+    [JsonIgnore]
+    public int NettThan => Repair ? 0 : Math.Max(0, Than - NettLess);
+
     public static SourceValues Of(InwardRow row)
     {
         ArgumentNullException.ThrowIfNull(row);
-        return new(row.InwardNo, row.Date, row.Party, row.Design, row.Lot, row.Repair, row.Than, row.Tp, row.TwoPart, row.Finish, row.ShortThan, row.Dispatches);
+        return new(row.InwardNo, row.Date, row.Party, row.Design, row.Lot, row.Repair, row.Than, row.Tp, row.TwoPart, row.Finish, row.ShortThan, row.Dispatches)
+        {
+            NettLess = row.NettLess,
+        };
     }
 
     /// <summary>The saved entry's own values, standing in for the row of an entry imported before rows were kept.</summary>
@@ -32,7 +42,10 @@ public sealed record SourceValues(
         ArgumentNullException.ThrowIfNull(entry);
         ArgumentNullException.ThrowIfNull(dispatches);
         return new(entry.InwardNo, entry.EntryDate, entry.Party, entry.DesignNo, entry.LotNo, ReadNow(entry.Repair, entry.LotNo, entry.DesignNo), entry.Than, entry.Tp, entry.TwoPart,
-            entry.Finish, entry.ShortThan, dispatches.Select(d => new InwardDispatch(d.Qty, d.GatePass, d.DispatchDate, d.DateText)).ToList());
+            entry.Finish, entry.ShortThan, dispatches.Select(d => new InwardDispatch(d.Qty, d.GatePass, d.DispatchDate, d.DateText)).ToList())
+        {
+            NettLess = entry.NettLess,
+        };
     }
 
     /// <summary>

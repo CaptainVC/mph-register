@@ -80,9 +80,15 @@ public sealed record DashboardEntryRow
 
     public int Than { get; init; }
 
+    /// <summary>THAN that NETT THAN charges less than THAN (see <see cref="EntryEntity.NettLess"/>).</summary>
+    public int NettLess { get; init; }
+
     public int Tp { get; init; }
 
     public int TwoPart { get; init; }
+
+    /// <summary>What is charged: THAN less NettLess, and nothing for a repair.</summary>
+    public int NettThan => Repair ? 0 : Math.Max(0, Than - NettLess);
 
     public int Dispatched { get; init; }
 

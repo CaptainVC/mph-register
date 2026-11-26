@@ -84,9 +84,9 @@ public sealed partial class DashboardService
                 row[5]++;
                 row[6] += e.Than;
             }
-            else if (e.Than > 0)
+            else if (e.NettThan > 0)
             {
-                row[7] += valuer.Value(valuer.BillParty(e.Party), e.Finish, e.Than).Value;
+                row[7] += valuer.Value(valuer.BillParty(e.Party), e.Finish, e.NettThan).Value;
             }
         }
         foreach (var s in sent)

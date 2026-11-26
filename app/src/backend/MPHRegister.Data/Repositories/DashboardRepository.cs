@@ -52,7 +52,7 @@ public sealed class DashboardRepository(IDbSession session) : RepositoryBase(ses
 
     public IReadOnlyList<DashboardEntryRow> Entries(string asOf) => Query<DashboardEntryRow>(
         """
-        SELECT e.party, e.finish, e.entry_date, e.repair, e.than, e.tp, e.two_part,
+        SELECT e.party, e.finish, e.entry_date, e.repair, e.than, e.nett_less, e.tp, e.two_part,
             COALESCE((SELECT SUM(d.qty) FROM dispatches d WHERE d.entry_id = e.id
                 AND (d.dispatch_date IS NULL OR d.dispatch_date <= @asOf)), 0) AS dispatched,
             (SELECT MAX(d.dispatch_date) FROM dispatches d WHERE d.entry_id = e.id AND d.qty > 0

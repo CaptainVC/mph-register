@@ -125,7 +125,20 @@ public static class InwardSheetReader
         var sheetNag = Whole(cell("NAG"), "NAG");
         var sheetNett = Whole(cell("NETT THAN"), "NETT THAN");
         if (sheetNag is not null && sheetNag != than + tp) warnings.Add(new ImportIssue(row, $"Sheet NAG is {sheetNag} but THAN + TP is {than + tp}."));
-        if (sheetNett is not null && !markedRepair && sheetNett != (repair ? 0 : than)) warnings.Add(new ImportIssue(row, $"Sheet NETT THAN is {sheetNett} but expected {(repair ? 0 : than)}."));
+        // NETT THAN is a formula (THAN, or 0 for a repair); a figure typed over it ("1 than bina finish": 23 of 24) is what is charged.
+        var nettLess = 0;
+        if (sheetNett is not null && !markedRepair && sheetNett != (repair ? 0 : than))
+        {
+            if (repair)
+            {
+                warnings.Add(new ImportIssue(row, $"Sheet NETT THAN is {sheetNett} but expected 0 for a repair."));
+            }
+            else
+            {
+                nettLess = than - sheetNett.Value;
+                warnings.Add(new ImportIssue(row, $"Sheet NETT THAN is {sheetNett}, not THAN ({than}); saved as {sheetNett} charged."));
+            }
+        }
         // Added once the dispatches are read: an all-zero slip (billed in an earlier register) needs neither.
         var quantityWarningsAt = warnings.Count;
 
@@ -179,6 +192,6 @@ public static class InwardSheetReader
         if (afterBlank) warnings.Add(new ImportIssue(row, $"Entry after blank rows treated as a carryover (INW. NO. {inward})."));
         if (errors.Count != errorCount) return null;
         return new InwardRow(row, inward!.Value, inwardDate!, party, designNo, lotNo, repair,
-            than, tp, twoPart, finish, shortThan, afterBlank, dispatches) { RepairFromMark = markedRepair };
+            than, tp, twoPart, finish, shortThan, afterBlank, dispatches) { RepairFromMark = markedRepair, NettLess = nettLess };
     }
 }

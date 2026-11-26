@@ -10,6 +10,9 @@ internal sealed record SheetRow(int InwardNo, string Date, string Party, string 
 {
     public IReadOnlyList<(int Qty, string GatePass, string Date)> Dispatches { get; init; } = [];
 
+    /// <summary>NETT THAN typed over the sheet's formula (THAN); null leaves the formula's figure.</summary>
+    public int? Nett { get; init; }
+
     public SheetRow Sent(params (int Qty, string GatePass, string Date)[] dispatches) => this with { Dispatches = dispatches };
 }
 
@@ -47,7 +50,7 @@ internal static class InwardWorkbook
             cells[7] = row.Tp == 0 ? null : row.Tp;
             cells[8] = row.Than + row.Tp;
             cells[9] = row.Finish;
-            cells[10] = row.Than;
+            cells[10] = row.Nett ?? row.Than;
             cells[11] = row.TwoPart == 0 ? null : row.TwoPart;
             for (var i = 0; i < row.Dispatches.Count; i++)
             {

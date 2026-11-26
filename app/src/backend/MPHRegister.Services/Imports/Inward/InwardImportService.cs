@@ -137,7 +137,7 @@ public sealed partial class InwardImportService(
         var added = plans.Where(p => p.Action == RowAction.Insert).Select(p => new ImportIssue(p.Row.Row, Describe(p.Row))).ToList();
         return new ImportReport(imported, fileName, month, plans.Count(p => p.Action == RowAction.Insert), rows.Sum(r => r.Dispatches.Count),
             rows.Count(r => r.AfterBlankRows), rows.Sum(r => r.Than), rows.Sum(r => r.Tp), rows.Sum(r => r.Than + r.Tp),
-            rows.Sum(r => r.Repair ? 0 : r.Than), rows.Sum(r => r.TwoPart), rows.Sum(r => r.Dispatches.Sum(d => d.Qty)),
+            rows.Sum(r => r.NettThan), rows.Sum(r => r.TwoPart), rows.Sum(r => r.Dispatches.Sum(d => d.Qty)),
             plans.Count(p => p.Action is RowAction.MergeIntoEarlier or RowAction.AdoptLaterCarryover), addedParties, addedFinishes, warnings, errors,
             plan.Saved, plans.Count(p => p.Action == RowAction.UpdateSaved && p.Changed), plans.Count(p => p.Action == RowAction.UpdateSaved && !p.Changed),
             plan.Removals.Count, upToDate, plan.Changes, plan.Kept, notInWorkbook, added,
@@ -176,6 +176,7 @@ public sealed partial class InwardImportService(
         if (row.Lot.Length > 0) parts.Add($"LOT N. {row.Lot}");
         if (row.Repair) parts.Add("REP. YES");
         parts.Add(string.Create(CultureInfo.InvariantCulture, $"THAN {row.Than}"));
+        if (row.NettLess != 0 && !row.Repair) parts.Add(string.Create(CultureInfo.InvariantCulture, $"NETT THAN {row.NettThan}"));
         if (row.Tp != 0) parts.Add(string.Create(CultureInfo.InvariantCulture, $"TP {row.Tp}"));
         if (row.TwoPart != 0) parts.Add(string.Create(CultureInfo.InvariantCulture, $"TWO PART {row.TwoPart}"));
         if (row.Finish.Length > 0) parts.Add($"FINISH {row.Finish}");
@@ -319,7 +320,7 @@ public sealed partial class InwardImportService(
         var list = new List<SourceValues>
         {
             new(deleted.InwardNo, deleted.EntryDate, deleted.Party, deleted.DesignNo, deleted.LotNo, deleted.Repair, deleted.Than,
-                deleted.Tp, deleted.TwoPart, deleted.Finish, deleted.ShortThan, []),
+                deleted.Tp, deleted.TwoPart, deleted.Finish, deleted.ShortThan, []) { NettLess = deleted.NettLess },
         };
         if (SourceValues.FromJson(deleted.SourceValues) is { } own) list.Add(own);
         try
@@ -513,6 +514,7 @@ public sealed partial class InwardImportService(
         TwoPart = row.TwoPart,
         Finish = row.Finish,
         ShortThan = row.ShortThan,
+        NettLess = row.Repair ? 0 : row.NettLess,
         CarriedOver = row.AfterBlankRows,
         SourceRow = row.Row,
     };
