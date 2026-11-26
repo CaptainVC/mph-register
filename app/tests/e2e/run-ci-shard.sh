@@ -10,7 +10,7 @@ case "$shard" in
     set -- ui-party-filter-clear ui-controls ui-row-filters ui-partywise ui-bill-row-moves ui-select-fit ui-bill-count ui-register-bill-no ui-register-warnings
     ;;
   3)
-    set -- ui-sticky-columns ui-no-bill-party ui-sister-firms ui-bill-no-edit ui-i18n ui-inline-edit ui-entry-delete ui-excel-export ui-return-to-origin
+    set -- ui-sticky-columns ui-no-bill-party ui-sister-firms ui-bill-no-edit ui-i18n ui-inline-edit ui-entry-delete ui-excel-export ui-return-to-origin ui-partywise-stock
     ;;
   4)
     set -- ui-import-marks ui-import-history ui-toast-click-through ui-updates ui-rollback ui-aawak ui-aawak-totals ui-linked-entry ui-date-picker ui-laptop-layout

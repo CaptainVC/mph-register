@@ -34,6 +34,9 @@ assert.equal(getLanguage(), "en");
 
 const cases = [
   ["Print / Save PDF", "Print / PDF Save करें"],
+  ["From stock", "Stock से"],
+  ["12 entries · 3 from stock", "12 Entries · 3 Stock से"],
+  ["1 entry · 1 from stock", "1 Entry · 1 Stock से"],
   ["Period total", "अवधि का कुल जोड़"],
   ["By party / group", "पार्टी / Group के हिसाब से"],
   ["Sister firms grouped", "Sister Firms Group में"],

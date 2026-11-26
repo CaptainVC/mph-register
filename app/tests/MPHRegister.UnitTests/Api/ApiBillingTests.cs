@@ -165,9 +165,11 @@ public sealed class ApiBillingTests(ApiFactory factory) : IClassFixture<ApiFacto
         await app.Put("/api/masters/party/rate", new { party = "WINDOW PARTY", finish = "F1", rate = 10 }).Ok();
         foreach (var (inward, date) in new[] { (901, "2026-09-25"), (902, "2026-09-26"), (903, "2026-10-25"), (904, "2026-10-26") })
             await app.Post("/api/entries", new { registerMonth = "2026-10", inwardNo = inward, entryDate = date, party = "WINDOW PARTY", designNo = "", lotNo = "", repair = false, than = 10, tp = 0, twoPart = 0, finish = "F1", dispatches = Array.Empty<DispatchBody>() }).Ok();
-        var offered = (await app.Get($"/api/billing/candidates?party={Q("WINDOW PARTY")}&from=2026-09-26&to=2026-10-25").Ok()).GetProperty("entries").EnumerateArray()
-            .ToDictionary(e => e.GetProperty("inwardNo").GetInt32(), e => e.GetProperty("entryId").GetInt64());
-        Assert.Equal([902, 903], offered.Keys.Order());
+        var window = (await app.Get($"/api/billing/candidates?party={Q("WINDOW PARTY")}&from=2026-09-26&to=2026-10-25").Ok()).GetProperty("entries").EnumerateArray().ToList();
+        var offered = window.ToDictionary(e => e.GetProperty("inwardNo").GetInt32(), e => e.GetProperty("entryId").GetInt64());
+        // 901 came in the day before the window but is still in stock, so it comes along (marked as from stock).
+        Assert.Equal([901, 902, 903], offered.Keys.Order());
+        Assert.Equal([901], window.Where(e => e.GetProperty("fromStock").GetBoolean()).Select(e => e.GetProperty("inwardNo").GetInt32()));
 
         object Request(params int[] inwards) => new
         {
@@ -199,7 +201,9 @@ public sealed class ApiBillingTests(ApiFactory factory) : IClassFixture<ApiFacto
         var october = await Offered("2026-10-01", "2026-10-31");
         Assert.Equal([302], october.Select(e => e.Inward));
         Assert.Equal([301, 302], (await Offered("2026-09-02", "2026-10-02")).Select(e => e.Inward));
-        Assert.Empty(await Offered("2026-10-03", "2026-11-01"));
+        // 302 came in on the 2nd and was sent on the 3rd: still in stock when a period from the 3rd begins, so it comes along.
+        Assert.Equal([302], (await Offered("2026-10-03", "2026-11-01")).Select(e => e.Inward));
+        Assert.Empty(await Offered("2026-10-04", "2026-11-01"));
 
         var row = (await app.Get("/api/billing/parties?from=2026-10-01&to=2026-10-31").Ok()).EnumerateArray().Single(p => p.GetProperty("party").GetString() == "PERIOD PARTY");
         Assert.Equal((1, 10), (row.GetProperty("entries").GetInt32(), row.GetProperty("nettThan").GetInt32()));

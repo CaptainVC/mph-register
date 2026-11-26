@@ -94,6 +94,7 @@ button.party-choice[aria-current="true"] { border: 2px solid var(--accent); padd
 #candidateTable tr.bill-row-selected td { background: var(--accent-soft); }
 .bill-finish-note { display: block; color: var(--changed); font-size: 13px; font-weight: 600; white-space: nowrap; }
 .bill-show-extra .bill-finish-note { display: none; }
+.bill-stock-note { display: block; color: var(--changed); font-size: 13px; font-weight: 600; white-space: nowrap; }
 .bill-dispatch { display: inline-flex; align-items: center; border-radius: 5px; padding: 3px 7px; font-size: 15px; white-space: nowrap; }
 .bill-dispatch.full { background: var(--ok-soft); color: var(--ok); }
 .bill-dispatch.none, .bill-dispatch.partial { background: var(--warn-soft); color: var(--warn); }

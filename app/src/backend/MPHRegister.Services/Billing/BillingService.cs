@@ -65,7 +65,7 @@ public sealed class BillingService(
             return new CandidateDto(e.Id, e.RegisterMonth, e.InwardNo, e.EntryDate, e.Party, e.DesignNo, e.LotNo, e.Finish, finish,
                 e.NettThan, e.Nag, e.Dispatched, e.Nag + e.TwoPart, state, BillItem.GatePasses(e),
                 e.Dispatches.Select(d => d.Date).Where(d => d is not null).DefaultIfEmpty(null).Max(StringComparer.Ordinal), e.CarriedOver,
-                bill.BillBeforeDispatch || state != DispatchState.None, finishes.Rate(finish));
+                bill.BillBeforeDispatch || state != DispatchState.None, finishes.Rate(finish), string.CompareOrdinal(e.EntryDate, from) < 0);
         }).ToList();
         // The ticked entries in the same order as CountBills reads them (both lists are the party's unbilled entries in order).
         var selected = list.Where(c => c.Selected).Select(c => c.EntryId).ToHashSet();
@@ -92,7 +92,7 @@ public sealed class BillingService(
         {
             if (request.EntriesFrom is not null || request.EntriesTo is not null) errors.Add(windowProblem);
         }
-        else if (available.Any(e => !InPeriod(e.EntryDate, entriesFrom!, entriesTo!)))
+        else if (available.Any(e => !InPeriod(e.EntryDate, entriesFrom!, entriesTo!) && !FromStock(e, entriesFrom!)))
             errors.Add("Some ticked entries have an inward date outside the bill period. Refresh the list.");
         if (errors.Count > 0) throw new AppValidationException(errors);
 
@@ -377,6 +377,12 @@ public sealed class BillingService(
 
     private static bool InPeriod(string date, string from, string to) =>
         string.CompareOrdinal(date, from) >= 0 && string.CompareOrdinal(date, to) <= 0;
+
+    // An earlier slip still in stock when the period began (less was dispatched before it than came in) is billed with the
+    // period, as the candidates list it; a dispatch without a valid date counts as sent before it.
+    private static bool FromStock(EntryDto entry, string from) =>
+        string.CompareOrdinal(entry.EntryDate, from) < 0
+        && entry.Nag + entry.TwoPart > entry.Dispatches.Where(d => d.Date is null || string.CompareOrdinal(d.Date, from) < 0).Sum(d => d.Qty);
 
     private static InvoiceDoc Sanitize(InvoiceDoc doc) => doc with
     {

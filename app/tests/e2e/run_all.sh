@@ -42,6 +42,7 @@ run bill-verify $PY $E2E/mph_verify_bills.py
 fresh /tmp/mph-all-ui ui; run billing-ui node $E2E/ui-billing.js
 run controls-ui node $E2E/ui-controls.js
 run partywise-ui node $E2E/ui-partywise.js
+run partywise-stock-ui node $E2E/ui-partywise-stock.js
 fresh /tmp/mph-all-dash dash; run dashboard-ui node $E2E/ui-dashboard.js
 lsof -ti tcp:5152 | xargs kill 2>/dev/null
 run resilience zsh $E2E/mph_resilience.sh

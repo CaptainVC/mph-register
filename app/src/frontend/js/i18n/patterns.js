@@ -94,6 +94,7 @@
     [/^([\d,]+) of ([\d,]+) entries for (.+)$/, (_, a, b, p) => `${p} के लिए ${b} में से ${a} Entries`],
     [/^([\d,]+) entries for (.+)$/, (_, a, p) => `${p} के लिए ${a} Entries`],
     [/^([\d,]+) entries$/, (_, a) => `${a} Entries`],
+    [/^(1 entry|[\d,]+ entries) · ([\d,]+) from stock$/, (_, count, n) => `${count.replace(/ entry$/, " Entry").replace(/ entries$/, " Entries")} · ${n} Stock से`],
     [/^([\d,]+) of ([\d,]+) parties$/, (_, a, b) => `${b} में से ${a} पार्टियाँ`],
     [/^([\d,]+) of ([\d,]+) finishes$/, (_, a, b) => `${b} में से ${a} फ़िनिश`],
     [/^([\d,]+) groups$/, (_, a) => `${a} Groups`],

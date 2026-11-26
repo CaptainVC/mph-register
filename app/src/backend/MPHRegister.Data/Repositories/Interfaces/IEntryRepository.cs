@@ -9,6 +9,9 @@ public interface IEntryRepository
     /// <summary>Entries of the register months from <paramref name="from"/> to <paramref name="to"/> (yyyy-MM, both included).</summary>
     IReadOnlyList<EntryEntity> InMonths(string from, string to);
 
+    /// <summary>Entries of register months before <paramref name="month"/> (yyyy-MM) still in stock when it began: less was dispatched before its 1st than came in.</summary>
+    IReadOnlyList<EntryEntity> InStockBefore(string month);
+
     IReadOnlyList<EntryEntity> Recent(int limit);
 
     EntryEntity? Get(long id);
@@ -20,7 +23,10 @@ public interface IEntryRepository
     /// <summary>The entries among <paramref name="ids"/> that are of one of the parties and still to be billed (what <see cref="Unbilled"/> lists).</summary>
     IReadOnlyList<EntryEntity> UnbilledByIds(IReadOnlyCollection<long> ids, IReadOnlyList<string> parties);
 
-    /// <summary>Unbilled entries with an inward date from <paramref name="from"/> to <paramref name="to"/> (ISO dates, both included).</summary>
+    /// <summary>
+    /// Unbilled entries with an inward date from <paramref name="from"/> to <paramref name="to"/> (ISO dates, both included), and
+    /// earlier ones still in stock when <paramref name="from"/> began (less was dispatched before it than came in).
+    /// </summary>
     IReadOnlyList<EntryEntity> UnbilledBetween(IReadOnlyList<string> parties, string from, string to);
 
     /// <summary>Unbilled entries of every party with an inward date from <paramref name="from"/> to <paramref name="to"/> (ISO dates, both included).</summary>
@@ -124,7 +130,7 @@ public interface IEntryRepository
 
     long Count();
 
-    /// <summary>Unbilled entries with an inward date in the period (ISO dates, both included), per inward party.</summary>
+    /// <summary>Unbilled entries with an inward date in the period (ISO dates, both included) or still in stock when it began, per inward party.</summary>
     IReadOnlyList<PartyToBillRow> PartiesToBill(string from, string to);
 
     IReadOnlyList<string> DistinctParties();
