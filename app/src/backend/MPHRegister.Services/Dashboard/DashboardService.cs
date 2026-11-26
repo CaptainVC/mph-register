@@ -203,10 +203,10 @@ public sealed partial class DashboardService(IDashboardRepository data, IMasterR
     /// <summary>Work with no bill link that should be billed, valued the way the bill maker would bill it.</summary>
     /// <param name="lastBill">Entries dated on or before it are flagged as earlier inward.</param>
     private static List<OpenWork> OpenWorkOf(IReadOnlyList<DashboardEntryRow> entries, Valuer valuer, DateOnly today, string? lastBill) =>
-        entries.Where(e => !e.Billed && !e.Repair && e.Than > 0 && !valuer.BillParty(e.Party).NoBill).Select(e =>
+        entries.Where(e => !e.Billed && !e.Repair && e.NettThan > 0 && !valuer.BillParty(e.Party).NoBill).Select(e =>
         {
             var party = valuer.BillParty(e.Party);
-            var (value, exact) = valuer.Value(party, e.Finish, e.Than);
+            var (value, exact) = valuer.Value(party, e.Finish, e.NettThan);
             var ready = e.Dispatched > 0 || party.BillBeforeDispatch;
             var since = Waiting(e);
             var age = since == default ? 0 : Math.Max(0, today.DayNumber - since.DayNumber);
@@ -235,11 +235,11 @@ public sealed partial class DashboardService(IDashboardRepository data, IMasterR
         var factory = open.Where(o => !o.Ready).ToList();
         var old = ready.Where(o => o.Age > OldAfterDays).ToList();
         var noRate = open.Where(o => !o.Exact).ToList();
-        var ageing = Ageing(ready).Select(b => new AgeBucket(b.Key, b.Work.Count, b.Work.Sum(o => o.Entry.Than), b.Work.Sum(o => o.Value))).ToList();
+        var ageing = Ageing(ready).Select(b => new AgeBucket(b.Key, b.Work.Count, b.Work.Sum(o => o.Entry.NettThan), b.Work.Sum(o => o.Value))).ToList();
         var figures = new UnbilledFigures(
-            ready.Count, ready.Sum(o => o.Entry.Than), ready.Sum(o => o.Value),
-            factory.Count, factory.Sum(o => o.Entry.Than), factory.Sum(o => o.Value),
-            noRate.Count, noRate.Sum(o => o.Entry.Than),
+            ready.Count, ready.Sum(o => o.Entry.NettThan), ready.Sum(o => o.Value),
+            factory.Count, factory.Sum(o => o.Entry.NettThan), factory.Sum(o => o.Value),
+            noRate.Count, noRate.Sum(o => o.Entry.NettThan),
             old.Count, old.Sum(o => o.Value),
             ready.Count == 0 ? null : ready.Min(o => o.Entry.EntryDate),
             ageing,
@@ -248,9 +248,9 @@ public sealed partial class DashboardService(IDashboardRepository data, IMasterR
         {
             var r = g.Where(o => o.Ready).ToList();
             var f = g.Where(o => !o.Ready).ToList();
-            return new UnbilledParty(g.Key, r.Count, r.Sum(o => o.Entry.Than), r.Sum(o => o.Value), g.Count(o => !o.Exact),
+            return new UnbilledParty(g.Key, r.Count, r.Sum(o => o.Entry.NettThan), r.Sum(o => o.Value), g.Count(o => !o.Exact),
                 r.Count == 0 ? string.Empty : r.Min(o => o.Entry.EntryDate) ?? string.Empty, r.Count == 0 ? 0 : r.Max(o => o.Age),
-                f.Sum(o => o.Entry.Than), f.Sum(o => o.Value))
+                f.Sum(o => o.Entry.NettThan), f.Sum(o => o.Value))
             {
                 EarlierInwardEntries = r.Count(o => o.EarlierInward),
                 DispatchIssueEntries = r.Count(o => o.DispatchIssue),
@@ -269,7 +269,7 @@ public sealed partial class DashboardService(IDashboardRepository data, IMasterR
     private static WorkEstimate Estimate(IEnumerable<OpenWork> work)
     {
         var rows = work.ToList();
-        return new WorkEstimate(rows.Count, rows.Sum(o => o.Entry.Than), rows.Sum(o => o.Value));
+        return new WorkEstimate(rows.Count, rows.Sum(o => o.Entry.NettThan), rows.Sum(o => o.Value));
     }
 
     private static int Available(DashboardEntryRow entry) => entry.Than + entry.Tp + entry.TwoPart;
@@ -376,7 +376,7 @@ public sealed partial class DashboardService(IDashboardRepository data, IMasterR
         int? comparison = previousTo < first && allEntries.Any(e => Between(e, previousTo, first.AddDays(-1)))
             ? entries.Where(e => Between(e, previous, previousTo)).Sum(e => e.Than)
             : null;
-        var value = now.Where(e => !e.Repair && e.Than > 0).Sum(e => valuer.Value(valuer.BillParty(e.Party), e.Finish, e.Than).Value);
+        var value = now.Where(e => !e.Repair && e.NettThan > 0).Sum(e => valuer.Value(valuer.BillParty(e.Party), e.Finish, e.NettThan).Value);
         return new InwardNow(Dates.Month(today), Dates.Iso(upTo), now.Count, now.Sum(e => e.Than), comparison, value,
             now.Where(e => e.Repair).Sum(e => e.Than));
     }

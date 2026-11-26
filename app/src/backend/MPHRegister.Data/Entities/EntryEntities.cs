@@ -28,6 +28,15 @@ public sealed record EntryEntity
 
     public int? ShortThan { get; init; }
 
+    /// <summary>
+    /// THAN that NETT THAN charges less than THAN. NETT THAN is a formula in the registers (THAN, or 0 for a repair), but a
+    /// slip can have it typed over ("1 than bina finish": THAN 24, NETT THAN 23, so NettLess 1). Normally 0.
+    /// </summary>
+    public int NettLess { get; init; }
+
+    /// <summary>What is charged: THAN less NettLess, and nothing for a repair.</summary>
+    public int NettThan => Repair ? 0 : Math.Max(0, Than - NettLess);
+
     public bool CarriedOver { get; init; }
 
     public long? ImportBatchId { get; init; }
@@ -123,6 +132,8 @@ public sealed record DeletedEntryEntity
     public string Finish { get; init; } = string.Empty;
 
     public int? ShortThan { get; init; }
+
+    public int NettLess { get; init; }
 
     public bool CarriedOver { get; init; }
 

@@ -96,7 +96,7 @@ public static class ImportDetailsBuilder
     private static (int Nag, int Nett, int Balance) Figures(EntryEntity entry, IReadOnlyList<DispatchEntity> dispatches)
     {
         var nag = entry.Than + entry.Tp;
-        return (nag, entry.Repair ? 0 : entry.Than, nag + entry.TwoPart - dispatches.Sum(d => d.Qty));
+        return (nag, entry.NettThan, nag + entry.TwoPart - dispatches.Sum(d => d.Qty));
     }
 
     private static string Number(int value) => value.ToString(CultureInfo.InvariantCulture);

@@ -61,7 +61,10 @@ public static class CarryoverMerger
             // Only a REP. Yes written in the row turns it on: the saved entry's REP. No beside an R is the user's choice or a bill's.
             Repair = stored.Repair || (row.Repair && !row.RepairFromMark),
             ShortThan = row.ShortThan ?? stored.ShortThan,
+            // A carryover row repeats the slip: its NETT THAN is the formula's unless someone typed over it there too.
+            NettLess = row.NettLess != 0 ? row.NettLess : stored.NettLess,
         };
+        if (entry.NettLess != stored.NettLess) changes.Add($"NETT THAN {Math.Max(0, stored.Than - stored.NettLess)} → {Math.Max(0, entry.Than - entry.NettLess)}");
         if (entry.Repair != stored.Repair) changes.Add("REP. → YES");
 
         var incoming = row.Dispatches.Select(d => new DispatchEntity { EntryId = stored.Id, Qty = d.Qty, GatePass = d.GatePass, DispatchDate = d.Date, DateText = d.DateText }).ToList();

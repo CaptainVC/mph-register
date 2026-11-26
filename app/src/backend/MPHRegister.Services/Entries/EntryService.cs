@@ -74,7 +74,8 @@ public sealed class EntryService(
         var (party, finish) = Validate(input, id);
         using (var unit = session.Begin())
         {
-            entries.Update(ToEntity(id, input, party, finish, Dates.Timestamp(clock.GetLocalNow())));
+            // NETT THAN is not typed in the form: an entry keeps what its workbook said (THAN less NettLess).
+            entries.Update(ToEntity(id, input, party, finish, Dates.Timestamp(clock.GetLocalNow())) with { NettLess = before.NettLess });
             entries.ReplaceDispatches(id, Dispatches(input));
             CommitWithArrivals(unit, id, [before.InwardNo, input.InwardNo!.Value], [before.EntryDate, input.EntryDate!]);
         }

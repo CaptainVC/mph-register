@@ -56,7 +56,9 @@ function nagOfForm() {
 function updateCalculated() {
   const than = intOrNull($("than").value) || 0;
   $("nag").value = num(nagOfForm());
-  $("nett").value = num($("repair").value === "Yes" ? 0 : than);
+  // An entry whose workbook typed over NETT THAN (THAN 24, NETT THAN 23) keeps that difference when corrected.
+  const less = state.editing?.nettLess || 0;
+  $("nett").value = num($("repair").value === "Yes" ? 0 : Math.max(0, than - less));
   updateDispatchSummary();
 }
 ["than", "tp", "repair", "twoPart"].forEach((id) => $(id).addEventListener("input", updateCalculated));

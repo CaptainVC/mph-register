@@ -259,6 +259,46 @@ public sealed class ApiImportTests(ApiFactory factory) : IClassFixture<ApiFactor
     }
 
     [Fact]
+    public async Task A_NETT_THAN_typed_over_the_formula_is_what_is_charged_and_stays_so_through_edits_deletes_and_imports()
+    {
+        var app = await Ready();
+        // "1 than bina finish": THAN 24 came in, but NETT THAN was typed as 23 (INW. NO. 206 of the November 2026 register).
+        var typed = new SheetRow(1, "2027-12-01", "IMP PARTY", "299 (1than bina finish)", "12205", Than: 24) { Nett = 23 };
+        var plain = new SheetRow(2, "2027-12-01", "IMP PARTY", "300", "12205", Than: 24);
+        var report = await Import(app, Workbook("dec-nett-1", [typed, plain]), "2027-12", commit: true);
+        Assert.Equal((48, 47), (report.GetProperty("than").GetInt32(), report.GetProperty("nettThan").GetInt32()));
+        Assert.Contains("Sheet NETT THAN is 23, not THAN (24); saved as 23 charged.", Messages(report, "warnings"));
+
+        var saved = await Month(app, "2027-12");
+        Assert.Equal((24, 23, 24), (Inward(saved, 1).GetProperty("than").GetInt32(), Inward(saved, 1).GetProperty("nettThan").GetInt32(), Inward(saved, 2).GetProperty("nettThan").GetInt32()));
+        var candidates = await app.Get("/api/billing/candidates?party=IMP%20PARTY&from=2027-12-01&to=2027-12-31").Ok();
+        Assert.Equal([23, 24], candidates.GetProperty("entries").EnumerateArray().OrderBy(e => e.GetProperty("inwardNo").GetInt32()).Select(e => e.GetProperty("nettThan").GetInt32()));
+
+        // Correcting the entry in the Register does not lose it.
+        var id = Inward(saved, 1).GetProperty("id").GetInt64();
+        var edited = await app.Put($"/api/entries/{id}", Edit(Inward(saved, 1), lotNo: "12205X")).Ok();
+        Assert.Equal(23, edited.GetProperty("nettThan").GetInt32());
+
+        // Deleting and restoring it does not either.
+        await app.Delete($"/api/entries/{id}").Ok();
+        var restored = await app.Post($"/api/entries/deleted/{id}/restore", new { }).Ok();
+        Assert.Equal(23, restored.GetProperty("nettThan").GetInt32());
+
+        // The same workbook again changes nothing.
+        Assert.True((await Import(app, Workbook("dec-nett-2", [typed, plain], salt: "again"), "2027-12", commit: true)).GetProperty("upToDate").GetBoolean());
+
+        // The workbook's NETT THAN is changed: the import takes it, and says so in the entry's history.
+        var changed = await Import(app, Workbook("dec-nett-3", [typed with { Nett = 22, Lot = "12205X" }, plain]), "2027-12", commit: true);
+        Assert.Equal(["INW. NO. 1 of 2027-12-01 (IMP PARTY): NETT THAN 23 → 22."], Messages(changed, "changes"));
+        Assert.Equal(22, Inward(await Month(app, "2027-12"), 1).GetProperty("nettThan").GetInt32());
+        Assert.Equal(["NETT THAN 23 → 22"], Fields((await Events(app, id))[0].GetProperty("details"), "effects"));
+
+        // And back to the formula's figure.
+        await Import(app, Workbook("dec-nett-4", [typed with { Nett = null, Lot = "12205X" }, plain]), "2027-12", commit: true);
+        Assert.Equal(24, Inward(await Month(app, "2027-12"), 1).GetProperty("nettThan").GetInt32());
+    }
+
+    [Fact]
     public async Task An_R_lot_left_at_REP_No_is_imported_as_a_repair_that_is_not_charged()
     {
         var app = await Ready();

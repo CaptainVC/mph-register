@@ -56,6 +56,11 @@ public static class EntryUpdater
             Finish = Pick("FINISH", stored.Finish, row.Finish, s => s.Finish, SameText, Text, stored.Finish.Length == 0, newFinish),
             ShortThan = Pick("SHORT THAN", stored.ShortThan, row.ShortThan, s => s.ShortThan, (a, b) => a == b, n => n is { } v ? Number(v) : "blank", stored.ShortThan is null),
         };
+        // NETT THAN is the formula's THAN unless typed over; it is told as the figure a person sees, with the THAN the entry now has.
+        entry = entry with
+        {
+            NettLess = Pick("NETT THAN", stored.NettLess, row.NettLess, s => s.NettLess, SameNumber, n => Number(entry.Repair ? 0 : Math.Max(0, entry.Than - n))),
+        };
         var fieldsChanged = changes.Count > 0;
 
         var ours = storedDispatches.ToList();

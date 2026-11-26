@@ -8,7 +8,7 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
 {
     private const string Select = """
         SELECT e.id, e.register_month, e.inward_no, e.entry_date, e.party, e.design_no, e.lot_no, e.repair, e.than, e.tp,
-            e.two_part, e.finish, e.short_than, e.carried_over, e.import_batch_id, e.source_row, e.created_at, e.updated_at,
+            e.two_part, e.finish, e.short_than, e.nett_less, e.carried_over, e.import_batch_id, e.source_row, e.created_at, e.updated_at,
             (SELECT group_concat(i.invoice_no, ', ') FROM invoice_entries ie JOIN invoices i ON i.id = ie.invoice_id
              WHERE ie.entry_id = e.id AND i.status = 'saved') AS bill,
             (SELECT note FROM billed_elsewhere b WHERE b.entry_id = e.id) AS elsewhere
@@ -41,7 +41,7 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
     public IReadOnlyList<EntryEntity> Unbilled(IReadOnlyList<string> parties, string? uptoMonth) => Query<EntryEntity>(
         $"""
         {Select}
-        WHERE {InParties} AND e.repair = 0 AND e.than > 0
+        WHERE {InParties} AND e.repair = 0 AND e.than > e.nett_less
           {(uptoMonth is null ? "" : "AND e.register_month <= @uptoMonth")}
           AND {NotBilled}
         ORDER BY e.register_month, e.carried_over DESC, e.inward_no, e.id;
@@ -53,7 +53,7 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
         : Query<EntryEntity>(
             $"""
             {Select}
-            WHERE e.id IN (SELECT value FROM json_each(@ids)) AND {InParties} AND e.repair = 0 AND e.than > 0 AND {NotBilled}
+            WHERE e.id IN (SELECT value FROM json_each(@ids)) AND {InParties} AND e.repair = 0 AND e.than > e.nett_less AND {NotBilled}
             ORDER BY e.register_month, e.carried_over DESC, e.inward_no, e.id;
             """,
             new { ids = Json(ids), parties = Json(parties) });
@@ -61,7 +61,7 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
     public IReadOnlyList<EntryEntity> UnbilledBetween(IReadOnlyList<string> parties, string from, string to) => Query<EntryEntity>(
         $"""
         {Select}
-        WHERE {InParties} AND e.repair = 0 AND e.than > 0
+        WHERE {InParties} AND e.repair = 0 AND e.than > e.nett_less
           AND e.entry_date BETWEEN @from AND @to
           AND {NotBilled}
         ORDER BY e.register_month, e.carried_over DESC, e.inward_no, e.id;
@@ -71,7 +71,7 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
     public IReadOnlyList<EntryEntity> UnbilledAnyParty(string from, string to) => Query<EntryEntity>(
         $"""
         {Select}
-        WHERE e.repair = 0 AND e.than > 0 AND e.entry_date BETWEEN @from AND @to AND {NotBilled}
+        WHERE e.repair = 0 AND e.than > e.nett_less AND e.entry_date BETWEEN @from AND @to AND {NotBilled}
         ORDER BY e.register_month, e.carried_over DESC, e.inward_no, e.id;
         """,
         new { from, to });
@@ -158,17 +158,17 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
     public void Delete(long id) => Execute("DELETE FROM entries WHERE id = @id;", new { id });
 
     private const string DeletedColumns = """
-        id, register_month, inward_no, entry_date, party, design_no, lot_no, repair, than, tp, two_part, finish, short_than,
+        id, register_month, inward_no, entry_date, party, design_no, lot_no, repair, than, tp, two_part, finish, short_than, nett_less,
         carried_over, import_batch_id, source_values, dispatches, carryover_sources, deleted_at
         """;
 
     public void MoveToDeleted(long id, string at) => Execute(
         """
         INSERT INTO deleted_entries(id, register_month, inward_no, entry_date, party, design_no, lot_no, repair, than, tp, two_part,
-            finish, short_than, carried_over, import_batch_id, source_row, source_values, created_at, updated_at, dispatches,
+            finish, short_than, nett_less, carried_over, import_batch_id, source_row, source_values, created_at, updated_at, dispatches,
             carryover_sources, deleted_at)
         SELECT e.id, e.register_month, e.inward_no, e.entry_date, e.party, e.design_no, e.lot_no, e.repair, e.than, e.tp, e.two_part,
-            e.finish, e.short_than, e.carried_over, e.import_batch_id, e.source_row, e.source_values, e.created_at, e.updated_at,
+            e.finish, e.short_than, e.nett_less, e.carried_over, e.import_batch_id, e.source_row, e.source_values, e.created_at, e.updated_at,
             (SELECT json_group_array(json_object('seq', d.seq, 'qty', d.qty, 'gatePass', d.gate_pass, 'dispatchDate', d.dispatch_date,
                 'dateText', d.date_text)) FROM (SELECT * FROM dispatches WHERE entry_id = e.id ORDER BY seq) d),
             (SELECT json_group_array(json_object('registerMonth', c.register_month, 'sourceValues', c.source_values))
@@ -182,9 +182,9 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
     public void RestoreDeleted(long id) => Execute(
         """
         INSERT INTO entries(id, register_month, inward_no, entry_date, party, design_no, lot_no, repair, than, tp, two_part, finish,
-            short_than, carried_over, import_batch_id, source_row, source_values, created_at, updated_at)
+            short_than, nett_less, carried_over, import_batch_id, source_row, source_values, created_at, updated_at)
         SELECT id, register_month, inward_no, entry_date, party, design_no, lot_no, repair, than, tp, two_part, finish,
-            short_than, carried_over, import_batch_id, source_row, source_values, created_at, updated_at
+            short_than, nett_less, carried_over, import_batch_id, source_row, source_values, created_at, updated_at
         FROM deleted_entries WHERE id = @id;
         INSERT INTO dispatches(entry_id, seq, qty, gate_pass, dispatch_date, date_text)
         SELECT x.id, json_extract(j.value, '$.seq'), json_extract(j.value, '$.qty'), COALESCE(json_extract(j.value, '$.gatePass'), ''),
@@ -256,9 +256,9 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
     public long Insert(EntryEntity entry) => Scalar<long>(
         """
         INSERT INTO entries(register_month, inward_no, entry_date, party, design_no, lot_no, repair, than, tp, two_part,
-            finish, short_than, carried_over, import_batch_id, source_row, source_values, created_at, updated_at)
+            finish, short_than, nett_less, carried_over, import_batch_id, source_row, source_values, created_at, updated_at)
         VALUES (@RegisterMonth, @InwardNo, @EntryDate, @Party, @DesignNo, @LotNo, @Repair, @Than, @Tp, @TwoPart,
-            @Finish, @ShortThan, @CarriedOver, @ImportBatchId, @SourceRow, @SourceValues, @CreatedAt, @UpdatedAt)
+            @Finish, @ShortThan, @NettLess, @CarriedOver, @ImportBatchId, @SourceRow, @SourceValues, @CreatedAt, @UpdatedAt)
         RETURNING id;
         """,
         entry);
@@ -267,7 +267,7 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
         """
         UPDATE entries SET register_month = @RegisterMonth, inward_no = @InwardNo, entry_date = @EntryDate, party = @Party,
             design_no = @DesignNo, lot_no = @LotNo, repair = @Repair, than = @Than, tp = @Tp, two_part = @TwoPart,
-            finish = @Finish, short_than = @ShortThan, updated_at = @UpdatedAt
+            finish = @Finish, short_than = @ShortThan, nett_less = @NettLess, updated_at = @UpdatedAt
         WHERE id = @Id;
         """,
         entry) > 0;
@@ -318,10 +318,10 @@ public sealed class EntryRepository(IDbSession session) : RepositoryBase(session
 
     public IReadOnlyList<PartyToBillRow> PartiesToBill(string from, string to) => Query<PartyToBillRow>(
         $"""
-        SELECT e.party AS party, COUNT(*) AS entries, SUM(e.than) AS nett_than,
+        SELECT e.party AS party, COUNT(*) AS entries, SUM(e.than - e.nett_less) AS nett_than,
             SUM(CASE WHEN NOT EXISTS (SELECT 1 FROM dispatches d WHERE d.entry_id = e.id) THEN 1 ELSE 0 END) AS not_dispatched
         FROM entries e
-        WHERE e.repair = 0 AND e.than > 0 AND e.entry_date BETWEEN @from AND @to AND {NotBilled}
+        WHERE e.repair = 0 AND e.than > e.nett_less AND e.entry_date BETWEEN @from AND @to AND {NotBilled}
         GROUP BY e.party COLLATE NOCASE ORDER BY e.party;
         """,
         new { from, to });

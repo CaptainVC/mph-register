@@ -462,6 +462,8 @@ public sealed class StartupTests : IDisposable
                 DROP TABLE arrival_refs;
                 DROP TABLE arrivals;
                 DROP TABLE arrival_import_batches;
+                ALTER TABLE entries DROP COLUMN nett_less;
+                ALTER TABLE deleted_entries DROP COLUMN nett_less;
                 PRAGMA user_version = 8;
                 INSERT INTO import_batches(id, file_name, sha256, register_month, imported_at, entry_count, dispatch_count) VALUES
                     (1, 'oct-1.xlsm', 'A', '2026-10', '2026-10-05 10:00:00', 3, 0),
